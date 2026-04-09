@@ -174,9 +174,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (res.ok) {
           fetchSchedules();
+      } else {
+          const data = await res.json();
+          alert('등록 실패: ' + (data.error || '알 수 없는 오류'));
       }
     } catch (e) {
       console.error('Failed to upload schedules', e);
+      alert('서버 통신 오류: ' + e.message);
     }
   };
 

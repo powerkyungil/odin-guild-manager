@@ -297,23 +297,22 @@ app.post('/api/schedules', verifyToken, (req, res) => {
     const schedules = req.body; // Array of { type, region, boss, spawnTime }
     if (!Array.isArray(schedules)) return res.status(400).json({ error: 'Invalid data format.' });
 
-    const stmt = db.prepare("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)");
-    const deleteStmt = db.prepare("DELETE FROM boss_schedules WHERE type = ? AND region = ? AND boss = ?");
-    
     db.serialize(() => {
         db.run("BEGIN TRANSACTION");
         schedules.forEach(s => {
             // Overwrite: delete existing entry for same boss in same region/type
-            deleteStmt.run([s.type, s.region, s.boss]);
-            stmt.run([s.type, s.region, s.boss, s.spawnTime, req.userId]);
+            db.run("DELETE FROM boss_schedules WHERE type = ? AND region = ? AND boss = ?", [s.type, s.region, s.boss]);
+            db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)", 
+                [s.type, s.region, s.boss, s.spawnTime, req.userId]);
         });
         db.run("COMMIT", (err) => {
-            if (err) return res.status(500).json({ error: 'Failed to save schedules.' });
+            if (err) {
+                console.error('Transaction Error:', err);
+                return res.status(500).json({ error: 'Failed to save schedules.' });
+            }
             res.json({ success: true });
         });
     });
-    stmt.finalize();
-    deleteStmt.finalize();
 });
 
 // 8.5 [NEW] Process Boss "Cut" (Auto recalculate next spawn)
