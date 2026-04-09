@@ -81,6 +81,7 @@
                     storage.setItem('role', data.role);
                     storage.setItem('username', data.username);
                     storage.setItem('userId', data.userId);
+                    if (data.nickname) storage.setItem('nickname', data.nickname);
                     
                     window.location.href = 'menu.html';
                 } else {

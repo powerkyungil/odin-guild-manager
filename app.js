@@ -96,7 +96,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
+  const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
   if (!token) window.location.href = 'login.html';
+
+  let participationTargets = [];
+  let participantsMap = {};
 
   const STORAGE_KEY_INPUTS = 'odin_boss_inputs_v7';
 
@@ -143,8 +148,20 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- Backend Sync Functions ---
+  const fetchParticipationData = async () => {
+    try {
+      const [tRes, pRes] = await Promise.all([
+        fetch('/api/participation-targets', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/participants', { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+      if (tRes.ok) participationTargets = await tRes.json();
+      if (pRes.ok) participantsMap = await pRes.json();
+    } catch (err) { console.error('Failed to fetch participation data', err); }
+  };
+
   const fetchSchedules = async () => {
     try {
+      await fetchParticipationData();
       const res = await fetch('/api/schedules', {
           headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -308,6 +325,89 @@ document.addEventListener('DOMContentLoaded', () => {
         formContainer.appendChild(wrapper);
       });
     });
+
+    const isPrivileged = myRole === 'MASTER' || myRole === 'ADMIN' || myRole === '길드장' || myRole === '운영진' || 
+                         (localStorage.getItem('username') === 'master') || (sessionStorage.getItem('username') === 'master');
+
+    if (isPrivileged) {
+      const adminWrapper = document.createElement('div');
+      adminWrapper.className = 'accordion-item';
+      
+      const adminHeader = document.createElement('button');
+      adminHeader.className = 'accordion-header 본섭';
+      adminHeader.innerHTML = `
+          <span>
+            <span class="tag" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">[관리]</span> 참여 보스 설정
+          </span>
+          <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+      `;
+
+      const adminContent = document.createElement('div');
+      adminContent.className = 'accordion-content';
+      
+      let allBosses = [];
+      BOSS_DATA.forEach(g => {
+          g.regions.forEach(r => {
+              r.bosses.forEach(b => {
+                  if (!allBosses.includes(b)) allBosses.push(b);
+              });
+          });
+      });
+      FIXED_EVENTS.forEach(fe => { if (!allBosses.includes(fe.boss)) allBosses.push(fe.boss); });
+      allBosses.sort();
+
+      let checkboxesHtml = allBosses.map(b => {
+         const checked = participationTargets.includes(b) ? 'checked' : '';
+         return `
+          <div class="form-row" style="display:flex; align-items:center; justify-content: flex-start; gap:8px;">
+            <input type="checkbox" class="target-boss-chk" value="${b}" ${checked} style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor:pointer;">
+            <label style="margin: 0; padding-top:2px; font-weight:normal; font-size:13px; cursor:pointer;" onclick="this.previousElementSibling.click()">${b}</label>
+          </div>
+         `;
+      }).join('');
+
+      adminContent.innerHTML = `
+        <div class="accordion-body">
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">체크를 켜면 해당 보스는 스케줄 목록에서 [참여] 기능이 노출됩니다.</p>
+          <div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding-right:8px; border:1px solid rgba(255,255,255,0.05); padding:8px; border-radius:6px; background:rgba(0,0,0,0.2);">
+            ${checkboxesHtml}
+          </div>
+          <button id="save-participation-btn" class="secondary-btn apply-chapter-btn" style="margin-top:10px;">설정 적용</button>
+        </div>
+      `;
+
+      adminHeader.addEventListener('click', () => {
+        const isActive = adminHeader.classList.contains('active');
+        if (isActive) {
+          adminHeader.classList.remove('active');
+          adminContent.classList.remove('open');
+        } else {
+          adminHeader.classList.add('active');
+          adminContent.classList.add('open');
+        }
+      });
+
+      adminWrapper.appendChild(adminHeader);
+      adminWrapper.appendChild(adminContent);
+      formContainer.appendChild(adminWrapper);
+
+      adminContent.querySelector('#save-participation-btn').addEventListener('click', async () => {
+          const checkedBoxes = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked')).map(cb => cb.value);
+          try {
+              const r = await fetch('/api/participation-targets', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({ bosses: checkedBoxes })
+              });
+              if (r.ok) {
+                  showToast('참여 보스 목록이 반영되었습니다.');
+                  fetchSchedules(); 
+              }
+          } catch(e) { console.error(e); }
+      });
+    }
 
     layout.addEventListener('input', (e) => {
       if (e.target.tagName === 'INPUT') {
@@ -561,10 +661,28 @@ document.addEventListener('DOMContentLoaded', () => {
       row.style.animationDelay = `${Math.min(index * 0.03, 1)}s`;
       row.classList.add('animate-in');
       
+      const isTarget = participationTargets.includes(item.boss);
+      let participationHtml = '';
+      if (isTarget) {
+          const list = participantsMap[item.boss] || [];
+          const IJoined = list.includes(myNickname);
+          const timeUntilSpawn = item.spawnTime - now;
+          const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 minutes
+
+          if (IJoined) {
+              participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: var(--primary-color); border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+          } else if (isSoon) {
+              participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b181; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
+          }
+      }
+
       row.innerHTML = `
         <div class="type-pill ${typeClass}">${isPast ? '지난보스' : item.type}</div>
         <div class="boss-area">
-          <div class="boss-name">${item.boss} ${isPast ? '(처리됨)' : ''}</div>
+          <div class="boss-name" style="display:flex; align-items:center; flex-wrap: wrap;">
+            ${item.boss} ${isPast ? '<span style="font-size:10px; opacity:0.6; margin-left:4px;">(처리됨)</span>' : ''}
+            ${participationHtml}
+          </div>
           <div class="meta">${item.region}</div>
         </div>
         <div class="time-action-group" style="grid-column: 3 / 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
@@ -581,6 +699,22 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       const cutBtn = row.querySelector('.cut-btn');
+      
+      const pBtn = row.querySelector('.p-btn');
+      if (pBtn) {
+          pBtn.addEventListener('click', async () => {
+              if (pBtn.classList.contains('joined')) {
+                  showParticipantModal(item.boss, participantsMap[item.boss] || []);
+              } else {
+                  fetch('/api/participants/'+encodeURIComponent(item.boss), { 
+                     method: 'POST', 
+                     headers: { 'Authorization': `Bearer ${token}` } 
+                  }).then(r => r.json()).then(res => {
+                     fetchSchedules(); // reload data naturally
+                  });
+              }
+          });
+      }
 
       if (cutBtn) {
           cutBtn.addEventListener('click', () => {
@@ -659,9 +793,20 @@ document.addEventListener('DOMContentLoaded', () => {
   clearBtn.addEventListener('click', clearServerSchedules);
   refreshBtn.addEventListener('click', fetchSchedules);
 
+  // Participant Modal Logic
+  window.showParticipantModal = function(boss, list) {
+      document.getElementById('participantModalTitle').innerText = boss + ' 참여 목록';
+      document.getElementById('participantCount').innerText = `총 ${list.length}명`;
+      const c = document.getElementById('participantListContainer');
+      c.innerHTML = list.map(n => `<div style="padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">${n}</div>`).join('');
+      if(list.length === 0) c.innerHTML = `<div style="text-align:center; color:#94a3b8; padding: 20px;">참여자가 없습니다.</div>`;
+      document.getElementById('participantModal').style.display = 'flex';
+  };
+
   // --- Init ---
-  renderForms();
-  fetchSchedules();
+  fetchSchedules().then(() => {
+     renderForms();
+  });
   
   // Polling every 30 seconds
   setInterval(fetchSchedules, 30000);

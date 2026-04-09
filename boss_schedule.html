@@ -33,9 +33,13 @@
         </button>
       </div>
 
-      <div class="sidebar-content" id="form-container">
+
+
+      <div class="sidebar-content" id="form-container" style="padding-top: 0;">
         <!-- Accordion items injected via JS -->
       </div>
+
+
 
       <div class="sidebar-footer">
         <button id="apply-all-btn" class="primary-btn">전체 적용하기</button>
@@ -97,7 +101,25 @@
     </svg>
   </button>
 
-  <script src="app.js"></script>
+  <!-- Participant List Modal -->
+  <div id="participantModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; align-content: center; backdrop-filter: blur(4px);">
+    <div class="modal-content" style="background: #1e293b; border-radius: 16px; width: 90%; max-width: 400px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+      <div class="modal-header" style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: rgba(255,255,255,0.02);">
+        <div>
+          <h2 id="participantModalTitle" style="margin: 0; font-size: 18px; font-weight: 800; color: #fff;">보스명 참여 목록</h2>
+          <div id="participantCount" style="margin-top: 4px; font-size: 13px; color: var(--main); font-weight: 600;">총 0명</div>
+        </div>
+        <button onclick="document.getElementById('participantModal').style.display='none'" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 24px; padding: 4px; border-radius: 8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="participantListContainer" style="padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 15px; color: #e2e8f0; font-weight: 600;">
+        <!-- Participants injected here -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=5"></script>
 </body>
 
 </html>

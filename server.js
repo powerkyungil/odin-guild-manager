@@ -87,6 +87,18 @@ function initDB() {
             UNIQUE(user_id, collection_name)
         )`);
 
+        // Participation Targets Table
+        db.run(`CREATE TABLE IF NOT EXISTS participation_targets (
+            boss TEXT PRIMARY KEY
+        )`);
+
+        // Boss Participants Table
+        db.run(`CREATE TABLE IF NOT EXISTS boss_participants (
+            boss TEXT,
+            nickname TEXT,
+            PRIMARY KEY (boss, nickname)
+        )`);
+
         // NEW: Collections Metadata Table
         db.run(`CREATE TABLE IF NOT EXISTS collections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,6 +162,7 @@ const verifyToken = (req, res, next) => {
         if (err) return res.status(401).json({ error: 'Failed to authenticate token.' });
         req.userId = decoded.id;
         req.userRole = decoded.role;
+        req.userNickname = decoded.nickname;
         next();
     });
 };
@@ -165,8 +178,8 @@ app.post('/api/login', (req, res) => {
         const isValid = bcrypt.compareSync(password, user.password_hash);
         if (!isValid) return res.status(401).json({ error: 'Invalid credentials.' });
 
-        const token = jwt.sign({ id: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, role: user.role, username: user.username, userId: user.id });
+        const token = jwt.sign({ id: user.id, role: user.role, username: user.username, nickname: user.nickname }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token, role: user.role, username: user.username, userId: user.id, nickname: user.nickname });
     });
 });
 
@@ -302,6 +315,9 @@ app.post('/api/schedules', verifyToken, (req, res) => {
         schedules.forEach(s => {
             // Overwrite: delete existing entry for same boss in same region/type
             db.run("DELETE FROM boss_schedules WHERE type = ? AND region = ? AND boss = ?", [s.type, s.region, s.boss]);
+            // Clear existing participants when schedule resets
+            db.run("DELETE FROM boss_participants WHERE boss = ?", [s.boss]);
+            
             db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)", 
                 [s.type, s.region, s.boss, s.spawnTime, req.userId]);
         });
@@ -333,6 +349,9 @@ app.post('/api/schedules/cut', verifyToken, (req, res) => {
         [boss, region, type, Date.now() - 60000], (err) => {
         if (err) console.error(err);
         
+        // Target Boss initialization on Cut command
+        db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
+
         db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)",
             [type, region, boss, spawnTime, req.userId], function(err) {
                 if (err) return res.status(500).json({ error: 'Failed to record cut.' });
@@ -487,6 +506,78 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
             db.run("COMMIT", (err) => {
                 if (err) return res.status(500).json({ error: 'Delete failed.' });
                 res.json({ success: true, message: 'User deleted.' });
+            });
+        });
+    });
+});
+
+// ============================================
+// Participation Management APIs
+// ============================================
+
+// Toggle participation status
+app.post('/api/participants/:boss', verifyToken, (req, res) => {
+    const boss = req.params.boss;
+    const nicknameFromReq = req.userNickname || (req.body && req.body.nickname); 
+    
+    // Safety: always use the DB nickname to be sure
+    db.get("SELECT nickname FROM users WHERE id = ?", [req.userId], (err, row) => {
+        if (err || !row) return res.status(403).json({ error: 'User not found.' });
+        const userNick = row.nickname;
+
+        db.get("SELECT * FROM boss_participants WHERE boss = ? AND nickname = ?", [boss, userNick], (err, existing) => {
+            if (existing) {
+                db.run("DELETE FROM boss_participants WHERE boss = ? AND nickname = ?", [boss, userNick], (err) => {
+                    if (err) return res.status(500).json({ error: 'DB Error' });
+                    res.json({ message: 'Canceled', joined: false });
+                });
+            } else {
+                db.run("INSERT INTO boss_participants (boss, nickname) VALUES (?, ?)", [boss, userNick], (err) => {
+                    if (err) return res.status(500).json({ error: 'DB Error' });
+                    res.json({ message: 'Joined', joined: true });
+                });
+            }
+        });
+    });
+});
+
+app.get('/api/participants', verifyToken, (req, res) => {
+    db.all("SELECT boss, nickname FROM boss_participants ORDER BY nickname ASC", (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        const participantsMap = {};
+        rows.forEach(r => {
+            if (!participantsMap[r.boss]) participantsMap[r.boss] = [];
+            participantsMap[r.boss].push(r.nickname);
+        });
+        res.json(participantsMap);
+    });
+});
+
+app.get('/api/participation-targets', verifyToken, (req, res) => {
+    db.all("SELECT boss FROM participation_targets", (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json(rows.map(r => r.boss));
+    });
+});
+
+app.post('/api/participation-targets', verifyToken, (req, res) => {
+    const { bosses } = req.body;
+    if (!Array.isArray(bosses)) return res.status(400).json({ error: 'Array required.' });
+
+    db.get("SELECT role FROM users WHERE id = ?", [req.userId], (err, row) => {
+        if (err || !row || (row.role !== 'MASTER' && row.role !== 'ADMIN')) {
+            return res.status(403).json({ error: '운영진 이상만 가능합니다.' });
+        }
+        
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            db.run("DELETE FROM participation_targets");
+            const stmt = db.prepare("INSERT INTO participation_targets (boss) VALUES (?)");
+            bosses.forEach(b => stmt.run(b));
+            stmt.finalize();
+            db.run("COMMIT", (err) => {
+                if (err) return res.status(500).json({ error: 'Update failed.' });
+                res.json({ success: true });
             });
         });
     });
