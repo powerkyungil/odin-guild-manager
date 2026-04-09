@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오딘 보스 스케줄 - 메뉴</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        .auth-container { max-width: 600px; }
+        .user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 14px; }
+        .role-badge { background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
+        .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
+        .invite-link { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border: 1px dashed var(--primary-color); border-radius: 6px; font-family: monospace; word-break: break-all; font-size: 13px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="user-info">
+            <div>
+                <span id="userNameDisplay">--</span> 님 환영합니다!
+                <span id="userRoleBadge" class="role-badge">--</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
+                <button class="logout-btn" onclick="logout()">로그아웃</button>
+            </div>
+        </div>
+
+        <div class="auth-header" style="margin-bottom: 20px;">
+            <h1 style="font-size: 20px;">기능 선택</h1>
+        </div>
+        
+        <div class="menu-grid">
+            <a href="boss_schedule.html" class="menu-card">
+                <h3>보스 스케줄</h3>
+                <p>본섭/전서버 일반 보스 시간표 (공유됨)</p>
+            </a>
+
+            <a href="collections.html" class="menu-card">
+                <h3>길드원 아이템 현황</h3>
+                <p>아이템 컬렉션 달성 상태 관리</p>
+            </a>
+            
+            <a href="members.html" class="menu-card">
+                <h3>길드원 관리</h3>
+                <p>회원 목록 및 성과 관리</p>
+            </a>
+        </div>
+
+        <div id="adminPanel" class="admin-panel" style="display: none;">
+            <h3 style="font-size: 16px; margin: 0 0 10px 0;">관리자 메뉴</h3>
+            <button class="auth-btn" style="padding: 10px; font-size: 14px;" onclick="generateInvite()">일반 길드원 초대 링크 생성</button>
+            <div id="inviteLink" class="invite-link"></div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        document.getElementById('userNameDisplay').textContent = localStorage.getItem('username');
+        const role = localStorage.getItem('role');
+        document.getElementById('userRoleBadge').textContent = role;
+
+        if (role === 'MASTER' || role === 'ADMIN') {
+            document.getElementById('adminPanel').style.display = 'block';
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        async function generateInvite() {
+            try {
+                const res = await fetch('/api/invites', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ targetRole: 'MEMBER' })
+                });
+                
+                if (res.status === 401 || res.status === 403) {
+                    alert('세션이 만료되었거나 권한이 없습니다.');
+                    logout();
+                    return;
+                }
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    const link = `${window.location.origin}/register.html?token=${data.inviteToken}`;
+                    const inviteDiv = document.getElementById('inviteLink');
+                    inviteDiv.style.display = 'block';
+                    inviteDiv.innerHTML = `생성된 가입 링크 (복사해서 전달하세요):<br><a href="${link}" target="_blank" style="color: #818cf8;">${link}</a>`;
+                } else {
+                    alert('오류: ' + data.error);
+                }
+            } catch (err) {
+                alert('서버 통신 오류');
+            }
+        }
+    </script>
+</body>
+</html>

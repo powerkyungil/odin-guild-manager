@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>길드원 아이템 현황</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <script src="collections_data.js"></script>
+    <style>
+        .auth-container { max-width: 98%; margin: 20px auto; padding: 0; }
+        .table-wrapper { 
+            position: relative; 
+            max-height: 85vh; 
+            overflow: auto; 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        table { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 18px; }
+        
+        /* Sticky Headers and Columns */
+        th, td { padding: 8px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; white-space: nowrap; }
+        th { background: #1e293b; position: sticky; top: 0; z-index: 100; font-weight: 700; color: var(--text-light); border-bottom: 2px solid var(--primary-color); }
+        
+        .col-part { 
+            position: sticky; 
+            left: 0; 
+            z-index: 50; 
+            background: #0f172a; 
+            text-align: left; 
+            min-width: 250px; 
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+        .col-ench { 
+            position: sticky; 
+            left: 280px; /* Based on col-part width + padding */
+            z-index: 50; 
+            background: #0f172a; 
+            text-align: center; 
+            min-width: 100px;
+            border-right: 2px solid var(--primary-color);
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        th.col-part, th.col-ench { z-index: 150; }
+
+        .member-header { min-width: 120px; }
+        .combat-p { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+        
+        /* Row Hierarchy Styles */
+        .row-coll { background: rgba(59, 130, 246, 0.1); font-weight: 700; color: #60a5fa; }
+        .row-item { color: #e2e8f0; }
+
+        input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+        }
+        input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.1;
+        }
+
+        .search-box {
+            margin-bottom: 15px;
+            margin-left: 20px;
+            display: flex; gap: 15px; align-items: center;
+        }
+        .search-box input {
+            padding: 10px 18px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white; width: 350px; font-size: 16px;
+        }
+
+        .btn-add {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            display: none; /* Shown via JS */
+        }
+        .btn-add:hover { background: #2563eb; }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 14px; }
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white;
+            box-sizing: border-box;
+        }
+        .item-input-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .item-input-row input { 
+            flex: 1; 
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white;
+            box-sizing: border-box;
+        }
+        .item-input-row input:focus { border-color: var(--primary-color); outline: none; }
+        .btn-small { padding: 5px 10px; font-size: 12px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <a href="menu.html" style="color: var(--text-muted); text-decoration: none; margin: 20px; display: inline-block; font-size: 16px; font-weight: 600;">← 메뉴로 돌아가기</a>
+            <button id="addCollBtn" class="btn-add" onclick="openModal()" style="margin-right: 20px;">+ 컬렉션 추가</button>
+        </div>
+        
+        <div class="auth-header" style="text-align: left; padding: 0 20px;">
+            <h1 style="font-size: 28px;">길드원 아이템 현황</h1>
+            <p style="color: var(--text-muted); font-size: 16px; margin-top: 5px;">컬렉션별 부위/강화 상태를 관리합니다.</p>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="컬렉션 또는 부위 검색..." onkeyup="filterTable()">
+            <span id="resultCount" style="font-size: 15px; color: var(--text-muted); font-weight: 600;">총 0개 항목</span>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="collectionTable">
+                <thead>
+                    <tr id="tableHeader">
+                        <th class="col-part">부위/컬렉션</th>
+                        <th class="col-ench">강화</th>
+                        <!-- Members injected here -->
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Rows injected here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add Collection Modal -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>새 컬렉션 추가</h2>
+                <span style="cursor:pointer; font-size: 24px;" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="input-group">
+                <label>컬렉션 명칭</label>
+                <input type="text" id="newCollName" placeholder="예: 바우티의 뼈로 만든 무구">
+            </div>
+            <div id="itemInputs">
+                <label style="color: var(--text-muted); font-size: 14px; margin-bottom: 5px; display: block;">아이템 목록</label>
+                <div class="item-input-row">
+                    <input type="text" placeholder="부위 (예: 바우티의 뼈 장갑)">
+                    <input type="number" placeholder="강화" style="max-width: 80px;">
+                </div>
+            </div>
+            <button class="btn-add btn-small" onclick="addItemInput()" style="display: block; width: 100%; margin-top: 10px; background: #334155;">+ 아이템 추가</button>
+            <div class="modal-actions">
+                <button class="btn-add" style="background: #334155; display: block;" onclick="closeModal()">취소</button>
+                <button class="btn-add" style="display: block;" onclick="saveNewCollection()">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        let myUserId = parseInt(localStorage.getItem('userId'));
+        const myRole = localStorage.getItem('role');
+        const isAdmin = (myRole === 'MASTER' || myRole === 'ADMIN');
+
+        let members = [];
+        let statusData = [];
+        let collectionsData = [];
+
+        async function init() {
+            if (isAdmin) document.getElementById('addCollBtn').style.display = 'block';
+
+            try {
+                if (!myUserId || isNaN(myUserId)) {
+                    const meRes = await fetch('/api/users/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (meRes.ok) {
+                        const meData = await meRes.json();
+                        myUserId = meData.id;
+                        localStorage.setItem('userId', myUserId);
+                    }
+                }
+
+                // Metadata
+                const cRes = await fetch('/api/collections', { headers: { 'Authorization': `Bearer ${token}` } });
+                collectionsData = await cRes.json();
+
+                // Members
+                const mRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                members = await mRes.json();
+                members = members.filter(m => m.nickname).sort((a,b) => b.combat_power - a.combat_power);
+
+                // Progress
+                const sRes = await fetch('/api/user-collections', { headers: { 'Authorization': `Bearer ${token}` } });
+                statusData = await sRes.json();
+
+                renderTable();
+            } catch (err) {
+                console.error(err);
+                alert('데이터를 불러오는데 실패했습니다.');
+            }
+        }
+
+        function createHeaderRow(members, collName, collId) {
+            const tr = document.createElement('tr');
+            tr.className = 'row-coll';
+            tr.dataset.coll = collName;
+
+            const nameTd = document.createElement('td');
+            nameTd.className = 'col-part row-coll';
+            nameTd.setAttribute('colspan', '2');
+            nameTd.style.textAlign = 'center';
+            nameTd.style.position = 'relative';
+            
+            // Add name text
+            const textSpan = document.createElement('span');
+            textSpan.textContent = `[ ${collName} ]`;
+            nameTd.appendChild(textSpan);
+
+            // Add Delete Button if Admin
+            if (isAdmin && collId) {
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '❌';
+                delBtn.style.position = 'absolute';
+                delBtn.style.right = '10px';
+                delBtn.style.top = '50%';
+                delBtn.style.transform = 'translateY(-50%)';
+                delBtn.style.background = 'transparent';
+                delBtn.style.border = 'none';
+                delBtn.style.cursor = 'pointer';
+                delBtn.style.fontSize = '14px';
+                delBtn.title = '컬렉션 삭제';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteCollection(collId, collName);
+                };
+                nameTd.appendChild(delBtn);
+            }
+            
+            tr.appendChild(nameTd);
+
+            members.forEach(() => {
+                const td = document.createElement('td');
+                tr.appendChild(td);
+            });
+            return tr;
+        }
+
+        function createItemRow(members, part, ench, uniqueKey, originalCollName) {
+            const tr = document.createElement('tr');
+            tr.className = 'row-item';
+            tr.dataset.coll = originalCollName;
+
+            const partTd = document.createElement('td');
+            partTd.className = 'col-part';
+            partTd.textContent = part;
+            tr.appendChild(partTd);
+
+            const enchTd = document.createElement('td');
+            enchTd.className = 'col-ench';
+            enchTd.textContent = ench;
+            tr.appendChild(enchTd);
+
+            members.forEach(m => {
+                const td = document.createElement('td');
+                const isCompleted = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
+                const canEdit = isAdmin || (m.id === myUserId);
+                
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = isCompleted;
+                cb.disabled = !canEdit;
+                cb.onclick = () => toggleCollection(m.id, uniqueKey, cb);
+                
+                td.appendChild(cb);
+                tr.appendChild(td);
+            });
+            return tr;
+        }
+
+        function renderTable() {
+            const header = document.getElementById('tableHeader');
+            const body = document.getElementById('tableBody');
+            body.innerHTML = '';
+            let itemCnt = 0;
+
+            header.innerHTML = '<th class="col-part">부위/컬렉션</th><th class="col-ench">강화</th>';
+            members.forEach(m => {
+                const th = document.createElement('th');
+                th.className = 'member-header';
+                th.innerHTML = `<div>${m.nickname}</div><div class="combat-p">${m.combat_power.toLocaleString()}</div>`;
+                header.appendChild(th);
+            });
+
+            collectionsData.forEach(col => {
+                body.appendChild(createHeaderRow(members, col.name, col.id));
+                col.items.forEach((fullItemStr) => {
+                    const [part, ench] = fullItemStr.split('|').map(s => s.trim());
+                    const uniqueKey = `${col.name}||${part}||${ench}`;
+                    body.appendChild(createItemRow(members, part, ench, uniqueKey, col.name));
+                    itemCnt++;
+                });
+            });
+
+            document.getElementById('resultCount').textContent = `총 ${itemCnt}개 아이템 로드됨`;
+        }
+
+        async function toggleCollection(userId, key, cb) {
+            try {
+                const res = await fetch('/api/user-collections/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId, collectionName: key })
+                });
+                if (!res.ok) throw new Error('Failed');
+            } catch (err) {
+                cb.checked = !cb.checked;
+                alert('권한이 없거나 저장에 실패했습니다.');
+            }
+        }
+
+        function filterTable() {
+            const filter = document.getElementById('searchInput').value.toUpperCase();
+            const trs = Array.from(document.getElementById('tableBody').getElementsByTagName('tr'));
+            if (!filter) {
+                trs.forEach(tr => tr.style.display = "");
+                document.getElementById('resultCount').textContent = `총 ${trs.filter(t=>t.className==='row-item').length}개 아이템 로드됨`;
+                return;
+            }
+            const visibleColls = new Set();
+            trs.forEach(tr => { if (tr.innerText.toUpperCase().indexOf(filter) > -1) visibleColls.add(tr.dataset.coll); });
+            let count = 0;
+            trs.forEach(tr => {
+                const collName = tr.dataset.coll;
+                if (visibleColls.has(collName)) {
+                    if (tr.className === 'row-coll') tr.style.display = "";
+                    else {
+                        const itemMatch = tr.innerText.toUpperCase().indexOf(filter) > -1;
+                        const collMatch = collName.toUpperCase().indexOf(filter) > -1;
+                        if (itemMatch || collMatch) { tr.style.display = ""; count++; }
+                        else tr.style.display = "none";
+                    }
+                } else tr.style.display = "none";
+            });
+            document.getElementById('resultCount').textContent = `검색 결과: ${count}개 아이템`;
+        }
+
+        // --- Admin Functions ---
+        function openModal() { document.getElementById('addModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('addModal').style.display = 'none'; }
+        function addItemInput() {
+            const div = document.createElement('div');
+            div.className = 'item-input-row';
+            div.innerHTML = `<input type="text" placeholder="부위"> <input type="number" placeholder="강화" style="max-width: 80px;">`;
+            document.getElementById('itemInputs').appendChild(div);
+        }
+        async function saveNewCollection() {
+            const name = document.getElementById('newCollName').value.trim();
+            if (!name) return alert('컬렉션 명칭을 입력하세요.');
+            const rows = document.getElementById('itemInputs').querySelectorAll('.item-input-row');
+            const items = [];
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const part = inputs[0].value.trim();
+                let ench = inputs[1].value.trim();
+                if (part && ench) {
+                    // Prepend "강화 " if only number is entered for consistency
+                    if (!isNaN(ench)) ench = "강화 " + ench;
+                    items.push(`${part} | ${ench}`);
+                }
+            });
+            if (items.length === 0) return alert('최소 하나 이상의 아이템을 입력하세요.');
+
+            try {
+                const res = await fetch('/api/collections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name, items })
+                });
+                if (res.ok) {
+                    location.reload();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || '저장 실패');
+                }
+            } catch (err) { alert('서버 통신 오류'); }
+        }
+
+        async function deleteCollection(id, name) {
+            if (!confirm(`'${name}' 컬렉션을 정말 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+            try {
+                const res = await fetch(`/api/collections/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    location.reload();
+                } else {
+                    alert('삭제 실패');
+                }
+            } catch (err) { alert('서버 통신 오류'); }
+        }
+
+        init();
+    </script>
+</body>
+</html>
+</body>
+</html>

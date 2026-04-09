@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오딘 보스 스케줄 - 길드원 관리</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        .auth-container { max-width: 1550px; margin: 40px auto; }
+        .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
+        .back-link:hover { color: var(--text-light); }
+        
+        /* New Optimized Compact Styles */
+        .equip-strip {
+            display: flex;
+            gap: 2px;
+            background: rgba(0,0,0,0.2);
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .equip-box {
+            flex: 1;
+            min-width: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px 2px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+        .equip-box-label {
+            font-size: 8px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+            white-space: nowrap;
+        }
+        .equip-box-val {
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            word-break: break-all;
+            line-height: 1.1;
+        }
+
+        .skill-strip {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .skill-line {
+            display: flex;
+            gap: 2px;
+        }
+        .skill-mini-tag {
+            padding: 2px 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            font-size: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            gap: 3px;
+            width: 42px;
+            justify-content: center;
+        }
+        .skill-hero { color: #d946ef; border-color: rgba(217, 70, 239, 0.2); background: rgba(217, 70, 239, 0.05); } /* Purple */
+        .skill-legend { color: #fbbf24; border-color: rgba(251, 191, 36, 0.2); background: rgba(251, 191, 36, 0.05); } /* Yellow */
+        .skill-mini-val { font-weight: 700; }
+
+        /* Color Coding */
+        .enchant-high { color: #fbbf24; text-shadow: 0 0 5px rgba(251, 191, 36, 0.3); } /* 7강 이상 */
+        .enchant-epic { color: #d946ef; text-shadow: 0 0 5px rgba(217, 70, 239, 0.3); } /* 9강 이상 */
+        .skill-high { color: #60a5fa; } /* 7~9강 */
+        .skill-max { color: #f472b6; text-shadow: 0 0 5px rgba(244, 114, 182, 0.3); } /* 10강 */
+
+        /* Adjust Table overall */
+        .members-table th { font-size: 11px; padding: 10px 15px; }
+        .members-table td { padding: 8px 15px; }
+        .rank-badge { width: 22px; height: 22px; font-size: 11px; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <a href="menu.html" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            메뉴로 돌아가기
+        </a>
+
+        <div class="auth-header" style="text-align: left; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+                <h1>길드원 명단</h1>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">길드원들의 실시간 장비 및 스킬 현황을 비교합니다.</p>
+            </div>
+            <div id="memberCount" style="font-size: 14px; color: var(--primary-color); font-weight: 600;">총 0명</div>
+        </div>
+
+        <div class="members-table-container">
+            <table class="members-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th style="width: 110px;">닉네임</th>
+                        <th style="width: 140px;">직업 / 주클래스</th>
+                        <th style="width: 90px;">전투력</th>
+                        <th>장비 정보 (무기 ~ 벨트)</th>
+                        <th style="width: 320px;">스킬 강화 현황</th>
+                    </tr>
+                </thead>
+                <tbody id="memberTableBody">
+                    <!-- JS will inject rows here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = 'login.html';
+
+        async function fetchMembers() {
+            try {
+                const res = await fetch('/api/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Unauthorized');
+                
+                let users = await res.json();
+                users = users.filter(u => u.nickname);
+                users.sort((a, b) => b.combat_power - a.combat_power);
+                
+                renderTable(users);
+                document.getElementById('memberCount').textContent = `총 ${users.length}명`;
+            } catch (err) {
+                console.error(err);
+                alert('데이터를 불러오는데 실패했습니다.');
+            }
+        }
+
+        function getEnchantClass(val) {
+            if (!val) return '';
+            const match = val.match(/(\d+)/);
+            if (match) {
+                const n = parseInt(match[1]);
+                if (n >= 9) return 'enchant-epic';
+                if (n >= 7) return 'enchant-high';
+            }
+            return '';
+        }
+
+        function getSkillClass(val) {
+            if (val === '10강') return 'skill-max';
+            if (['7강','8강','9강'].includes(val)) return 'skill-high';
+            return '';
+        }
+
+        function renderTable(users) {
+            const body = document.getElementById('memberTableBody');
+            body.innerHTML = '';
+
+            users.forEach((u, index) => {
+                const rank = index + 1;
+                const row = document.createElement('tr');
+                
+                let rankClass = rank <= 5 ? 'rank-1-5' : (rank <= 20 ? 'rank-6-20' : 'rank-other');
+                let occClass = '';
+                if (u.occupation.includes('워리어')) occClass = 'row-warrior';
+                else if (u.occupation.includes('로그')) occClass = 'row-rogue';
+                else if (u.occupation.includes('소서리스')) occClass = 'row-소서리스';
+                else if (u.occupation.includes('프리스트')) occClass = 'row-프리스트';
+                else if (u.occupation.includes('실드')) occClass = 'row-실드';
+
+                row.className = `${rankClass} ${occClass}`;
+
+                // --- Equipment Strip ---
+                const fields = [
+                    {k:'무기', s:'무기'}, {k:'보조무기', s:'보조무기'}, {k:'투구', s:'투구'}, 
+                    {k:'갑옷', s:'갑옷'}, {k:'장갑', s:'장갑'}, {k:'각반', s:'각반'}, 
+                    {k:'신발', s:'신발'}, {k:'망토', s:'망토'}, {k:'목걸이', s:'목걸이'}, 
+                    {k:'귀걸이', s:'귀걸이'}, {k:'팔찌', s:'팔찌'}, {k:'반지', s:'반지'}, {k:'벨트', s:'벨트'}
+                ];
+                let equipHtml = '<div class="equip-strip">';
+                try {
+                    const equip = JSON.parse(u.equipment);
+                    fields.forEach(f => {
+                        const val = equip[f.k] || '-';
+                        const cls = getEnchantClass(val);
+                        equipHtml += `
+                            <div class="equip-box">
+                                <div class="equip-box-label">${f.s}</div>
+                                <div class="equip-box-val ${cls}">${val}</div>
+                            </div>`;
+                    });
+                } catch(e) { equipHtml += '데이터 오류'; }
+                equipHtml += '</div>';
+
+                // --- Skill Strip ---
+                let skillHtml = '<div class="skill-strip">';
+                try {
+                    const skills = JSON.parse(u.skills);
+                    const drawLine = (type, label) => {
+                        let inner = `<div class="skill-line"><span style="width:30px; font-size:9px; color:var(--text-muted); padding-top:4px;">${label}</span>`;
+                        const group = skills[type] || {};
+                        ['영웅 1', '영웅 2', '영웅 3', '영웅 4', '전설 1', '전설 2'].forEach(n => {
+                            const val = group[n] || 'X';
+                            const cls = getSkillClass(val);
+                            const gradeClass = n.includes('영웅') ? 'skill-hero' : 'skill-legend';
+                            const isX = val === 'X';
+                            inner += `<div class="skill-mini-tag ${isX ? 'none' : gradeClass}">
+                                <span>${n.charAt(0)}${n.slice(-1)}</span>
+                                <span class="skill-mini-val ${cls}">${val}</span>
+                            </div>`;
+                        });
+                        inner += '</div>';
+                        return inner;
+                    };
+                    skillHtml += drawLine('active', '액티브');
+                    skillHtml += drawLine('passive', '패시브');
+                } catch(e) { skillHtml += '데이터 오류'; }
+                skillHtml += '</div>';
+
+                row.innerHTML = `
+                    <td><span class="rank-badge">${rank}</span></td>
+                    <td style="font-weight: 700; font-size: 15px;">${u.nickname}</td>
+                    <td style="color: var(--text-muted); font-size: 11px; line-height: 1.4;">
+                        <div style="color: var(--text-light); font-weight: 600;">${u.occupation}</div>
+                        <div>${u.main_class}</div>
+                    </td>
+                    <td class="${rank <= 5 ? 'power-top' : ''}" style="font-size:15px;">${u.combat_power.toLocaleString()}</td>
+                    <td>${equipHtml}</td>
+                    <td>${skillHtml}</td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        fetchMembers();
+    </script>
+</body>
+</html>

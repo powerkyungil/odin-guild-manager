@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오딘 보스 스케줄 - 정보 수정</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+    <div class="auth-container expanded">
+        <div class="auth-header">
+            <h1>정보 수정</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">변경할 캐릭터 정보를 입력하세요</p>
+        </div>
+        
+        <form id="editForm">
+            <!-- 1. 계정 정보 (아이디 수정 불가) -->
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>아이디 (수정 불가)</label>
+                    <input type="text" id="usernameDisplay" disabled style="opacity: 0.5;">
+                </div>
+                <div class="form-group">
+                    <label for="password">비밀번호 (변경 시에만 입력)</label>
+                    <input type="password" id="password" autocomplete="new-password" placeholder="비워두면 기존 비밀번호 유지">
+                </div>
+            </div>
+
+            <!-- 2. 캐릭터 정보 -->
+            <div class="form-section">
+                <div class="form-section-title">캐릭터 정보</div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="nickname">닉네임</label>
+                        <input type="text" id="nickname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="combat_power">전투력</label>
+                        <input type="text" id="combat_power" placeholder="예: 123,456" required>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label for="occupation">직업</label>
+                        <select id="occupation" required>
+                            <option value="">선택하세요</option>
+                            <option value="워리어">워리어</option>
+                            <option value="로그">로그</option>
+                            <option value="소서리스">소서리스</option>
+                            <option value="프리스트">프리스트</option>
+                            <option value="실드 메이든">실드 메이든</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="main_class">주클래스</label>
+                        <select id="main_class" required disabled>
+                            <option value="">직업을 먼저 선택하세요</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 장비 정보 -->
+            <div class="form-section">
+                <div class="form-section-title">장비 정보</div>
+                <div class="grid-3" id="equipment-grid">
+                    <!-- JS will inject 13 fields -->
+                </div>
+            </div>
+
+            <!-- 4. 스킬 정보 -->
+            <div class="form-section">
+                <div class="form-section-title">스킬 습득 여부</div>
+                <div class="grid-2">
+                    <div class="skill-group">
+                        <div class="skill-title">액티브</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" id="active-skills">
+                            <!-- JS will inject dropdowns -->
+                        </div>
+                    </div>
+                    <div class="skill-group">
+                        <div class="skill-title">패시브</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" id="passive-skills">
+                            <!-- JS will inject dropdowns -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 30px;">
+                <button type="button" class="auth-btn" style="background: rgba(255,255,255,0.1); flex: 1;" onclick="window.location.href='menu.html'">취소</button>
+                <button type="submit" class="auth-btn" style="flex: 2;">수정 완료</button>
+            </div>
+            <div id="message" class="error-message"></div>
+        </form>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = 'login.html';
+
+        const messageDiv = document.getElementById('message');
+        const classMap = {
+            '워리어': ['디펜더', '버서커', '썬더브링어', '프로스트 본'],
+            '로그': ['스나이퍼', '어쌔신', '헌트리스'],
+            '소서리스': ['아크 메이지', '다크 위저드', '인챈트리스'],
+            '프리스트': ['세인트', '팔라딘', '바드', '새크리파이스'],
+            '실드 메이든': ['발키리', '액슬러', '디스트로이어']
+        };
+
+        const occSelect = document.getElementById('occupation');
+        const classSelect = document.getElementById('main_class');
+
+        occSelect.addEventListener('change', () => {
+            const occ = occSelect.value;
+            classSelect.innerHTML = '<option value="">선택하세요</option>';
+            if (occ && classMap[occ]) {
+                classSelect.disabled = false;
+                classMap[occ].forEach(cls => {
+                    const opt = document.createElement('option');
+                    opt.value = cls;
+                    opt.textContent = cls;
+                    classSelect.appendChild(opt);
+                });
+            } else {
+                classSelect.disabled = true;
+            }
+        });
+
+        // Comma Formatting
+        const cpInput = document.getElementById('combat_power');
+        cpInput.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/[^0-9]/g, '');
+            if (val) e.target.value = Number(val).toLocaleString();
+            else e.target.value = '';
+        });
+
+        // Inject Equipment Fields
+        const equipFields = ['무기', '보조무기', '투구', '갑옷', '장갑', '각반', '신발', '망토', '목걸이', '귀걸이', '팔찌', '반지', '벨트'];
+        const equipGrid = document.getElementById('equipment-grid');
+        equipFields.forEach(name => {
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.innerHTML = `<label style="font-size: 12px;">${name}</label><input type="text" class="equip-input" data-name="${name}">`;
+            equipGrid.appendChild(div);
+        });
+
+        // Inject Skills
+        const skillTypes = ['active', 'passive'];
+        const enchantOptions = ['X', ...Array.from({length: 11}, (_, i) => `${i}강`)];
+        skillTypes.forEach(type => {
+            const container = document.getElementById(`${type}-skills`);
+            const injectSkill = (name) => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.style.marginBottom = '10px';
+                let optionsHtml = enchantOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+                div.innerHTML = `
+                    <label style="font-size: 11px; color: var(--text-muted);">${name}</label>
+                    <select class="skill-select" data-group="${type}" data-name="${name}" style="padding: 8px; font-size: 13px;">${optionsHtml}</select>
+                `;
+                container.appendChild(div);
+            };
+            for(let i=1; i<=4; i++) injectSkill(`영웅 ${i}`);
+            for(let i=1; i<=2; i++) injectSkill(`전설 ${i}`);
+        });
+
+        // --- LOAD DATA ---
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/users/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    document.getElementById('usernameDisplay').value = localStorage.getItem('username');
+                    document.getElementById('nickname').value = data.nickname || '';
+                    document.getElementById('combat_power').value = (data.combat_power || 0).toLocaleString();
+                    
+                    if (data.occupation) {
+                        occSelect.value = data.occupation;
+                        occSelect.dispatchEvent(new Event('change'));
+                        classSelect.value = data.main_class;
+                    }
+
+                    // Pre-fill equipment
+                    if (data.equipment) {
+                        const equip = JSON.parse(data.equipment);
+                        document.querySelectorAll('.equip-input').forEach(el => {
+                            if (equip[el.dataset.name]) el.value = equip[el.dataset.name];
+                        });
+                    }
+
+                    // Pre-fill skills
+                    if (data.skills) {
+                        const skills = JSON.parse(data.skills);
+                        document.querySelectorAll('.skill-select').forEach(el => {
+                            const group = el.dataset.group;
+                            const name = el.dataset.name;
+                            if (skills[group] && skills[group][name]) {
+                                el.value = skills[group][name];
+                            }
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        loadProfile();
+
+        // --- SUBMIT UPDATE ---
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const equipment = {};
+            document.querySelectorAll('.equip-input').forEach(el => {
+                equipment[el.dataset.name] = el.value;
+            });
+
+            const skills = { active: {}, passive: {} };
+            document.querySelectorAll('.skill-select').forEach(el => {
+                skills[el.dataset.group][el.dataset.name] = el.value;
+            });
+
+            const body = {
+                password: document.getElementById('password').value,
+                nickname: document.getElementById('nickname').value,
+                combat_power: parseInt(document.getElementById('combat_power').value.replace(/,/g, '')),
+                occupation: document.getElementById('occupation').value,
+                main_class: document.getElementById('main_class').value,
+                equipment,
+                skills
+            };
+            
+            try {
+                const res = await fetch('/api/users/me', {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    messageDiv.style.color = '#10b981';
+                    messageDiv.textContent = '정보가 수정되었습니다! 메뉴로 이동합니다.';
+                    setTimeout(() => window.location.href = 'menu.html', 1500);
+                } else {
+                    messageDiv.style.color = 'var(--danger-color)';
+                    messageDiv.textContent = data.error || '수정에 실패했습니다.';
+                }
+            } catch (err) {
+                messageDiv.textContent = '서버 통신 오류가 발생했습니다.';
+            }
+        });
+    </script>
+</body>
+</html>
