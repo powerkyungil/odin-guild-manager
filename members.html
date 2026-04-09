@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="auth.css">
     <style>
-        .auth-container { max-width: 1550px; margin: 40px auto; }
+        .auth-container { max-width: 1550px; margin: 40px auto; width: 100%; overflow-x: hidden; }
         .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
         .back-link:hover { color: var(--text-light); }
         
@@ -102,6 +102,18 @@
             /* Hide rank label completely if we want just the badge, but keep it for layout */
             td[data-label="#"] { flex-direction: row; align-items: center; justify-content: space-between; border-bottom: none !important; padding-bottom: 0; }
             td[data-label="#"]::before { display: none; }
+
+            .admin-actions {
+                display: flex;
+                gap: 6px;
+                margin-top: 8px;
+                flex-wrap: wrap;
+            }
+            .admin-actions select, .admin-actions button {
+                flex: 1;
+                min-width: 80px;
+                height: 32px;
+            }
         }
     </style>
 </head>
@@ -313,16 +325,19 @@
                             ${u.role === 'MASTER' ? '👑 ' : ''}${u.nickname}
                             ${u.role === 'MASTER' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(251, 191, 36, 0.2); color: #fbbf24; border-radius: 4px; width: fit-content;">길드장</span>' : ''}
                             ${u.role === 'ADMIN' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border-radius: 4px; width: fit-content;">운영진</span>' : ''}
+                            
                             ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' && u.role !== 'MASTER' ? `
-                                <select onchange="changeUserRole(${u.id}, this.value)" style="font-size: 10px; background: #1e293b; color: white; border: 1px solid #334155; padding: 2px; border-radius: 4px; margin-top: 4px; cursor: pointer;">
-                                    <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
-                                    <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
-                                </select>
-                                <button onclick="deleteUser(${u.id}, '${u.nickname}')" style="font-size: 10px; background: #991b1b; color: white; border: 1px solid #b91c1c; padding: 2px 4px; border-radius: 4px; margin-top: 4px; cursor: pointer;">강퇴</button>
+                                <div class="admin-actions">
+                                    <select onchange="changeUserRole(${u.id}, this.value)" style="font-size: 11px; background: #1e293b; color: #fff; border: 1px solid #475569; padding: 4px 8px; border-radius: 6px; cursor: pointer; outline: none;">
+                                        <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
+                                        <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
+                                    </select>
+                                    <button onclick="deleteUser(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #991b1b; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">강퇴</button>
+                                </div>
                             ` : ''}
                         </div>
                     </td>
-                    <td data-label="직업 / 주클래스" style="color: var(--text-muted); font-size: 11px; line-height: 1.4; white-space: nowrap;">
+                    <td data-label="직업 / 주클래스" style="color: var(--text-muted); font-size: 11px; line-height: 1.4;">
                         <div style="color: var(--text-light); font-weight: 600;">${u.occupation}</div>
                         <div>${u.main_class}</div>
                     </td>
