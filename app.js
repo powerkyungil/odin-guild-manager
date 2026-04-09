@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     {
       type: '공통',
       regions: [
-        { name: '던전', bosses: ['굴베이그', '강글로티', '스네르', '모네가름', '드라우그', '다인홀로크'] }
+        { name: '던전', bosses: ['4층분노의모네가름', '7층나태의드라우그', '10층다인홀로크', '최하층강글', '최하층굴베', '최하층스네르'] }
       ]
     },
     {
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: '알브하임', bosses: ['스바르트', '모네가름', '두라스로르', '드라우그', '굴베이그', '오딘'] },
         { name: '무스펠', bosses: ['신마라', '메기르', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스', '수르트'] },
         { name: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아', '미미르'] },
-        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르', '프레이'] },
+        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르'] },
       ]
     },
     {
@@ -79,17 +79,20 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: '알브하임', bosses: ['스바르트', '모네가름', '두라스로르', '드라우그', '굴베이그', '오딘'] },
         { name: '무스펠', bosses: ['신마라', '메기르', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스', '수르트'] },
         { name: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아', '미미르'] },
-        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르', '프레이'] },
+        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르'] },
       ]
     }
   ];
 
   const FIXED_EVENTS = [
-    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '12:00:00' },
-    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '20:00:00' },
-    { type: '고정', region: '공통', boss: '니다벨리르 닻', timeStr: '18:30:00' },
-    { type: '고정', region: '공통', boss: '무스펠하임 닻', timeStr: '20:30:00' },
-    { type: '고정', region: '공통', boss: '알브하임 닻', timeStr: '20:30:00' }
+    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '12:00:00', days: ['월','화','수','목','금','토','일'] },
+    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '20:00:00', days: ['월','화','수','목','금','토','일'] },
+    { type: '고정', region: '공통', boss: '정예몬스터', timeStr: '19:00:00', days: ['월','화','수','목','금','토','일'] },
+    { type: '고정', region: '공통', boss: '니다 닻', timeStr: '18:30:00', days: ['수'] },
+    { type: '고정', region: '공통', boss: '알브 닻', timeStr: '20:30:00', days: ['수'] },
+    { type: '고정', region: '공통', boss: '무스펠 닻', timeStr: '22:30:00', days: ['수'] },
+    { type: '고정', region: '공통', boss: '성채보스', timeStr: '21:30:00', days: ['화','목'] },
+    { type: '고정', region: '공통', boss: '지옥성채보스', timeStr: '22:30:00', days: ['목'] }
   ];
 
   const token = localStorage.getItem('token');
@@ -199,6 +202,32 @@ document.addEventListener('DOMContentLoaded', () => {
       if (res.ok) fetchSchedules();
     } catch (e) {
       console.error('Failed to delete schedule', e);
+    }
+  };
+
+  const cutBoss = async (item) => {
+    try {
+      const res = await fetch('/api/schedules/cut', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          type: item.type,
+          region: item.region,
+          boss: item.boss
+        })
+      });
+      if (res.ok) {
+        showToast(`${item.boss} 컷 확인! 다음 젠이 예약되었습니다.`);
+        fetchSchedules();
+      } else {
+        const data = await res.json();
+        alert(data.error || '컷 처리 실패');
+      }
+    } catch (e) {
+      console.error('Failed to cut boss', e);
     }
   };
 
@@ -339,24 +368,38 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   const injectFixedEventsInto = (schedules) => {
-    FIXED_EVENTS.forEach(ev => {
-        const [h, m, s] = ev.timeStr.split(':').map(Number);
-        const tDate = new Date();
-        tDate.setHours(h, m, s, 0);
-        
-        const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === tDate.getTime());
-        if (existingIdx !== -1) {
-            // Found existing fixed event
-        } else {
-            schedules.push({
-                type: ev.type,
-                region: ev.region,
-                boss: ev.boss,
-                spawnTime: tDate.getTime(),
-                isFixed: true
-            });
-        }
-    });
+    const daysArr = ['일','월','화','수','목','금','토'];
+    const nowLocalDate = new Date();
+    
+    // Inject for Today and Tomorrow (24h+ rolling window)
+    for (let i = 0; i <= 1; i++) {
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + i);
+        const label = daysArr[targetDate.getDay()];
+
+        FIXED_EVENTS.forEach(ev => {
+            if (!ev.days.includes(label)) return;
+
+            const [h, m, s] = ev.timeStr.split(':').map(Number);
+            const tDate = new Date(targetDate);
+            tDate.setHours(h, m, s, 0);
+            
+            // Only add if it's in the future or within the last 30 mins
+            const now = Date.now();
+            if (tDate.getTime() < now - 30 * 60 * 1000) return;
+
+            const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === tDate.getTime());
+            if (existingIdx === -1) {
+                schedules.push({
+                    type: ev.type,
+                    region: ev.region,
+                    boss: ev.boss,
+                    spawnTime: tDate.getTime(),
+                    isFixed: true
+                });
+            }
+        });
+    }
   };
 
   const processAll = (specificChapterIds = null) => {
@@ -452,11 +495,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const now = Date.now();
-    // Logic: Future bosses + 2 most recent past bosses
+    // Logic: Future bosses + specialized past bosses
     const futureBosses = schedules.filter(s => s.spawnTime > now);
-    const pastBosses = schedules.filter(s => s.spawnTime <= now).sort((a,b) => b.spawnTime - a.spawnTime).slice(0, 2);
     
-    const displayList = [...pastBosses, ...futureBosses].sort((a,b) => a.spawnTime - b.spawnTime);
+    // Regular bosses stay until cut (Including Invasion now as per request)
+    const pastRegular = schedules.filter(s => s.spawnTime <= now && s.type !== '고정');
+    // Fixed bosses only show 1 past (rolling window handles the rest)
+    const pastSpecial = schedules.filter(s => s.spawnTime <= now && s.type === '고정')
+                                 .sort((a,b) => b.spawnTime - a.spawnTime)
+                                 .slice(0, 1);
+    
+    const displayList = [...pastRegular, ...pastSpecial, ...futureBosses].sort((a,b) => a.spawnTime - b.spawnTime);
 
     let mainCount = 0; let invCount = 0; let fixedCount = 0; let commonCount = 0;
     
@@ -478,7 +527,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const diffDays = Math.round((spawnZero - nowZero) / (1000 * 60 * 60 * 24));
       
       let timeLabel = `${hh}:${mm}`;
-      if (diffDays > 0) {
+      if (isPast) {
+          const elapsedMs = now - item.spawnTime;
+          const elapsedMins = Math.floor(elapsedMs / 60000);
+          const elapsedHours = Math.floor(elapsedMins / 60);
+          const remMins = elapsedMins % 60;
+          let elapsedStr = elapsedHours > 0 ? `${elapsedHours}시간 ${remMins}분` : `${remMins}분`;
+          timeLabel = `${hh}:${mm} <span style="font-size: 11px; color: #ef4444; font-weight: 600; margin-left: 4px;">(+${elapsedStr})</span>`;
+      } else if (diffDays > 0) {
         let dayText = '내일';
         if (diffDays === 2) dayText = '모레';
         else if (diffDays > 2) dayText = `${diffDays}일후`;
@@ -498,21 +554,35 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="meta">${item.region}</div>
         </div>
         <div class="spawn-time">${timeLabel}</div>
-        <button class="delete-row-btn" aria-label="삭제">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <div class="row-actions" style="display: flex; gap: 8px; margin-left: auto; align-items: center;">
+          ${!item.isFixed ? `
+            <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;">컷</button>
+          ` : ''}
+          <button class="delete-row-btn" aria-label="삭제">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       `;
+
+      const cutBtn = row.querySelector('.cut-btn');
+      if (cutBtn) {
+          cutBtn.addEventListener('click', () => {
+              if (item.type === '침공') {
+                  deleteScheduleOnServer(item.id);
+              } else {
+                  cutBoss(item);
+              }
+          });
+      }
 
       row.querySelector('.delete-row-btn').addEventListener('click', () => {
         if (item.isFixed) {
             alert('고정 이벤트는 삭제할 수 없습니다.');
             return;
         }
-        if (confirm(`${item.boss} 일정을 삭제하시겠습니까?`)) {
-            deleteScheduleOnServer(item.id);
-        }
+        deleteScheduleOnServer(item.id);
       });
 
       scheduleContainer.appendChild(row);
