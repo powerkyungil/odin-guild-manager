@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { type: '고정', region: '공통', boss: '지옥성채보스', timeStr: '22:30:00', days: ['목'] }
   ];
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (!token) window.location.href = 'login.html';
 
   const STORAGE_KEY_INPUTS = 'odin_boss_inputs_v7';

@@ -61,13 +61,13 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (!token) {
             window.location.href = 'login.html';
         }
 
-        document.getElementById('userNameDisplay').textContent = localStorage.getItem('username');
-        const role = localStorage.getItem('role');
+        document.getElementById('userNameDisplay').textContent = localStorage.getItem('username') || sessionStorage.getItem('username');
+        const role = localStorage.getItem('role') || sessionStorage.getItem('role');
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
 
@@ -79,7 +79,11 @@
         }
 
         function logout() {
-            localStorage.clear();
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('username');
+            localStorage.removeItem('userId');
+            sessionStorage.clear();
             window.location.href = 'login.html';
         }
 

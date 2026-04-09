@@ -234,9 +234,9 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token');
-        let myUserId = parseInt(localStorage.getItem('userId'));
-        const myRole = localStorage.getItem('role');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        let myUserId = parseInt(localStorage.getItem('userId') || sessionStorage.getItem('userId'));
+        const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
         const isAdmin = (myRole === 'MASTER' || myRole === 'ADMIN');
 
         let members = [];
@@ -253,7 +253,8 @@
                     if (meRes.ok) {
                         const meData = await meRes.json();
                         myUserId = meData.id;
-                        localStorage.setItem('userId', myUserId);
+                        if (localStorage.getItem('token')) localStorage.setItem('userId', myUserId);
+                        else sessionStorage.setItem('userId', myUserId);
                     }
                 }
 

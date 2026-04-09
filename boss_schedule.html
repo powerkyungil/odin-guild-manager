@@ -7,7 +7,7 @@
   <title>오딘 길드 보스 스케줄</title>
   <link rel="stylesheet" href="styles.css">
   <script>
-    if (!localStorage.getItem('token')) {
+    if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
       window.location.href = 'login.html';
     }
   </script>

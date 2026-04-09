@@ -140,7 +140,7 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (!token) window.location.href = 'login.html';
 
         async function changeUserRole(userId, newRole) {
@@ -313,7 +313,7 @@
                             ${u.role === 'MASTER' ? '👑 ' : ''}${u.nickname}
                             ${u.role === 'MASTER' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(251, 191, 36, 0.2); color: #fbbf24; border-radius: 4px; width: fit-content;">길드장</span>' : ''}
                             ${u.role === 'ADMIN' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border-radius: 4px; width: fit-content;">운영진</span>' : ''}
-                            ${localStorage.getItem('role') === 'MASTER' && u.role !== 'MASTER' ? `
+                            ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' && u.role !== 'MASTER' ? `
                                 <select onchange="changeUserRole(${u.id}, this.value)" style="font-size: 10px; background: #1e293b; color: white; border: 1px solid #334155; padding: 2px; border-radius: 4px; margin-top: 4px; cursor: pointer;">
                                     <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
                                     <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
