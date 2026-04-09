@@ -134,6 +134,46 @@ body {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.05em;
+  display: none; /* Hidden as we moved it */
+}
+
+/* Main Clock Styles */
+.main-clock-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 0;
+  margin-bottom: 20px;
+  background: rgba(14, 20, 36, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.main-clock-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.main-clock-time {
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 20px rgba(79, 140, 255, 0.4);
+}
+
+@media (max-width: 768px) {
+  .main-clock-time {
+    font-size: 32px;
+  }
 }
 
 @keyframes imminentGlow {
@@ -599,9 +639,26 @@ h1 {
   margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.row-remaining {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--main);
+  font-variant-numeric: tabular-nums;
+  margin-right: 15px;
+  min-width: 80px;
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .row-remaining {
+    display: none; /* Hide on mobile/tablet as requested */
+  }
 }
 
 .meta::before {

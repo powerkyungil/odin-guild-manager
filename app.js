@@ -9,16 +9,52 @@ document.addEventListener('DOMContentLoaded', () => {
   const statsContainer = document.getElementById('stats-container');
   const currentTimeDisplay = document.getElementById('current-time-display');
 
-  const updateCurrentTime = () => {
-    if (!currentTimeDisplay) return;
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    currentTimeDisplay.textContent = `${hh}:${mm}:${ss}`;
+  const updateImminentHighlight = () => {
+    const rows = document.querySelectorAll('.schedule-row');
+    const now = Date.now();
+    let foundImminent = false;
+    
+    rows.forEach(row => {
+      const spanTime = parseInt(row.dataset.spawnTime, 10);
+      row.classList.remove('imminent');
+      if (!foundImminent && spanTime > now) {
+        row.classList.add('imminent');
+        foundImminent = true;
+      }
+    });
   };
-  setInterval(updateCurrentTime, 1000);
-  updateCurrentTime();
+
+  const updateSystemTimers = () => {
+    const now = new Date();
+    const nowMs = now.getTime();
+
+    // 1. Update Main Clock
+    if (currentTimeDisplay) {
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      currentTimeDisplay.textContent = `${hh}:${mm}:${ss}`;
+    }
+
+    // 2. Update Countdowns
+    document.querySelectorAll('.row-remaining').forEach(el => {
+      const spawnTime = parseInt(el.dataset.spawnTime);
+      const diff = spawnTime - nowMs;
+      if (diff > 0 && diff <= 59 * 60 * 1000) {
+        const totalSecs = Math.floor(diff / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        el.textContent = `-${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      } else {
+        el.textContent = '';
+      }
+    });
+
+    // 3. Update Imminent Highlight
+    updateImminentHighlight();
+  };
+  setInterval(updateSystemTimers, 1000);
+  updateSystemTimers();
 
   const showToast = (message) => {
     let container = document.getElementById('toast-container');
@@ -667,13 +703,27 @@ document.addEventListener('DOMContentLoaded', () => {
           const list = participantsMap[item.boss] || [];
           const IJoined = list.includes(myNickname);
           const timeUntilSpawn = item.spawnTime - now;
-          const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 minutes
+          const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 mins before
+          const isLate = timeUntilSpawn < -5 * 60 * 1000; // 5 mins after
 
           if (IJoined) {
+              // Always show list if joined
               participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: var(--primary-color); border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
-          } else if (isSoon) {
+          } else if (isSoon && !isLate) {
               participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b181; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
+          } else if (list.length > 0) {
+              // If not joined and late, but there are participants, show list button so they can see who came
+              participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
           }
+      }
+
+      const remainingMs = item.spawnTime - now;
+      let remainingStr = '';
+      if (remainingMs > 0 && remainingMs <= 59 * 60 * 1000) {
+        const totalSecs = Math.floor(remainingMs / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        remainingStr = `-${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
       }
 
       row.innerHTML = `
@@ -686,6 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="meta">${item.region}</div>
         </div>
         <div class="time-action-group" style="grid-column: 3 / 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
+          ${!isPast && !item.isFixed ? `<div class="row-remaining" data-spawn-time="${item.spawnTime}">${remainingStr}</div>` : ''}
           ${!item.isFixed ? `
             <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
           ` : ''}
@@ -766,22 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   };
 
-  const updateImminentHighlight = () => {
-    const rows = document.querySelectorAll('.schedule-row');
-    const now = Date.now();
-    let foundImminent = false;
-    
-    rows.forEach(row => {
-      const spanTime = parseInt(row.dataset.spawnTime, 10);
-      row.classList.remove('imminent');
-      if (!foundImminent && spanTime > now) {
-        row.classList.add('imminent');
-        foundImminent = true;
-      }
-    });
-  };
 
-  setInterval(updateImminentHighlight, 1000);
 
   applyAllBtn.addEventListener('click', () => {
     processAll();
@@ -790,8 +826,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearBtn = document.getElementById('clear-btn');
   const refreshBtn = document.getElementById('refresh-btn');
 
-  clearBtn.addEventListener('click', clearServerSchedules);
-  refreshBtn.addEventListener('click', fetchSchedules);
+  if (clearBtn) clearBtn.addEventListener('click', clearServerSchedules);
+  if (refreshBtn) refreshBtn.addEventListener('click', fetchSchedules);
 
   // Participant Modal Logic
   window.showParticipantModal = function(boss, list) {
