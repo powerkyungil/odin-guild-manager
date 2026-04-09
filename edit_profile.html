@@ -142,9 +142,28 @@
         equipFields.forEach(name => {
             const div = document.createElement('div');
             div.className = 'form-group';
-            div.innerHTML = `<label style="font-size: 12px;">${name}</label><input type="text" class="equip-input" data-name="${name}">`;
+            div.style.marginBottom = '15px';
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label style="font-size: 12px; margin-bottom: 0;">${name}</label>
+                    <div class="color-selector" data-name="${name}">
+                        <div class="color-btn none active" title="일반" onclick="selectColor(this, 'none')"></div>
+                        <div class="color-btn hero" title="영웅" onclick="selectColor(this, 'hero')"></div>
+                        <div class="color-btn legend" title="전설" onclick="selectColor(this, 'legend')"></div>
+                        <div class="color-btn mythic" title="신화" onclick="selectColor(this, 'mythic')"></div>
+                    </div>
+                </div>
+                <input type="text" class="equip-input" data-name="${name}">
+            `;
             equipGrid.appendChild(div);
         });
+
+        function selectColor(btn, color) {
+            const selector = btn.parentElement;
+            selector.querySelectorAll('.color-btn').forEach(el => el.classList.remove('active'));
+            btn.classList.add('active');
+            selector.dataset.color = color;
+        }
 
         // Inject Skills
         const skillTypes = ['active', 'passive'];
@@ -189,7 +208,18 @@
                     if (data.equipment) {
                         const equip = JSON.parse(data.equipment);
                         document.querySelectorAll('.equip-input').forEach(el => {
-                            if (equip[el.dataset.name]) el.value = equip[el.dataset.name];
+                            const name = el.dataset.name;
+                            const item = equip[name];
+                            if (item) {
+                                if (typeof item === 'object') {
+                                    el.value = item.val || '';
+                                    const col = item.color || 'none';
+                                    const btn = el.parentElement.querySelector(`.color-btn.${col}`);
+                                    if (btn) selectColor(btn, col);
+                                } else {
+                                    el.value = item; // Legacy string support
+                                }
+                            }
                         });
                     }
 
@@ -218,7 +248,10 @@
             
             const equipment = {};
             document.querySelectorAll('.equip-input').forEach(el => {
-                equipment[el.dataset.name] = el.value;
+                const name = el.dataset.name;
+                const val = el.value;
+                const color = el.parentElement.querySelector('.color-selector').dataset.color || 'none';
+                equipment[name] = { val, color };
             });
 
             const skills = { active: {}, passive: {} };

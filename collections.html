@@ -149,7 +149,10 @@
 
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="컬렉션 또는 부위 검색..." onkeyup="filterTable()">
-            <span id="resultCount" style="font-size: 15px; color: var(--text-muted); font-weight: 600;">총 0개 항목</span>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 15px; cursor: pointer; color: var(--text-light); margin-left: 10px;">
+                <input type="checkbox" id="myOnlyCheck" onchange="filterTable()" style="width: 20px; height: 20px;"> 내꺼만 보기
+            </label>
+            <span id="resultCount" style="font-size: 15px; color: var(--text-muted); font-weight: 600; margin-left: auto; margin-right: 20px;">총 0개 항목</span>
         </div>
 
         <div class="table-wrapper">
@@ -172,7 +175,7 @@
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>새 컬렉션 추가</h2>
+                <h2 id="modalTitle">새 컬렉션 추가</h2>
                 <span style="cursor:pointer; font-size: 24px;" onclick="closeModal()">&times;</span>
             </div>
             <div class="input-group">
@@ -203,6 +206,7 @@
         let members = [];
         let statusData = [];
         let collectionsData = [];
+        let editingCollId = null; // To track if we are editing or adding
 
         async function init() {
             if (isAdmin) document.getElementById('addCollBtn').style.display = 'block';
@@ -271,6 +275,27 @@
                     deleteCollection(collId, collName);
                 };
                 nameTd.appendChild(delBtn);
+            }
+
+            // Add Edit Button if Admin
+            if (isAdmin && collId) {
+                const editBtn = document.createElement('button');
+                editBtn.innerHTML = '✏️';
+                editBtn.style.position = 'absolute';
+                editBtn.style.right = '40px';
+                editBtn.style.top = '50%';
+                editBtn.style.transform = 'translateY(-50%)';
+                editBtn.style.background = 'transparent';
+                editBtn.style.border = 'none';
+                editBtn.style.cursor = 'pointer';
+                editBtn.style.fontSize = '14px';
+                editBtn.title = '컬렉션 수정';
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const coll = collectionsData.find(c => c.id === collId);
+                    if (coll) openModal(coll);
+                };
+                nameTd.appendChild(editBtn);
             }
             
             tr.appendChild(nameTd);
@@ -357,12 +382,40 @@
 
         function filterTable() {
             const filter = document.getElementById('searchInput').value.toUpperCase();
+            const showOnlyMine = document.getElementById('myOnlyCheck').checked;
             const trs = Array.from(document.getElementById('tableBody').getElementsByTagName('tr'));
+            
+            // --- 1. Handle Column Visibility (Show Only Mine) ---
+            const myNickname = members.find(m => m.id === myUserId)?.nickname;
+            const headerThs = Array.from(document.getElementById('tableHeader').getElementsByTagName('th'));
+            
+            headerThs.forEach((th, idx) => {
+                if (idx < 2) return; // Skip part/enchant columns
+                const nick = th.innerText.split('\n')[0];
+                if (showOnlyMine) {
+                    if (nick === myNickname) th.style.display = "";
+                    else th.style.display = "none";
+                } else {
+                    th.style.display = "";
+                }
+            });
+
+            trs.forEach(tr => {
+                const tds = Array.from(tr.getElementsByTagName('td'));
+                tds.forEach((td, idx) => {
+                    if (idx < 2) return;
+                    const th = headerThs[idx];
+                    td.style.display = th.style.display;
+                });
+            });
+
+            // --- 2. Handle Row Visibility (Search Filter) ---
             if (!filter) {
                 trs.forEach(tr => tr.style.display = "");
                 document.getElementById('resultCount').textContent = `총 ${trs.filter(t=>t.className==='row-item').length}개 아이템 로드됨`;
                 return;
             }
+
             const visibleColls = new Set();
             trs.forEach(tr => { if (tr.innerText.toUpperCase().indexOf(filter) > -1) visibleColls.add(tr.dataset.coll); });
             let count = 0;
@@ -382,12 +435,35 @@
         }
 
         // --- Admin Functions ---
-        function openModal() { document.getElementById('addModal').style.display = 'flex'; }
+        function openModal(editingColl) { 
+            const title = document.getElementById('modalTitle');
+            const itemInputs = document.getElementById('itemInputs');
+            const nameInput = document.getElementById('newCollName');
+            
+            // Core labels reset
+            itemInputs.innerHTML = '<label style="color: var(--text-muted); font-size: 14px; margin-bottom: 5px; display: block;">아이템 목록</label>';
+            
+            if (editingColl) {
+                editingCollId = editingColl.id;
+                title.textContent = '컬렉션 수정';
+                nameInput.value = editingColl.name;
+                editingColl.items.forEach(fullStr => {
+                    const [p, e] = fullStr.split('|').map(s => s.trim());
+                    addItemInput(p, e.replace('강화 ', ''));
+                });
+            } else {
+                editingCollId = null;
+                title.textContent = '새 컬렉션 추가';
+                nameInput.value = '';
+                addItemInput(); // Single empty row
+            }
+            document.getElementById('addModal').style.display = 'flex'; 
+        }
         function closeModal() { document.getElementById('addModal').style.display = 'none'; }
-        function addItemInput() {
+        function addItemInput(p = '', e = '') {
             const div = document.createElement('div');
             div.className = 'item-input-row';
-            div.innerHTML = `<input type="text" placeholder="부위"> <input type="number" placeholder="강화" style="max-width: 80px;">`;
+            div.innerHTML = `<input type="text" placeholder="부위" value="${p}"> <input type="number" placeholder="강화" value="${e}" style="max-width: 80px;">`;
             document.getElementById('itemInputs').appendChild(div);
         }
         async function saveNewCollection() {
@@ -400,16 +476,18 @@
                 const part = inputs[0].value.trim();
                 let ench = inputs[1].value.trim();
                 if (part && ench) {
-                    // Prepend "강화 " if only number is entered for consistency
                     if (!isNaN(ench)) ench = "강화 " + ench;
                     items.push(`${part} | ${ench}`);
                 }
             });
             if (items.length === 0) return alert('최소 하나 이상의 아이템을 입력하세요.');
 
+            const url = editingCollId ? `/api/collections/${editingCollId}` : '/api/collections';
+            const method = editingCollId ? 'PUT' : 'POST';
+
             try {
-                const res = await fetch('/api/collections', {
-                    method: 'POST',
+                const res = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ name, items })
                 });
@@ -440,7 +518,5 @@
 
         init();
     </script>
-</body>
-</html>
 </body>
 </html>

@@ -384,6 +384,20 @@ app.delete('/api/collections/:id', verifyToken, (req, res) => {
         res.json({ success: true });
     });
 });
+// 16. Update Collection (Master/Admin only)
+app.put('/api/collections/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') {
+        return res.status(403).json({ error: 'Unauthorized.' });
+    }
+
+    const { name, items } = req.body;
+    if (!name || !Array.isArray(items)) return res.status(400).json({ error: 'Invalid data.' });
+
+    db.run("UPDATE collections SET name = ?, items = ? WHERE id = ?", [name, JSON.stringify(items), req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: 'Update failed.' });
+        res.json({ success: true });
+    });
+});
 
 
 

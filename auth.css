@@ -56,6 +56,7 @@ body {
   font-weight: 700;
   background: linear-gradient(to right, #818cf8, #c084fc);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -318,3 +319,36 @@ body {
     border: 1px solid var(--border-color);
 }
 
+
+/* Equipment Color Selector */
+.color-selector {
+    display: flex;
+    gap: 6px;
+}
+.color-btn {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.5;
+}
+.color-btn:hover {
+    transform: scale(1.3);
+    opacity: 0.8;
+}
+.color-btn.active {
+    opacity: 1;
+    transform: scale(1.3);
+    border-color: white;
+    box-shadow: 0 0 8px currentColor;
+}
+.color-btn.none { background: #475569; color: transparent; }
+.color-btn.hero { background: #d946ef; color: #d946ef; }
+.color-btn.legend { background: #fbbf24; color: #fbbf24; }
+.color-btn.mythic { background: #f97316; color: #f97316; }
+
+.equip-hero { color: #d946ef !important; text-shadow: 0 0 5px rgba(217, 70, 239, 0.3); }
+.equip-legend { color: #fbbf24 !important; text-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
+.equip-mythic { color: #f97316 !important; text-shadow: 0 0 8px rgba(249, 115, 22, 0.4); }
