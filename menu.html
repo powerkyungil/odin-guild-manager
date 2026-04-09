@@ -14,10 +14,36 @@
         .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
         .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
         .invite-link { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border: 1px dashed var(--primary-color); border-radius: 6px; font-family: monospace; word-break: break-all; font-size: 13px; display: none; }
+        
+        /* New Styled Guild Title */
+        .guild-header {
+            text-align: center;
+            padding: 40px 0 20px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .guild-name-dynamic {
+            font-size: 38px;
+            font-weight: 900;
+            margin: 0;
+            background: linear-gradient(135deg, #fff 0%, #818cf8 50%, #6366f1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+            text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+            display: none; /* Shown after fetch */
+        }
+        @media (max-width: 480px) {
+            .guild-name-dynamic { font-size: 28px; }
+        }
     </style>
 </head>
 <body>
     <div class="auth-container">
+        <div class="guild-header" id="guildHeader" style="display: none;">
+            <h1 class="guild-name-dynamic" id="dynamicGuildName">--</h1>
+        </div>
         <div class="user-info">
             <div>
                 <span id="userNameDisplay">--</span> 님 환영합니다!
@@ -77,6 +103,21 @@
                 document.getElementById('masterOnlyInvite').style.display = 'block';
             }
         }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const settings = await res.json();
+                if (settings.guild_name) {
+                    const el = document.getElementById('dynamicGuildName');
+                    el.textContent = settings.guild_name;
+                    el.style.display = 'block';
+                    document.getElementById('guildHeader').style.display = 'block';
+                    document.title = `${settings.guild_name} - 메뉴`;
+                }
+            } catch(e) {}
+        }
+        loadSettings();
 
         function logout() {
             localStorage.removeItem('token');

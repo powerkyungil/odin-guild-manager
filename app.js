@@ -839,7 +839,19 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('participantModal').style.display = 'flex';
   };
 
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      const settings = await res.json();
+      if (settings.guild_name) {
+        // We only update the browser tab title, as requested to remove from the page header
+        document.title = `${settings.guild_name} 보스 스케줄`;
+      }
+    } catch (e) {}
+  };
+
   // --- Init ---
+  fetchSettings();
   fetchSchedules().then(() => {
      renderForms();
   });

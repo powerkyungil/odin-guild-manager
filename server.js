@@ -99,6 +99,16 @@ function initDB() {
             PRIMARY KEY (boss, nickname)
         )`);
 
+        // Settings Table
+        db.run(`CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )`, (err) => {
+            if (!err) {
+                db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('guild_name', '오딘 길드')");
+            }
+        });
+
         // NEW: Collections Metadata Table
         db.run(`CREATE TABLE IF NOT EXISTS collections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -586,6 +596,28 @@ app.post('/api/participation-targets', verifyToken, (req, res) => {
 // --- Rerouting for clean URLs ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+// ============================================
+// Settings Management
+// ============================================
+
+app.get('/api/settings', (req, res) => {
+    db.all("SELECT * FROM settings", (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        const settings = {};
+        rows.forEach(row => settings[row.key] = row.value);
+        res.json(settings);
+    });
+});
+
+app.put('/api/settings', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only' });
+    const { guild_name } = req.body;
+    db.run("UPDATE settings SET value = ? WHERE key = 'guild_name'", [guild_name], (err) => {
+        if (err) return res.status(500).json({ error: 'Update failed' });
+        res.json({ success: true });
+    });
 });
 
 app.listen(PORT, () => {
