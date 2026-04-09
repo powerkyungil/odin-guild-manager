@@ -7,10 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="auth.css">
     <style>
-        .auth-container { max-width: 600px; }
-        .user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 14px; }
+        .auth-container { max-width: 600px; width: 95%; box-sizing: border-box; }
+        .user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 14px; flex-wrap: wrap; gap: 15px; }
         .role-badge { background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
-        .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
         .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
         .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
         .invite-link { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border: 1px dashed var(--primary-color); border-radius: 6px; font-family: monospace; word-break: break-all; font-size: 13px; display: none; }

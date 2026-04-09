@@ -133,6 +133,42 @@
         .item-input-row input:focus { border-color: var(--primary-color); outline: none; }
         .btn-small { padding: 5px 10px; font-size: 12px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        /* Mobile specific styling for the huge table */
+        @media (max-width: 768px) {
+            body { overflow-x: hidden; }
+            .auth-container { margin: 10px auto; padding: 0 10px !important; width: 100%; box-sizing: border-box; }
+            
+            .auth-container > div:first-child a { margin: 10px 0 !important; font-size: 14px !important; }
+            .auth-container > div:first-child button { margin-right: 0 !important; font-size: 13px !important; padding: 8px 12px; }
+            
+            .auth-header { padding: 0 !important; }
+            .auth-header h1 { font-size: 20px !important; }
+            .auth-header p { font-size: 13px !important; }
+            
+            .search-box { 
+                flex-direction: column; 
+                align-items: stretch; 
+                margin-left: 0; 
+                margin-top: 15px;
+                gap: 10px;
+                box-sizing: border-box;
+            }
+            .search-box input[type="text"] { width: 100% !important; margin-bottom: 0; box-sizing: border-box; }
+            .search-box label { margin-left: 0 !important; }
+            #resultCount { align-self: flex-start !important; margin-right: 0 !important; font-size: 13px !important; }
+            
+            /* Squeeze the table columns horizontally */
+            .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; }
+            .col-part { min-width: 140px; font-size: 13px; max-width: 140px; white-space: normal; line-height: 1.2; word-break: break-all; left: 0; }
+            .col-ench { min-width: 45px; left: 140px; font-size: 12px; padding: 6px; }
+            
+            th, td { padding: 6px 8px; font-size: 13px; }
+            table { font-size: 14px; }
+            input[type="checkbox"] { width: 18px; height: 18px; }
+            
+            .modal-content { width: 95%; padding: 20px; box-sizing: border-box; }
+        }
     </style>
 </head>
 <body>

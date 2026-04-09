@@ -78,6 +78,14 @@ body {
   pointer-events: none;
 }
 
+@media (max-width: 768px) {
+  .layout:not(.sidebar-mobile-open) ~ .sidebar-toggle {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
 /* Sidebar */
 .sidebar {
   position: fixed;
@@ -631,8 +639,10 @@ h1 {
     gap: 10px;
   }
   .boss-name { font-size: 16px; }
-  .spawn-time { font-size: 18px; }
+  .spawn-time { font-size: 18px !important; }
   .type-pill { padding: 6px 10px; font-size: 12px; }
+  .time-action-group { gap: 8px !important; }
+  .cut-btn { padding: 4px 8px !important; font-size: 12px !important; }
 }
 
 @media (max-width: 480px) {
@@ -652,9 +662,13 @@ h1 {
     text-overflow: ellipsis; 
   }
   .meta { font-size: 11px; margin-top: 2px; }
-  .spawn-time { font-size: 16px; text-align: right; }
+  .spawn-time { font-size: 14px !important; }
   .type-pill { padding: 4px 8px; font-size: 11px; }
   .break-row { font-size: 12px; flex-direction: column; gap: 4px; padding: 10px; text-align: center; }
+  
+  .time-action-group { gap: 6px !important; }
+  .cut-btn { padding: 3px 6px !important; font-size: 11px !important; }
+  .delete-row-btn { width: 24px !important; height: 24px !important; padding: 2px !important; margin-left: 0 !important; }
 }
 
 #toast-container {

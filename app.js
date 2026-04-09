@@ -330,11 +330,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (/^\d+$/.test(clean)) {
       let dStr = clean;
-      const s = parseInt(dStr.slice(-2) || '0', 10);
-      dStr = dStr.slice(0, -2);
-      const m = parseInt(dStr.slice(-2) || '0', 10);
-      dStr = dStr.slice(0, -2);
-      const h = parseInt(dStr || '0', 10);
+      let s = 0, m = 0, h = 0;
+      if (dStr.length <= 4) {
+          if (dStr.length <= 2) {
+             m = parseInt(dStr, 10);
+          } else {
+             m = parseInt(dStr.slice(-2), 10);
+             h = parseInt(dStr.slice(0, -2), 10);
+          }
+      } else {
+          s = parseInt(dStr.slice(-2) || '0', 10);
+          dStr = dStr.slice(0, -2);
+          m = parseInt(dStr.slice(-2) || '0', 10);
+          dStr = dStr.slice(0, -2);
+          h = parseInt(dStr || '0', 10);
+      }
       
       if (isNaN(h) || isNaN(m) || isNaN(s)) return null;
       return (h * 3600 + m * 60 + s) * 1000;
@@ -557,12 +567,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="boss-name">${item.boss} ${isPast ? '(처리됨)' : ''}</div>
           <div class="meta">${item.region}</div>
         </div>
-        <div class="spawn-time">${timeLabel}</div>
-        <div class="row-actions" style="display: flex; gap: 8px; margin-left: auto; align-items: center;">
+        <div class="time-action-group" style="grid-column: 3 / 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
           ${!item.isFixed ? `
-            <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;">컷</button>
+            <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
           ` : ''}
-          <button class="delete-row-btn" aria-label="삭제">
+          <div class="spawn-time" style="white-space: nowrap;">${timeLabel}</div>
+          <button class="delete-row-btn" aria-label="삭제" style="flex-shrink: 0; margin-left: 0;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
@@ -571,6 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       const cutBtn = row.querySelector('.cut-btn');
+
       if (cutBtn) {
           cutBtn.addEventListener('click', () => {
               if (item.type === '침공') {
