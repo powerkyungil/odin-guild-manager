@@ -118,6 +118,53 @@
         const token = localStorage.getItem('token');
         if (!token) window.location.href = 'login.html';
 
+        async function changeUserRole(userId, newRole) {
+            if (!confirm(`회원의 권한을 ${newRole}으로 변경하시겠습니까?`)) {
+                location.reload();
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/role`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ role: newRole })
+                });
+                if (res.ok) {
+                    alert('권한이 변경되었습니다.');
+                    location.reload();
+                } else {
+                    const data = await res.json();
+                    alert('오류: ' + data.error);
+                    location.reload();
+                }
+            } catch (err) {
+                alert('서버 통신 오류');
+                location.reload();
+            }
+        }
+
+        async function deleteUser(userId, nickname) {
+            if (!confirm(`정말로 '${nickname}' 회원을 강퇴하시겠습니까?\n모든 데이터가 영구 삭제됩니다.`)) return;
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    alert('회원이 삭제되었습니다.');
+                    location.reload();
+                } else {
+                    const data = await res.json();
+                    alert('오류: ' + data.error);
+                }
+            } catch (err) {
+                alert('서버 통신 오류');
+            }
+        }
+
         async function fetchMembers() {
             try {
                 const res = await fetch('/api/users', {
@@ -236,7 +283,20 @@
 
                 row.innerHTML = `
                     <td><span class="rank-badge">${rank}</span></td>
-                    <td style="font-weight: 700; font-size: 15px; word-break: break-all;">${u.nickname}</td>
+                    <td style="font-weight: 700; font-size: 15px; word-break: break-all;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            ${u.role === 'MASTER' ? '👑 ' : ''}${u.nickname}
+                            ${u.role === 'MASTER' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(251, 191, 36, 0.2); color: #fbbf24; border-radius: 4px; width: fit-content;">길드장</span>' : ''}
+                            ${u.role === 'ADMIN' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border-radius: 4px; width: fit-content;">운영진</span>' : ''}
+                            ${localStorage.getItem('role') === 'MASTER' && u.role !== 'MASTER' ? `
+                                <select onchange="changeUserRole(${u.id}, this.value)" style="font-size: 10px; background: #1e293b; color: white; border: 1px solid #334155; padding: 2px; border-radius: 4px; margin-top: 4px; cursor: pointer;">
+                                    <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
+                                    <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
+                                </select>
+                                <button onclick="deleteUser(${u.id}, '${u.nickname}')" style="font-size: 10px; background: #991b1b; color: white; border: 1px solid #b91c1c; padding: 2px 4px; border-radius: 4px; margin-top: 4px; cursor: pointer;">강퇴</button>
+                            ` : ''}
+                        </div>
+                    </td>
                     <td style="color: var(--text-muted); font-size: 11px; line-height: 1.4; white-space: nowrap;">
                         <div style="color: var(--text-light); font-weight: 600;">${u.occupation}</div>
                         <div>${u.main_class}</div>

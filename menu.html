@@ -52,7 +52,10 @@
 
         <div id="adminPanel" class="admin-panel" style="display: none;">
             <h3 style="font-size: 16px; margin: 0 0 10px 0;">관리자 메뉴</h3>
-            <button class="auth-btn" style="padding: 10px; font-size: 14px;" onclick="generateInvite()">일반 길드원 초대 링크 생성</button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1;" onclick="generateInvite('MEMBER')">일반 길드원 초대 링크 생성</button>
+                <button id="masterOnlyInvite" class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1; background: #6366f1; display: none;" onclick="generateInvite('ADMIN')">운영진 초대 링크 생성</button>
+            </div>
             <div id="inviteLink" class="invite-link"></div>
         </div>
     </div>
@@ -65,10 +68,14 @@
 
         document.getElementById('userNameDisplay').textContent = localStorage.getItem('username');
         const role = localStorage.getItem('role');
-        document.getElementById('userRoleBadge').textContent = role;
+        const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
+        document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
 
         if (role === 'MASTER' || role === 'ADMIN') {
             document.getElementById('adminPanel').style.display = 'block';
+            if (role === 'MASTER') {
+                document.getElementById('masterOnlyInvite').style.display = 'block';
+            }
         }
 
         function logout() {
@@ -76,7 +83,7 @@
             window.location.href = 'login.html';
         }
 
-        async function generateInvite() {
+        async function generateInvite(targetRole = 'MEMBER') {
             try {
                 const res = await fetch('/api/invites', {
                     method: 'POST',
@@ -84,7 +91,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ targetRole: 'MEMBER' })
+                    body: JSON.stringify({ targetRole: targetRole })
                 });
                 
                 if (res.status === 401 || res.status === 403) {

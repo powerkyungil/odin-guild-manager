@@ -401,6 +401,49 @@ app.put('/api/collections/:id', verifyToken, (req, res) => {
 
 
 
+// 17. Update User Role (Master only)
+app.put('/api/admin/users/:id/role', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER') {
+        return res.status(403).json({ error: 'Unauthorized. Only Master can change roles.' });
+    }
+
+    const { role } = req.body;
+    if (!['ADMIN', 'MEMBER'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
+
+    // Prevent Changing of Other Masters or self
+    db.get("SELECT role FROM users WHERE id = ?", [req.params.id], (err, user) => {
+        if (err || !user) return res.status(404).json({ error: 'User not found.' });
+        if (user.role === 'MASTER') return res.status(403).json({ error: 'Cannot change Master role.' });
+
+        db.run("UPDATE users SET role = ? WHERE id = ?", [role, req.params.id], function(err) {
+            if (err) return res.status(500).json({ error: 'Role update failed.' });
+            res.json({ success: true, message: 'User role updated.' });
+        });
+    });
+});
+
+// 18. Delete User (Master only)
+app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER') {
+        return res.status(403).json({ error: 'Unauthorized. Only Master can delete users.' });
+    }
+
+    db.get("SELECT role FROM users WHERE id = ?", [req.params.id], (err, user) => {
+        if (err || !user) return res.status(404).json({ error: 'User not found.' });
+        if (user.role === 'MASTER') return res.status(403).json({ error: 'Cannot delete Master.' });
+
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            db.run("DELETE FROM user_collections WHERE user_id = ?", [req.params.id]);
+            db.run("DELETE FROM users WHERE id = ?", [req.params.id]);
+            db.run("COMMIT", (err) => {
+                if (err) return res.status(500).json({ error: 'Delete failed.' });
+                res.json({ success: true, message: 'User deleted.' });
+            });
+        });
+    });
+});
+
 // --- Rerouting for clean URLs ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));

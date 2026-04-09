@@ -10,7 +10,7 @@
 <body>
     <div class="auth-container expanded">
         <div class="auth-header">
-            <h1>정보 수정</h1>
+            <h1>정보 수정 <span id="userRoleBadge" style="font-size: 12px; vertical-align: middle; margin-left:10px; padding: 2px 8px; background: rgba(99,102,241,0.2); color: #818cf8; border-radius: 4px; font-weight: 600;">--</span></h1>
             <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">변경할 캐릭터 정보를 입력하세요</p>
         </div>
         
@@ -194,7 +194,9 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    document.getElementById('usernameDisplay').value = localStorage.getItem('username');
+                    if (document.getElementById('usernameDisplay')) document.getElementById('usernameDisplay').value = localStorage.getItem('username');
+                    const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
+                    if (document.getElementById('userRoleBadge')) document.getElementById('userRoleBadge').textContent = roleLabels[data.role] || data.role;
                     document.getElementById('nickname').value = data.nickname || '';
                     document.getElementById('combat_power').value = (data.combat_power || 0).toLocaleString();
                     
