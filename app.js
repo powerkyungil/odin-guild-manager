@@ -548,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.classList.add('animate-in');
       
       row.innerHTML = `
-        <div class="type-pill ${typeClass}">${isPast ? '[지난보스]' : `[${item.type}]`}</div>
+        <div class="type-pill ${typeClass}">${isPast ? '지난보스' : item.type}</div>
         <div class="boss-area">
           <div class="boss-name">${item.boss} ${isPast ? '(처리됨)' : ''}</div>
           <div class="meta">${item.region}</div>

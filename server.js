@@ -298,10 +298,13 @@ app.post('/api/schedules', verifyToken, (req, res) => {
     if (!Array.isArray(schedules)) return res.status(400).json({ error: 'Invalid data format.' });
 
     const stmt = db.prepare("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)");
+    const deleteStmt = db.prepare("DELETE FROM boss_schedules WHERE type = ? AND region = ? AND boss = ?");
     
     db.serialize(() => {
         db.run("BEGIN TRANSACTION");
         schedules.forEach(s => {
+            // Overwrite: delete existing entry for same boss in same region/type
+            deleteStmt.run([s.type, s.region, s.boss]);
             stmt.run([s.type, s.region, s.boss, s.spawnTime, req.userId]);
         });
         db.run("COMMIT", (err) => {
@@ -310,6 +313,7 @@ app.post('/api/schedules', verifyToken, (req, res) => {
         });
     });
     stmt.finalize();
+    deleteStmt.finalize();
 });
 
 // 8.5 [NEW] Process Boss "Cut" (Auto recalculate next spawn)
