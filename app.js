@@ -467,19 +467,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (/^\d+$/.test(clean)) {
       let dStr = clean;
       let s = 0, m = 0, h = 0;
-      if (dStr.length <= 4) {
-          if (dStr.length <= 2) {
-             m = parseInt(dStr, 10);
-          } else {
-             m = parseInt(dStr.slice(-2), 10);
-             h = parseInt(dStr.slice(0, -2), 10);
-          }
+      if (dStr.length === 4) {
+          // 4 digits: MMSS
+          s = parseInt(dStr.slice(-2), 10);
+          m = parseInt(dStr.slice(0, -2), 10);
+      } else if (dStr.length === 6) {
+          // 6 digits: HHMMSS
+          s = parseInt(dStr.slice(-2), 10);
+          m = parseInt(dStr.slice(-4, -2), 10);
+          h = parseInt(dStr.slice(0, -4), 10);
       } else {
-          s = parseInt(dStr.slice(-2) || '0', 10);
-          dStr = dStr.slice(0, -2);
-          m = parseInt(dStr.slice(-2) || '0', 10);
-          dStr = dStr.slice(0, -2);
-          h = parseInt(dStr || '0', 10);
+          // Fallback (1-3, 5, etc): Minutes
+          m = parseInt(dStr, 10);
       }
       
       if (isNaN(h) || isNaN(m) || isNaN(s)) return null;
