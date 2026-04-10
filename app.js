@@ -731,6 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="boss-area">
           <div class="boss-name" style="display:flex; align-items:center; flex-wrap: wrap;">
             ${item.boss} ${isPast ? '<span style="font-size:10px; opacity:0.6; margin-left:4px;">(처리됨)</span>' : ''}
+            ${item.is_mung ? '<span style="background: #a855f7; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">멍</span>' : ''}
             ${participationHtml}
           </div>
           <div class="meta">${item.region}</div>
@@ -855,7 +856,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearBtn = document.getElementById('clear-btn');
   const refreshBtn = document.getElementById('refresh-btn');
 
-  if (clearBtn) clearBtn.addEventListener('click', clearServerSchedules);
+  if (clearBtn) {
+    if (myRole === 'MASTER' || myRole === 'ADMIN') {
+      clearBtn.addEventListener('click', clearServerSchedules);
+    } else {
+      clearBtn.style.display = 'none';
+    }
+  }
   if (refreshBtn) refreshBtn.addEventListener('click', fetchSchedules);
 
   // Participant Modal Logic

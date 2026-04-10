@@ -76,8 +76,13 @@ function initDB() {
             boss TEXT,
             spawnTime INTEGER,
             created_by INTEGER,
+            is_mung INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
+        )`, (err) => {
+            if (!err) {
+                db.run("ALTER TABLE boss_schedules ADD COLUMN is_mung INTEGER DEFAULT 0", () => {});
+            }
+        });
 
         // User Item Collections Table
         db.run(`CREATE TABLE IF NOT EXISTS user_collections (
@@ -343,7 +348,7 @@ app.post('/api/schedules', verifyToken, (req, res) => {
             // Clear existing participants when schedule resets
             db.run("DELETE FROM boss_participants WHERE boss = ?", [s.boss]);
             
-            db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)", 
+            db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)", 
                 [s.type, s.region, s.boss, s.spawnTime, req.userId]);
         });
         db.run("COMMIT", (err) => {
@@ -374,7 +379,7 @@ app.post('/api/schedules/cut', verifyToken, (req, res) => {
         
         db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
 
-        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)",
+        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)",
             [type, region, boss, spawnTime, req.userId], function(err) {
                 if (err) return res.status(500).json({ error: 'Failed to record cut.' });
                 res.json({ success: true, nextSpawn: spawnTime });
@@ -400,7 +405,7 @@ app.post('/api/schedules/mung', verifyToken, (req, res) => {
         
         db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
 
-        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)",
+        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 1)",
             [type, region, boss, nextSpawn, req.userId], function(err) {
                 if (err) return res.status(500).json({ error: 'Failed to record mung.' });
                 res.json({ success: true, nextSpawn: nextSpawn });
@@ -420,6 +425,9 @@ app.delete('/api/schedules/:id', verifyToken, (req, res) => {
 
 // 10. Clear All Schedules
 app.delete('/api/schedules-all', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') {
+        return res.status(403).json({ error: 'Unauthorized.' });
+    }
     db.run("DELETE FROM boss_schedules", (err) => {
         if (err) return res.status(500).json({ error: 'Clear failed.' });
         res.json({ success: true });
