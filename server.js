@@ -472,8 +472,8 @@ app.post('/api/settings', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
     const { guild_name, discord_token, discord_channel_id } = req.body;
     
-    // UPSERT style: Try to update row 1 first. If not found, insert.
-    db.get("SELECT id FROM settings LIMIT 1", (err, row) => {
+    // UPSERT style: Try to update first available row first.
+    db.get("SELECT rowid as id FROM settings LIMIT 1", (err, row) => {
         if (err) {
             console.error('❌ Settings Check Error:', err.message);
             return res.status(500).json({ error: 'DB Error while checking settings: ' + err.message });
@@ -481,7 +481,7 @@ app.post('/api/settings', verifyToken, (req, res) => {
 
         if (row) {
             // Update existing row
-            db.run("UPDATE settings SET guild_name = ?, discord_token = ?, discord_channel_id = ? WHERE id = ?", 
+            db.run("UPDATE settings SET guild_name = ?, discord_token = ?, discord_channel_id = ? WHERE rowid = ?", 
                 [guild_name, discord_token, discord_channel_id, row.id], (err) => {
                 if (err) {
                     console.error('❌ Settings Update Error:', err.message);
