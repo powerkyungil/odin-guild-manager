@@ -34,6 +34,48 @@
             text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
             display: none; /* Shown after fetch */
         }
+        
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4b5563;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #10b981;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
         @media (max-width: 480px) {
             .guild-name-dynamic { font-size: 28px; }
         }
@@ -138,7 +180,14 @@
                 </div>
                 <div class="setting-item">
                     <label>알림 전송 채널 ID (Channel ID)</label>
-                    <input type="text" id="discordChannelIdInput" placeholder="알림을 보낼 채널 ID">
+                    <input type="text" id="discordChannelIdInput" placeholder="공지 사항을 보낼 채널 ID">
+                </div>
+                <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+                    <label style="margin-bottom: 0;">디스코드 메시지 알림 전송</label>
+                    <label class="switch">
+                        <input type="checkbox" id="discordEnabledInput" checked>
+                        <span class="slider round"></span>
+                    </label>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="save-settings-btn" style="flex: 2;" onclick="saveGuildSettings()">설정 저장 및 봇 가동</button>
@@ -180,6 +229,7 @@
                         document.getElementById('guildNameInput').value = settings.guild_name;
                         document.getElementById('discordTokenInput').value = settings.discord_token || '';
                         document.getElementById('discordChannelIdInput').value = settings.discord_channel_id || '';
+                        document.getElementById('discordEnabledInput').checked = settings.discord_enabled !== 0;
                         if (role === 'MASTER' || role === 'ADMIN') {
                             document.getElementById('masterSettingsPanel').style.display = 'block';
                         }
@@ -193,6 +243,7 @@
             const guild_name = document.getElementById('guildNameInput').value;
             const discord_token = document.getElementById('discordTokenInput').value;
             const discord_channel_id = document.getElementById('discordChannelIdInput').value;
+            const discord_enabled = document.getElementById('discordEnabledInput').checked ? 1 : 0;
 
             try {
                 const res = await fetch('/api/settings', {
@@ -201,7 +252,12 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ guild_name, discord_token, discord_channel_id })
+                    body: JSON.stringify({ 
+                        guild_name, 
+                        discord_token, 
+                        discord_channel_id,
+                        discord_enabled
+                    })
                 });
                 if (res.ok) {
                     alert('길드 설정 및 디스코드 정보가 저장되었습니다.');

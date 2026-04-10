@@ -18,13 +18,15 @@ app.use(express.static(__dirname));
 // --- Discord Client Setup ---
 let discordClient = null;
 let discordChannelId = null;
+let isDiscordEnabled = true;
 
 function initDiscordBot(token, channelId) {
     if (discordClient) {
         discordClient.destroy();
     }
     discordChannelId = channelId;
-    discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+    // Reduced intents: Remove GuildMessages so the bot doesn't "read" other people's messages.
+    discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
     
     discordClient.once('clientReady', () => {
         console.log(`✅ Discord Bot logged in as ${discordClient.user.tag}`);
@@ -68,7 +70,7 @@ setInterval(() => {
                     content = `${b.boss} 1분 전입니다.`;
                 }
 
-                if (alertType) {
+                if (alertType && isDiscordEnabled) {
                     const notifyKey = `${b.id}_${alertType}`;
                     if (!notifiedBosses.has(notifyKey)) {
                         discordClient.channels.fetch(discordChannelId)
@@ -174,12 +176,21 @@ function initDB() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             guild_name TEXT DEFAULT '오딘 길드',
             discord_token TEXT,
-            discord_channel_id TEXT
-        )`);
+            discord_channel_id TEXT,
+            discord_enabled INTEGER DEFAULT 1
+        )`, () => {
+            // Migration: Add discord_enabled to existing odin_settings table if it doesn't exist
+            db.all("PRAGMA table_info(odin_settings)", (err, rows) => {
+                if (rows && !rows.find(r => r.name === 'discord_enabled')) {
+                    db.run("ALTER TABLE odin_settings ADD COLUMN discord_enabled INTEGER DEFAULT 1");
+                }
+            });
+        });
 
         // Discord Bot Auth - Try auto-login
-        db.get("SELECT discord_token, discord_channel_id FROM odin_settings LIMIT 1", (err, row) => {
+        db.get("SELECT discord_token, discord_channel_id, discord_enabled FROM odin_settings LIMIT 1", (err, row) => {
             if (row && row.discord_token && row.discord_channel_id) {
+                isDiscordEnabled = row.discord_enabled !== 0;
                 initDiscordBot(row.discord_token, row.discord_channel_id);
             }
         });
@@ -465,14 +476,14 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
 
 // --- SETTINGS ---
 app.get('/api/settings', (req, res) => {
-    db.get("SELECT guild_name, discord_token, discord_channel_id FROM odin_settings LIMIT 1", (err, row) => {
-        res.json(row || { guild_name: '오딘 길드', discord_token: '', discord_channel_id: '' });
+    db.get("SELECT guild_name, discord_token, discord_channel_id, discord_enabled FROM odin_settings LIMIT 1", (err, row) => {
+        res.json(row || { guild_name: '오딘 길드', discord_token: '', discord_channel_id: '', discord_enabled: 1 });
     });
 });
 
 app.post('/api/settings', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    const { guild_name, discord_token, discord_channel_id } = req.body;
+    const { guild_name, discord_token, discord_channel_id, discord_enabled } = req.body;
     
     // UPSERT style: Try to update first available row first.
     db.get("SELECT rowid as id FROM odin_settings LIMIT 1", (err, row) => {
@@ -483,23 +494,25 @@ app.post('/api/settings', verifyToken, (req, res) => {
 
         if (row) {
             // Update existing row
-            db.run("UPDATE odin_settings SET guild_name = ?, discord_token = ?, discord_channel_id = ? WHERE rowid = ?", 
-                [guild_name, discord_token, discord_channel_id, row.id], (err) => {
+            db.run("UPDATE odin_settings SET guild_name = ?, discord_token = ?, discord_channel_id = ?, discord_enabled = ? WHERE rowid = ?", 
+                [guild_name, discord_token, discord_channel_id, discord_enabled, row.id], (err) => {
                 if (err) {
                     console.error('❌ Settings Update Error:', err.message);
                     return res.status(500).json({ error: 'Failed to update settings: ' + err.message });
                 }
+                isDiscordEnabled = discord_enabled !== 0;
                 if (discord_token && discord_channel_id) initDiscordBot(discord_token, discord_channel_id);
                 res.json({ success: true });
             });
         } else {
             // Insert new row
-            db.run("INSERT INTO odin_settings (guild_name, discord_token, discord_channel_id) VALUES (?, ?, ?)", 
-                [guild_name, discord_token, discord_channel_id], (err) => {
+            db.run("INSERT INTO odin_settings (guild_name, discord_token, discord_channel_id, discord_enabled) VALUES (?, ?, ?, ?)", 
+                [guild_name, discord_token, discord_channel_id, discord_enabled], (err) => {
                 if (err) {
                     console.error('❌ Settings Insert Error:', err.message);
                     return res.status(500).json({ error: 'Failed to insert settings: ' + err.message });
                 }
+                isDiscordEnabled = discord_enabled !== 0;
                 if (discord_token && discord_channel_id) initDiscordBot(discord_token, discord_channel_id);
                 res.json({ success: true });
             });
