@@ -169,8 +169,8 @@ function initDB() {
             PRIMARY KEY (boss, nickname)
         )`);
 
-        // Settings Table
-        db.run(`CREATE TABLE IF NOT EXISTS settings (
+        // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
+        db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             guild_name TEXT DEFAULT '오딘 길드',
             discord_token TEXT,
@@ -178,7 +178,7 @@ function initDB() {
         )`);
 
         // Discord Bot Auth - Try auto-login
-        db.get("SELECT discord_token, discord_channel_id FROM settings WHERE id = 1", (err, row) => {
+        db.get("SELECT discord_token, discord_channel_id FROM odin_settings LIMIT 1", (err, row) => {
             if (row && row.discord_token && row.discord_channel_id) {
                 initDiscordBot(row.discord_token, row.discord_channel_id);
             }
@@ -465,7 +465,7 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
 
 // --- SETTINGS ---
 app.get('/api/settings', (req, res) => {
-    db.get("SELECT guild_name, discord_token, discord_channel_id FROM settings LIMIT 1", (err, row) => {
+    db.get("SELECT guild_name, discord_token, discord_channel_id FROM odin_settings LIMIT 1", (err, row) => {
         res.json(row || { guild_name: '오딘 길드', discord_token: '', discord_channel_id: '' });
     });
 });
@@ -475,7 +475,7 @@ app.post('/api/settings', verifyToken, (req, res) => {
     const { guild_name, discord_token, discord_channel_id } = req.body;
     
     // UPSERT style: Try to update first available row first.
-    db.get("SELECT rowid as id FROM settings LIMIT 1", (err, row) => {
+    db.get("SELECT rowid as id FROM odin_settings LIMIT 1", (err, row) => {
         if (err) {
             console.error('❌ Settings Check Error:', err.message);
             return res.status(500).json({ error: 'DB Error while checking settings: ' + err.message });
@@ -483,13 +483,10 @@ app.post('/api/settings', verifyToken, (req, res) => {
 
         if (row) {
             // Update existing row
-            db.run("UPDATE settings SET guild_name = ?, discord_token = ?, discord_channel_id = ? WHERE rowid = ?", 
+            db.run("UPDATE odin_settings SET guild_name = ?, discord_token = ?, discord_channel_id = ? WHERE rowid = ?", 
                 [guild_name, discord_token, discord_channel_id, row.id], (err) => {
                 if (err) {
                     console.error('❌ Settings Update Error:', err.message);
-                    db.all("PRAGMA table_info(settings)", (pErr, rows) => {
-                        console.log('🧐 Current Settings Schema:', JSON.stringify(rows));
-                    });
                     return res.status(500).json({ error: 'Failed to update settings: ' + err.message });
                 }
                 if (discord_token && discord_channel_id) initDiscordBot(discord_token, discord_channel_id);
@@ -497,7 +494,7 @@ app.post('/api/settings', verifyToken, (req, res) => {
             });
         } else {
             // Insert new row
-            db.run("INSERT INTO settings (guild_name, discord_token, discord_channel_id) VALUES (?, ?, ?)", 
+            db.run("INSERT INTO odin_settings (guild_name, discord_token, discord_channel_id) VALUES (?, ?, ?)", 
                 [guild_name, discord_token, discord_channel_id], (err) => {
                 if (err) {
                     console.error('❌ Settings Insert Error:', err.message);
@@ -520,7 +517,7 @@ app.post('/api/test-discord', verifyToken, async (req, res) => {
         if (!channel) return res.status(400).json({ error: 'Channel not found.' });
         
         // Fetch guild name for the message to avoid ReferenceError
-        db.get("SELECT guild_name FROM settings WHERE id = 1", async (err, row) => {
+        db.get("SELECT guild_name FROM odin_settings LIMIT 1", async (err, row) => {
             const gName = (row && row.guild_name) ? row.guild_name : '오딘 길드';
             await channel.send({ content: `${gName} 디스코드 봇 알림이 연동되었습니다! (TTS)`, tts: true });
             res.json({ success: true });
