@@ -25,8 +25,9 @@ function initDiscordBot(token, channelId) {
         discordClient.destroy();
     }
     discordChannelId = channelId;
-    // Reduced intents: Remove GuildMessages so the bot doesn't "read" other people's messages.
-    discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
+    // Restored GuildMessages for better compatibility. 
+    // PRIVACY: Make sure 'Message Content Intent' is DISABLED in Discord Developer Portal!
+    discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
     
     discordClient.once('clientReady', () => {
         console.log(`✅ Discord Bot logged in as ${discordClient.user.tag}`);
@@ -184,16 +185,25 @@ function initDB() {
                 if (rows && !rows.find(r => r.name === 'discord_enabled')) {
                     db.run("ALTER TABLE odin_settings ADD COLUMN discord_enabled INTEGER DEFAULT 1");
                 }
+                
+                // CRITICAL: Ensure at least one row exists
+                db.get("SELECT count(*) as cnt FROM odin_settings", (err, row) => {
+                    if (row && row.cnt === 0) {
+                        db.run("INSERT INTO odin_settings (guild_name, discord_enabled) VALUES ('오딘 길드', 1)");
+                    }
+                });
             });
         });
 
         // Discord Bot Auth - Try auto-login
-        db.get("SELECT discord_token, discord_channel_id, discord_enabled FROM odin_settings LIMIT 1", (err, row) => {
-            if (row && row.discord_token && row.discord_channel_id) {
-                isDiscordEnabled = row.discord_enabled !== 0;
-                initDiscordBot(row.discord_token, row.discord_channel_id);
-            }
-        });
+        setTimeout(() => {
+            db.get("SELECT discord_token, discord_channel_id, discord_enabled FROM odin_settings LIMIT 1", (err, row) => {
+                if (row && row.discord_token && row.discord_channel_id) {
+                    isDiscordEnabled = row.discord_enabled !== 0;
+                    initDiscordBot(row.discord_token, row.discord_channel_id);
+                }
+            });
+        }, 1000);
 
         // Collections Metadata Table
         db.run(`CREATE TABLE IF NOT EXISTS collections (
