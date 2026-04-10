@@ -90,7 +90,9 @@ setInterval(() => {
 }, 30000);
 
 // --- DB Setup ---
-const db = new sqlite3.Database('./database.sqlite', (err) => {
+const dbPath = path.resolve(__dirname, 'database.sqlite');
+console.log(`📂 Database Path: ${dbPath}`);
+const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database', err.message);
     } else {
@@ -485,6 +487,9 @@ app.post('/api/settings', verifyToken, (req, res) => {
                 [guild_name, discord_token, discord_channel_id, row.id], (err) => {
                 if (err) {
                     console.error('❌ Settings Update Error:', err.message);
+                    db.all("PRAGMA table_info(settings)", (pErr, rows) => {
+                        console.log('🧐 Current Settings Schema:', JSON.stringify(rows));
+                    });
                     return res.status(500).json({ error: 'Failed to update settings: ' + err.message });
                 }
                 if (discord_token && discord_channel_id) initDiscordBot(discord_token, discord_channel_id);
