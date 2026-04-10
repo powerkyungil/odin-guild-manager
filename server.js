@@ -135,7 +135,17 @@ function initDB() {
             created_by INTEGER,
             is_mung INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
+        )`, () => {
+            // Migration: Add is_mung column if it doesn't exist (for existing DBs)
+            db.all("PRAGMA table_info(boss_schedules)", (err, columns) => {
+                if (err) return;
+                const hasMung = columns.some(c => c.name === 'is_mung');
+                if (!hasMung) {
+                    db.run("ALTER TABLE boss_schedules ADD COLUMN is_mung INTEGER DEFAULT 0");
+                    console.log("✅ Database Migrated: Added 'is_mung' to boss_schedules");
+                }
+            });
+        });
 
         // User Item Collections Table
         db.run(`CREATE TABLE IF NOT EXISTS user_collections (
