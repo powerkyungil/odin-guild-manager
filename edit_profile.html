@@ -27,13 +27,6 @@
                 </div>
             </div>
 
-            <!-- Guild Name Section (Master Only) -->
-            <div id="guildNameSection" style="display: none; margin-bottom: 25px; padding: 20px; background: rgba(99, 102, 241, 0.05); border: 1px dashed rgba(99, 102, 241, 0.3); border-radius: 12px;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="guild_name" style="color: #818cf8;">길드명 관리 (길드장 전용)</label>
-                    <input type="text" id="guild_name" placeholder="메인 상단에 표시될 길드명을 입력하세요">
-                </div>
-            </div>
 
             <!-- 2. 캐릭터 정보 -->
             <div class="form-section">
@@ -214,17 +207,6 @@
                         classSelect.value = data.main_class;
                     }
 
-                    // Master specific logic
-                    if (data.role === 'MASTER') {
-                        document.getElementById('guildNameSection').style.display = 'block';
-                        try {
-                            const sRes = await fetch('/api/settings');
-                            const settings = await sRes.json();
-                            if (settings.guild_name) {
-                                document.getElementById('guild_name').value = settings.guild_name;
-                            }
-                        } catch(e) {}
-                    }
 
                     // Pre-fill equipment
                     if (data.equipment) {
@@ -303,18 +285,6 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    // Update guild name if master
-                    const guildNameInput = document.getElementById('guild_name');
-                    if (document.getElementById('guildNameSection').style.display !== 'none' && guildNameInput.value) {
-                        await fetch('/api/settings', {
-                            method: 'PUT',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ guild_name: guildNameInput.value })
-                        });
-                    }
 
                     messageDiv.style.color = '#10b981';
                     messageDiv.textContent = '정보가 수정되었습니다! 메뉴로 이동합니다.';

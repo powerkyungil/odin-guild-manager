@@ -115,6 +115,45 @@
                 height: 32px;
             }
         }
+        
+        /* Guild Settings Panel */
+        .guild-settings-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+            display: none; /* Only show for MASTER */
+        }
+        .guild-settings-card h2 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: #818cf8; }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .setting-item { display: flex; flex-direction: column; gap: 8px; }
+        .setting-item label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+        .setting-item input { 
+            background: rgba(0, 0, 0, 0.2); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 8px; 
+            padding: 10px 14px; 
+            color: white; 
+            font-size: 14px;
+            outline: none;
+            transition: 0.2s;
+        }
+        .setting-item input:focus { border-color: #818cf8; background: rgba(0, 0, 0, 0.3); }
+        .save-settings-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: 0.2s;
+            width: fit-content;
+        }
+        .save-settings-btn:hover { background: #4f46e5; transform: translateY(-1px); }
+        .discord-help { font-size: 11px; color: #a5b4fc; margin-top: 4px; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -124,13 +163,14 @@
             메뉴로 돌아가기
         </a>
 
-        <div class="auth-header" style="text-align: left; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div class="auth-header" style="text-align: left; display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
             <div>
                 <h1>길드원 명단</h1>
                 <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">길드원들의 실시간 장비 및 스킬 현황을 비교합니다.</p>
             </div>
             <div id="memberCount" style="font-size: 14px; color: var(--primary-color); font-weight: 600;">총 0명</div>
         </div>
+
 
         <div class="members-table-container">
             <table class="members-table">
@@ -153,6 +193,7 @@
 
     <script>
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const userRole = localStorage.getItem('role') || sessionStorage.getItem('role');
         if (!token) window.location.href = 'login.html';
 
         async function changeUserRole(userId, newRole) {
@@ -201,6 +242,7 @@
                 alert('서버 통신 오류');
             }
         }
+
 
         async function fetchMembers() {
             try {

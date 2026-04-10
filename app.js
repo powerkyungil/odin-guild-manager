@@ -9,6 +9,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const statsContainer = document.getElementById('stats-container');
   const currentTimeDisplay = document.getElementById('current-time-display');
 
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
+  const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
+  if (!token) window.location.href = 'login.html';
+
+  // --- Voice Notification State ---
+  const voiceToggle = document.getElementById('voice-toggle');
+  const voiceTestBtn = document.getElementById('voice-test-btn');
+  
+  // Save preference per user nickname
+  const voiceKey = `voice_enabled_${myNickname}`;
+  let voiceEnabled = localStorage.getItem(voiceKey) === 'true';
+  if (voiceToggle) voiceToggle.checked = voiceEnabled;
+  const playedVoiceKeys = new Set();
+
+  const playGoogleTTS = (text) => {
+    if (!voiceEnabled) return;
+
+    // Use Browser Native Web Speech API instead of external Google URL to avoid 404/Block issues
+    if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech to prevent overlapping/delay
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ko-KR';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        window.speechSynthesis.speak(utterance);
+    } else {
+        console.warn("Web Speech API not supported in this browser.");
+        showToast("이 브라우저는 음성 알림을 지원하지 않습니다.");
+    }
+  };
+
+  if (voiceToggle) {
+    voiceToggle.addEventListener('change', (e) => {
+      voiceEnabled = e.target.checked;
+      localStorage.setItem(voiceKey, voiceEnabled);
+      showToast(`웹 음성 알림이 ${voiceEnabled ? '켜졌습니다' : '꺼졌습니다'}`);
+    });
+  }
+
+  if (voiceTestBtn) {
+    voiceTestBtn.addEventListener('click', () => {
+      playGoogleTTS("보스 스케줄 음성 테스트입니다. 소리가 잘 들리우?");
+    });
+  }
+
   const updateImminentHighlight = () => {
     const rows = document.querySelectorAll('.schedule-row');
     const now = Date.now();
@@ -38,13 +87,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Update Countdowns
     document.querySelectorAll('.row-remaining').forEach(el => {
+      const row = el.closest('.schedule-row');
+      const bossName = row ? row.dataset.bossName : null;
       const spawnTime = parseInt(el.dataset.spawnTime);
       const diff = spawnTime - nowMs;
+
       if (diff > 0 && diff <= 59 * 60 * 1000) {
         const totalSecs = Math.floor(diff / 1000);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         el.textContent = `-${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        // --- Voice Trigger (5min and 1min) ---
+        if (bossName && secs === 0) {
+            if (mins === 5 || mins === 1) {
+                const voiceKey = `${bossName}_${mins}min`;
+                if (!playedVoiceKeys.has(voiceKey)) {
+                    playGoogleTTS(`${bossName} ${mins}분 전입니다.`);
+                    playedVoiceKeys.add(voiceKey);
+                    // Clear after 65 seconds to prevent re-triggering and keep memory clean
+                    setTimeout(() => playedVoiceKeys.delete(voiceKey), 65000);
+                }
+            }
+        }
       } else {
         el.textContent = '';
       }
@@ -131,10 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
     { type: '고정', region: '공통', boss: '지옥성채보스', timeStr: '22:30:00', days: ['목'] }
   ];
 
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
-  const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
-  if (!token) window.location.href = 'login.html';
 
   let participationTargets = [];
   let participantsMap = {};
@@ -693,6 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('div');
       row.className = `row schedule-row ${typeClass} ${isPast ? 'past-boss' : ''}`;
       row.dataset.spawnTime = item.spawnTime;
+      row.dataset.bossName = item.boss;
       row.style.animationDelay = `${Math.min(index * 0.03, 1)}s`;
       row.classList.add('animate-in');
       

@@ -792,3 +792,26 @@ h1 {
 @media (max-width: 480px) {
   .delete-row-btn { width: 28px; height: 28px; }
 }
+
+/* Voice Toggle Switch */
+.switch input:checked + .slider {
+  background-color: #10b981 !important;
+}
+.switch input:checked + .slider:before {
+  transform: translateX(16px);
+}
+.slider.round:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+.row.main.imminent {
+  border-left: 4px solid var(--primary-color) !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+}

@@ -37,6 +37,44 @@
         @media (max-width: 480px) {
             .guild-name-dynamic { font-size: 28px; }
         }
+
+        /* Guild Settings Panel (Integrated) */
+        .guild-settings-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+            text-align: left;
+        }
+        .guild-settings-card h4 { font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; color: #818cf8; }
+        .setting-item { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .setting-item label { font-size: 11px; color: var(--text-muted); font-weight: 600; display: block; }
+        .setting-item input { 
+            background: rgba(0, 0, 0, 0.2); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 6px; 
+            padding: 8px 12px; 
+            color: white; 
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .setting-item input:focus { border-color: #818cf8; }
+        .save-settings-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            font-size: 13px;
+        }
+        .discord-help { font-size: 10px; color: #a5b4fc; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -77,12 +115,36 @@
         </div>
 
         <div id="adminPanel" class="admin-panel" style="display: none;">
-            <h3 style="font-size: 16px; margin: 0 0 10px 0;">관리자 메뉴</h3>
+            <h3 style="font-size: 16px; margin: 0 0 15px 0;">관리자 메뉴</h3>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1;" onclick="generateInvite('MEMBER')">일반 길드원 초대 링크 생성</button>
-                <button id="masterOnlyInvite" class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1; background: #6366f1; display: none;" onclick="generateInvite('ADMIN')">운영진 초대 링크 생성</button>
+                <button class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1;" onclick="generateInvite('MEMBER')">일반 가입 링크 생성</button>
+                <button id="masterOnlyInvite" class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1; background: #6366f1; display: none;" onclick="generateInvite('ADMIN')">운영진 가입 링크 생성</button>
             </div>
             <div id="inviteLink" class="invite-link"></div>
+
+            <!-- Master Only Integrated Settings -->
+            <div id="masterSettingsPanel" class="guild-settings-card" style="display: none;">
+                <h4>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"/></svg>
+                    전체 설정 (길드 및 디스코드)
+                </h4>
+                <div class="setting-item">
+                    <label>길드 이름</label>
+                    <input type="text" id="guildNameInput" placeholder="오딘 길드">
+                </div>
+                <div class="setting-item">
+                    <label>디스코드 봇 토큰 (Bot Token)</label>
+                    <input type="password" id="discordTokenInput" placeholder="디스코드 개발자 포털의 토큰">
+                </div>
+                <div class="setting-item">
+                    <label>알림 전송 채널 ID (Channel ID)</label>
+                    <input type="text" id="discordChannelIdInput" placeholder="알림을 보낼 채널 ID">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="save-settings-btn" style="flex: 2;" onclick="saveGuildSettings()">설정 저장 및 봇 가동</button>
+                    <button class="save-settings-btn" style="flex: 1; background: #6b7280;" onclick="testDiscord()">테스트 알림</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -99,9 +161,7 @@
 
         if (role === 'MASTER' || role === 'ADMIN') {
             document.getElementById('adminPanel').style.display = 'block';
-            if (role === 'MASTER') {
-                document.getElementById('masterOnlyInvite').style.display = 'block';
-            }
+            document.getElementById('masterOnlyInvite').style.display = 'block';
         }
 
         async function loadSettings() {
@@ -114,8 +174,64 @@
                     el.style.display = 'block';
                     document.getElementById('guildHeader').style.display = 'block';
                     document.title = `${settings.guild_name} - 메뉴`;
+                    
+                    // Fill inputs if master or admin
+                    if (document.getElementById('guildNameInput')) {
+                        document.getElementById('guildNameInput').value = settings.guild_name;
+                        document.getElementById('discordTokenInput').value = settings.discord_token || '';
+                        document.getElementById('discordChannelIdInput').value = settings.discord_channel_id || '';
+                        if (role === 'MASTER' || role === 'ADMIN') {
+                            document.getElementById('masterSettingsPanel').style.display = 'block';
+                        }
+                    }
                 }
             } catch(e) {}
+        }
+
+        async function saveGuildSettings() {
+            if (role !== 'MASTER' && role !== 'ADMIN') return;
+            const guild_name = document.getElementById('guildNameInput').value;
+            const discord_token = document.getElementById('discordTokenInput').value;
+            const discord_channel_id = document.getElementById('discordChannelIdInput').value;
+
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ guild_name, discord_token, discord_channel_id })
+                });
+                if (res.ok) {
+                    alert('길드 설정 및 디스코드 정보가 저장되었습니다.');
+                    location.reload();
+                } else {
+                    alert('저장에 실패했습니다.');
+                }
+            } catch (err) {
+                alert('서버 통신 오류');
+            }
+        }
+
+        async function testDiscord() {
+            if (role !== 'MASTER' && role !== 'ADMIN') return;
+            try {
+                const res = await fetch('/api/test-discord', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('디스코드로 테스트 메시지를 보냈습니다! 채널을 확인하세요.');
+                } else {
+                    alert('테스트 실패: ' + data.error);
+                }
+            } catch (err) {
+                alert('서버 통신 오류');
+            }
         }
         loadSettings();
 

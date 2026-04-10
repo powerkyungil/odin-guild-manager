@@ -69,6 +69,19 @@
           <div class="toolbar">
             <div class="toolbar-left">
               <div class="chip">실시간 동기화 중...</div>
+              <div class="voice-control-group" style="display: flex; align-items: center; gap: 8px; margin-left: 12px;">
+                <button id="voice-test-btn" class="action-btn" title="음성 테스트" style="padding: 4px 8px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                  음성 테스트
+                </button>
+                <div class="voice-toggle-wrapper" style="display: flex; align-items: center; gap: 4px;">
+                  <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 18px;">
+                    <input type="checkbox" id="voice-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                    <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 34px;"></span>
+                  </label>
+                  <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">웹 음성 알림</span>
+                </div>
+              </div>
             </div>
             
             <div class="toolbar-actions" style="display: flex; gap: 10px;">
