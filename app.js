@@ -126,8 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { type: '고정', region: '공통', boss: '정예몬스터', timeStr: '19:00:00', days: ['월','화','수','목','금','토','일'] },
     { type: '고정', region: '공통', boss: '니다 닻', timeStr: '18:30:00', days: ['수'] },
     { type: '고정', region: '공통', boss: '알브 닻', timeStr: '20:30:00', days: ['수'] },
-    { type: '고정', region: '공통', boss: '무스펠 닻', timeStr: '22:30:00', days: ['수'] },
     { type: '고정', region: '공통', boss: '성채보스', timeStr: '21:30:00', days: ['화','목'] },
+    { type: '고정', region: '공통', boss: '무스펠 닻', timeStr: '22:30:00', days: ['수'] },
     { type: '고정', region: '공통', boss: '지옥성채보스', timeStr: '22:30:00', days: ['목'] }
   ];
 
@@ -707,12 +707,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const isLate = timeUntilSpawn < -5 * 60 * 1000; // 5 mins after
 
           if (IJoined) {
-              // Always show list if joined
-              participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: var(--primary-color); border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+              // Show list (Grey unified UI)
+              participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
           } else if (isSoon && !isLate) {
-              participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b181; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
-          } else if (list.length > 0) {
-              // If not joined and late, but there are participants, show list button so they can see who came
+              // Within join window, not yet joined (Keep green for action)
+              participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
+          } else if (isLate) {
+              // After window, allow viewing the list even if not joined (Grey unified UI)
               participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
           }
       }
@@ -739,6 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ${!isPast && !item.isFixed ? `<div class="row-remaining" data-spawn-time="${item.spawnTime}">${remainingStr}</div>` : ''}
           ${!item.isFixed ? `
             <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
+            ${isPast && item.type !== '침공' ? `<button class="mung-btn" style="background: #a855f7; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">멍</button>` : ''}
           ` : ''}
           <div class="spawn-time" style="white-space: nowrap;">${timeLabel}</div>
           <button class="delete-row-btn" aria-label="삭제" style="flex-shrink: 0; margin-left: 0;">
@@ -750,6 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       const cutBtn = row.querySelector('.cut-btn');
+      const mungBtn = row.querySelector('.mung-btn');
       
       const pBtn = row.querySelector('.p-btn');
       if (pBtn) {
@@ -774,6 +777,33 @@ document.addEventListener('DOMContentLoaded', () => {
               } else {
                   cutBoss(item);
               }
+          });
+      }
+
+      if (mungBtn) {
+          mungBtn.addEventListener('click', async () => {
+              try {
+                  const res = await fetch('/api/schedules/mung', {
+                      method: 'POST',
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ 
+                        type: item.type, 
+                        region: item.region, 
+                        boss: item.boss, 
+                        currentSpawnTime: item.spawnTime 
+                      })
+                  });
+                  if (res.ok) {
+                      showToast(`${item.boss} 멍 처리 완료!`);
+                      fetchSchedules();
+                  } else {
+                      const data = await res.json();
+                      alert(data.error || '처리 실패');
+                  }
+              } catch (err) { console.error(err); }
           });
       }
 

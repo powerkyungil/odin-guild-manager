@@ -292,19 +292,34 @@ app.get('/api/users', verifyToken, (req, res) => {
 
 // Boss Cooldown Mapping (in seconds)
 const BOSS_TIMERS = {
-    "4층분노의모네가름": 12 * 3600, "스칼라니르": 12 * 3600, "니드호그": 12 * 3600, "라이노르": 12 * 3600,
-    "라타토스크": 12 * 3600, "바우티": 12 * 3600, "야른": 12 * 3600, "브륀힐드": 12 * 3600,
-    "비요른": 12 * 3600, "셀로비아": 12 * 3600, "수드리": 12 * 3600, "페티": 12 * 3600,
+    // 12시간 (012:00:00)
+    "4층분노의모네가름": 12 * 3600, "스칼라니르": 12 * 3600, "니드호그": 12 * 3600, 
+    "라이노르": 12 * 3600, "라타토스크": 12 * 3600, "바우티": 12 * 3600, 
+    "야른": 12 * 3600, "브륀힐드": 12 * 3600, "비요른": 12 * 3600, 
+    "셀로비아": 12 * 3600, "수드리": 12 * 3600, "페티": 12 * 3600, 
     "파르바": 12 * 3600, "헤르모드": 12 * 3600, "흐니르": 12 * 3600,
+    
+    // 24시간 (024:00:00)
     "7층나태의드라우그": 24 * 3600, "굴베이그": 24 * 3600, "두라스로르": 24 * 3600,
     "드라우그": 24 * 3600, "스바르트": 24 * 3600, "모네가름": 24 * 3600,
+    
+    // 36시간 (036:00:00)
     "우로보로스": 36 * 3600, "10층다인홀로크": 36 * 3600, "최하층강글": 36 * 3600,
     "메기르": 36 * 3600, "탕그리스니르": 36 * 3600, "최하층굴베": 36 * 3600,
     "헤르가름": 36 * 3600, "신마라": 36 * 3600, "엘드룬": 36 * 3600,
+    
+    // 48시간 (048:00:00)
     "발리": 48 * 3600, "샤무크": 48 * 3600, "스칼드메르": 48 * 3600, "노트": 48 * 3600, "그로아": 48 * 3600,
+    
+    // 60시간 (060:00:00)
     "헤이드": 60 * 3600, "호드": 60 * 3600, "히로킨": 60 * 3600,
-    "수르트": 72 * 3600, "오딘": 72 * 3600, "최하층스네르": 72 * 3600, "토르": 72 * 3600, "티르": 72 * 3600, "미미르": 72 * 3600,
-    "이미르": 44 * 3600
+    
+    // 72시간 (072:00:00)
+    "수르트": 72 * 3600, "오딘": 72 * 3600, "최하층스네르": 72 * 3600, 
+    "토르": 72 * 3600, "티르": 72 * 3600, "미미르": 72 * 3600,
+    
+    // 120시간 (120:00:00)
+    "이미르": 120 * 3600
 };
 
 // 7. Get All Schedules
@@ -346,7 +361,6 @@ app.post('/api/schedules/cut', verifyToken, (req, res) => {
     const { type, region, boss } = req.body;
     if (!type || !region || !boss) return res.status(400).json({ error: 'Missing data.' });
 
-    // Invasion bosses are manual only
     if (type === '침공') return res.status(400).json({ error: 'Invasion bosses do not support auto-cut.' });
 
     const cooldown = BOSS_TIMERS[boss];
@@ -354,18 +368,42 @@ app.post('/api/schedules/cut', verifyToken, (req, res) => {
 
     const spawnTime = Date.now() + (cooldown * 1000);
 
-    // Remove existing future entry for this boss to avoid duplicates
-    db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ? AND spawnTime > ?", 
-        [boss, region, type, Date.now() - 60000], (err) => {
+    db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", 
+        [boss, region, type], (err) => {
         if (err) console.error(err);
         
-        // Target Boss initialization on Cut command
         db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
 
         db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)",
             [type, region, boss, spawnTime, req.userId], function(err) {
                 if (err) return res.status(500).json({ error: 'Failed to record cut.' });
                 res.json({ success: true, nextSpawn: spawnTime });
+            }
+        );
+    });
+});
+
+app.post('/api/schedules/mung', verifyToken, (req, res) => {
+    const { type, region, boss, currentSpawnTime } = req.body;
+    if (!type || !region || !boss || !currentSpawnTime) return res.status(400).json({ error: 'Missing data.' });
+
+    if (type === '침공') return res.status(400).json({ error: 'Invasion bosses do not support auto-scheduling.' });
+
+    const cooldown = BOSS_TIMERS[boss];
+    if (!cooldown) return res.status(400).json({ error: 'No cooldown data for this boss.' });
+
+    const nextSpawn = parseInt(currentSpawnTime) + (cooldown * 1000);
+
+    db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", 
+        [boss, region, type], (err) => {
+        if (err) console.error(err);
+        
+        db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
+
+        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by) VALUES (?, ?, ?, ?, ?)",
+            [type, region, boss, nextSpawn, req.userId], function(err) {
+                if (err) return res.status(500).json({ error: 'Failed to record mung.' });
+                res.json({ success: true, nextSpawn: nextSpawn });
             }
         );
     });
