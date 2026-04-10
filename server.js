@@ -474,13 +474,19 @@ app.post('/api/settings', verifyToken, (req, res) => {
     
     // UPSERT style: Try to update row 1 first. If not found, insert.
     db.get("SELECT id FROM settings LIMIT 1", (err, row) => {
-        if (err) return res.status(500).json({ error: 'DB Error while checking settings' });
+        if (err) {
+            console.error('❌ Settings Check Error:', err.message);
+            return res.status(500).json({ error: 'DB Error while checking settings: ' + err.message });
+        }
 
         if (row) {
             // Update existing row
             db.run("UPDATE settings SET guild_name = ?, discord_token = ?, discord_channel_id = ? WHERE id = ?", 
                 [guild_name, discord_token, discord_channel_id, row.id], (err) => {
-                if (err) return res.status(500).json({ error: 'Failed to update settings' });
+                if (err) {
+                    console.error('❌ Settings Update Error:', err.message);
+                    return res.status(500).json({ error: 'Failed to update settings: ' + err.message });
+                }
                 if (discord_token && discord_channel_id) initDiscordBot(discord_token, discord_channel_id);
                 res.json({ success: true });
             });
@@ -488,7 +494,10 @@ app.post('/api/settings', verifyToken, (req, res) => {
             // Insert new row
             db.run("INSERT INTO settings (guild_name, discord_token, discord_channel_id) VALUES (?, ?, ?)", 
                 [guild_name, discord_token, discord_channel_id], (err) => {
-                if (err) return res.status(500).json({ error: 'Failed to insert settings' });
+                if (err) {
+                    console.error('❌ Settings Insert Error:', err.message);
+                    return res.status(500).json({ error: 'Failed to insert settings: ' + err.message });
+                }
                 if (discord_token && discord_channel_id) initDiscordBot(discord_token, discord_channel_id);
                 res.json({ success: true });
             });
