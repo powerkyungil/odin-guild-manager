@@ -463,7 +463,7 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
 
 // --- SETTINGS ---
 app.get('/api/settings', (req, res) => {
-    db.get("SELECT guild_name, discord_token, discord_channel_id FROM settings WHERE id = 1", (err, row) => {
+    db.get("SELECT guild_name, discord_token, discord_channel_id FROM settings LIMIT 1", (err, row) => {
         res.json(row || { guild_name: '오딘 길드', discord_token: '', discord_channel_id: '' });
     });
 });
