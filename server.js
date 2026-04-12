@@ -30,11 +30,10 @@ function initDiscordBot(token, channelId) {
     discordClient = new Client({ intents: [GatewayIntentBits.Guilds] });
 
     discordClient.once('clientReady', () => {
-        console.log(`✅ Discord Bot logged in as ${discordClient.user.tag}`);
+        // Log removed
     });
 
     discordClient.login(token).catch(err => {
-        console.error('❌ Discord login failed:', err.message);
         discordClient = null;
     });
 }
@@ -51,7 +50,6 @@ setInterval(() => {
 
     db.all("SELECT id, boss, spawnTime FROM boss_schedules WHERE spawnTime > ? AND spawnTime <= ?", [windowMin, windowMax], (err, bosses) => {
         if (err) {
-            console.error('❌ Polling DB Error:', err.message);
             return;
         }
         if (bosses && bosses.length > 0) {
@@ -78,13 +76,12 @@ setInterval(() => {
                             .then(channel => {
                                 if (channel) {
                                     channel.send({ content, tts: true }).then(() => {
-                                        console.log(`✅ [${alertType}] TTS Sent for ${b.boss}`);
                                         notifiedBosses.add(notifyKey);
                                         // Auto cleanup after 15 mins
                                         setTimeout(() => notifiedBosses.delete(notifyKey), 15 * 60 * 1000);
-                                    }).catch(e => console.error('❌ Send Err:', e.message));
+                                    }).catch(e => {});
                                 }
-                            }).catch(err => console.error('❌ Fetch Err:', err.message));
+                            }).catch(err => {});
                     }
                 }
             });
@@ -94,12 +91,10 @@ setInterval(() => {
 
 // --- DB Setup ---
 const dbPath = path.resolve(__dirname, 'database.sqlite');
-console.log(`📂 Database Path: ${dbPath}`);
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-        console.error('Error opening database', err.message);
+        // Error opening database
     } else {
-        console.log('Connected to the SQLite database.');
         initDB();
     }
 });
@@ -147,7 +142,6 @@ function initDB() {
                 const hasMung = columns.some(c => c.name === 'is_mung');
                 if (!hasMung) {
                     db.run("ALTER TABLE boss_schedules ADD COLUMN is_mung INTEGER DEFAULT 0");
-                    console.log("✅ Database Migrated: Added 'is_mung' to boss_schedules");
                 }
             });
         });
@@ -228,11 +222,10 @@ function initDB() {
                                     const stmt = db.prepare("INSERT INTO collections (name, items) VALUES (?, ?)");
                                     collections.forEach(c => stmt.run([c.name, JSON.stringify(c.items)]));
                                     stmt.finalize();
-                                    console.log(`✅ Seeded ${collections.length} collections`);
                                 }
                             }
                         } catch (e) {
-                            console.error('Error seeding collections:', e);
+                            // Error seeding collections
                         }
                     }
                 });
@@ -270,7 +263,7 @@ app.post('/api/login', (req, res) => {
         if (err || !user) return res.status(401).json({ error: 'Invalid credentials.' });
         const isValid = bcrypt.compareSync(password, user.password_hash);
         if (!isValid) return res.status(401).json({ error: 'Invalid credentials.' });
-        const token = jwt.sign({ id: user.id, role: user.role, username: user.username, nickname: user.nickname }, JWT_SECRET, { expiresIn: '24h' });
+        const token = jwt.sign({ id: user.id, role: user.role, username: user.username, nickname: user.nickname }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, role: user.role, username: user.username, userId: user.id, nickname: user.nickname });
     });
 });
@@ -498,7 +491,6 @@ app.post('/api/settings', verifyToken, (req, res) => {
     // UPSERT style: Try to update first available row first.
     db.get("SELECT rowid as id FROM odin_settings LIMIT 1", (err, row) => {
         if (err) {
-            console.error('❌ Settings Check Error:', err.message);
             return res.status(500).json({ error: 'DB Error while checking settings: ' + err.message });
         }
 
@@ -507,7 +499,6 @@ app.post('/api/settings', verifyToken, (req, res) => {
             db.run("UPDATE odin_settings SET guild_name = ?, discord_token = ?, discord_channel_id = ?, discord_enabled = ? WHERE rowid = ?",
                 [guild_name, discord_token, discord_channel_id, discord_enabled, row.id], (err) => {
                     if (err) {
-                        console.error('❌ Settings Update Error:', err.message);
                         return res.status(500).json({ error: 'Failed to update settings: ' + err.message });
                     }
                     isDiscordEnabled = parseInt(discord_enabled) === 1;
@@ -546,7 +537,6 @@ app.post('/api/test-discord', verifyToken, async (req, res) => {
             res.json({ success: true });
         });
     } catch (err) {
-        console.error('❌ Test Discord Error Details:', err);
         res.status(500).json({ error: `Discord Error: ${err.message}. Please check if the bot is in the server AND the Channel ID is correct.` });
     }
 });
@@ -556,5 +546,5 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    // Server running
 });

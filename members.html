@@ -249,6 +249,11 @@
                 const res = await fetch('/api/users', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) {
+                    alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+                    window.location.href = 'login.html';
+                    return;
+                }
                 if (!res.ok) throw new Error('Unauthorized');
                 
                 let users = await res.json();
@@ -259,7 +264,9 @@
                 document.getElementById('memberCount').textContent = `총 ${users.length}명`;
             } catch (err) {
                 console.error(err);
-                alert('데이터를 불러오는데 실패했습니다.');
+                if (err.message !== 'Unauthorized') {
+                    alert('데이터를 불러오는데 실패했습니다.');
+                }
             }
         }
 

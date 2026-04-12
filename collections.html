@@ -260,22 +260,32 @@
 
                 // Metadata
                 const cRes = await fetch('/api/collections', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (cRes.status === 401) return handleAuthError();
                 collectionsData = await cRes.json();
 
                 // Members
                 const mRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (mRes.status === 401) return handleAuthError();
                 members = await mRes.json();
                 members = members.filter(m => m.nickname).sort((a,b) => b.combat_power - a.combat_power);
 
                 // Progress
                 const sRes = await fetch('/api/user-collections', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (sRes.status === 401) return handleAuthError();
                 statusData = await sRes.json();
 
                 renderTable();
             } catch (err) {
                 console.error(err);
-                alert('데이터를 불러오는데 실패했습니다.');
+                if (err.message !== 'Unauthorized') {
+                    alert('데이터를 불러오는데 실패했습니다.');
+                }
             }
+        }
+
+        function handleAuthError() {
+            alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+            window.location.href = 'login.html';
         }
 
         function createHeaderRow(members, collName, collId) {
