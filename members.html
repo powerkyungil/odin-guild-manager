@@ -326,6 +326,7 @@
                                 if (item.color === 'hero') cls = 'equip-hero';
                                 else if (item.color === 'legend') cls = 'equip-legend';
                                 else if (item.color === 'mythic') cls = 'equip-mythic';
+                                else if (item.color === 'none') cls = ''; // Explicitly no color
                                 else cls = getEnchantClass(val);
                             } else {
                                 val = item;

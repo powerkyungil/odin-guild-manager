@@ -347,8 +347,8 @@ body {
 .color-btn.none { background: #475569; color: transparent; }
 .color-btn.hero { background: #d946ef; color: #d946ef; }
 .color-btn.legend { background: #fbbf24; color: #fbbf24; }
-.color-btn.mythic { background: #f97316; color: #f97316; }
+.color-btn.mythic { background: #f43f5e; color: #f43f5e; }
 
 .equip-hero { color: #d946ef !important; text-shadow: 0 0 5px rgba(217, 70, 239, 0.3); }
 .equip-legend { color: #fbbf24 !important; text-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
-.equip-mythic { color: #f97316 !important; text-shadow: 0 0 8px rgba(249, 115, 22, 0.4); }
+.equip-mythic { color: #f43f5e !important; text-shadow: 0 0 8px rgba(244, 63, 94, 0.4); }
