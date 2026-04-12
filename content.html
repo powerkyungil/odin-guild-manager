@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컨텐츠 참여 - 그룹 빌더</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        :root {
+            --sidebar-width: 320px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            background: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            flex-direction: row;
+            align-items: stretch; /* Full height for children */
+        }
+
+        /* Standard Back Link Style */
+        .back-link { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            margin-bottom: 20px; 
+            font-size: 14px; 
+            transition: 0.2s; 
+        }
+        .back-link:hover { color: var(--text-light); }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #1e293b;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .sidebar-header h2 { margin: 15px 0 0; font-size: 18px; color: var(--primary-color); }
+        .sidebar-header p { margin: 5px 0 0; font-size: 12px; color: var(--text-muted); }
+        
+        .member-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .member-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: grab;
+            transition: 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .member-item:hover { background: rgba(255,255,255,0.08); border-color: var(--primary-color); }
+        .member-item:active { cursor: grabbing; }
+        .member-item .nick { font-weight: 600; font-size: 14px; }
+        .member-item .info { font-size: 11px; color: var(--text-muted); }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .btn-create {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-create:hover { background: #4f46e5; transform: translateY(-1px); }
+
+        .groups-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* Group Card Styles */
+        .group-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px dashed rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: 0.3s;
+        }
+        .group-card.drag-over {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary-color);
+            transform: scale(1.02);
+        }
+        .group-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .group-name { font-weight: 700; font-size: 16px; color: #818cf8; }
+        .btn-delete { background: none; border: none; color: #f87171; cursor: pointer; font-size: 12px; }
+
+        .group-members {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+        .placed-member {
+            background: #1e293b;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .remove-member { cursor: pointer; color: #94a3b8; font-size: 14px; }
+        .remove-member:hover { color: #f87171; }
+
+        .empty-hint {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 20px;
+            border: 1px dashed rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        /* Filter Row */
+        .filter-row {
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.1);
+        }
+        .filter-row input {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            display: block; /* Ensure full width */
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; overflow: auto; height: auto; align-items: stretch; }
+            .sidebar { 
+                width: 100%; 
+                height: auto; 
+                max-height: 400px;
+                flex: none;
+                border-right: none; 
+                border-bottom: 1px solid rgba(255,255,255,0.1); 
+                position: relative;
+            }
+            .sidebar-header { padding: 15px; }
+            .member-list { height: 250px; padding: 10px; }
+            .main-content { padding: 20px; flex: 1; }
+            .groups-container { grid-template-columns: 1fr; }
+            .back-link { margin-bottom: 10px; padding: 5px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <a href="menu.html" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                메뉴로 돌아가기
+            </a>
+            <h2>길드원 목록</h2>
+            <p>멤버를 드래그하여 배치하세요.</p>
+        </div>
+        <div class="filter-row">
+            <input type="text" id="memberSearch" placeholder="닉네임 검색..." onkeyup="filterMembers()">
+        </div>
+        <div class="member-list" id="memberList">
+            <!-- Members injected here -->
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="main-header">
+            <h1>컨텐츠 참여 그룹 빌더</h1>
+            <button class="btn-create" onclick="createNewGroup()">+ 새 그룹 생성</button>
+        </div>
+        
+        <div class="groups-container" id="groupsContainer">
+            <!-- Groups injected here -->
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) window.location.href = 'login.html';
+
+        let allMembers = [];
+        let groups = [];
+        let isAdmin = false;
+
+        async function init() {
+            try {
+                // Fetch user info to check role
+                const meRes = await fetch('/api/users/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (meRes.status === 401) return logout();
+                if (meRes.ok) {
+                    const me = await meRes.json();
+                    isAdmin = (me.role === 'MASTER' || me.role === 'ADMIN');
+                }
+
+                if (!isAdmin) {
+                    document.querySelector('.btn-create').style.display = 'none';
+                    document.querySelector('.sidebar-header p').innerText = '배치 현황을 조회할 수 있습니다.';
+                }
+
+                // Fetch members
+                const mRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!mRes.ok) throw new Error(`멤버 목록 로드 실패 (${mRes.status})`);
+                allMembers = await mRes.json();
+                allMembers = allMembers.filter(m => m.nickname).sort((a,b) => b.combat_power - a.combat_power);
+
+                // Fetch groups
+                const gRes = await fetch('/api/groups', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!gRes.ok) throw new Error(`그룹 정보 로드 실패 (${gRes.status})`);
+                groups = await gRes.json();
+
+                renderMembers();
+                renderGroups();
+            } catch (err) {
+                console.error(err);
+                alert('데이터를 불러오는데 실패했습니다: ' + err.message);
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        function renderMembers() {
+            const list = document.getElementById('memberList');
+            list.innerHTML = '';
+            
+            const assignedIds = new Set();
+            groups.forEach(g => g.memberIds.forEach(id => assignedIds.add(id)));
+
+            allMembers.forEach(m => {
+                if (assignedIds.has(m.id)) return;
+
+                const item = document.createElement('div');
+                item.className = 'member-item';
+                item.draggable = isAdmin;
+                if (!isAdmin) item.style.cursor = 'default';
+                item.dataset.userId = m.id;
+                
+                item.innerHTML = `
+                    <div class="nick">${m.nickname}</div>
+                    <div class="info">${m.main_class || m.occupation || 'N/A'} | ${Math.floor(m.combat_power/10000)}만</div>
+                `;
+
+                if (isAdmin) {
+                    item.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('userId', m.id);
+                        e.dataTransfer.setData('sourceGroupId', 'sidebar');
+                    });
+                }
+
+                list.appendChild(item);
+            });
+        }
+
+        function filterMembers() {
+            const val = document.getElementById('memberSearch').value.toUpperCase();
+            const items = document.querySelectorAll('.member-item');
+            items.forEach(item => {
+                const nick = item.querySelector('.nick').innerText.toUpperCase();
+                item.style.display = nick.includes(val) ? '' : 'none';
+            });
+        }
+
+        function renderGroups() {
+            const container = document.getElementById('groupsContainer');
+            container.innerHTML = '';
+
+            if (groups.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 100px; color: var(--text-muted);">${isAdmin ? '생성된 그룹이 없습니다. "새 그룹 생성" 버튼을 눌러주세요.' : '생성된 그룹이 없습니다.'}</div>`;
+                return;
+            }
+
+            groups.forEach(g => {
+                const card = document.createElement('div');
+                card.className = 'group-card';
+                card.dataset.groupId = g.id;
+
+                card.innerHTML = `
+                    <div class="group-card-header">
+                        <div class="group-name" ${isAdmin ? 'contenteditable="true"' : ''} onblur="updateGroupName(${g.id}, this.innerText)">${g.name}</div>
+                        ${isAdmin ? `<button class="btn-delete" onclick="deleteGroup(${g.id})">삭제</button>` : ''}
+                    </div>
+                    <div class="group-members" id="group-members-${g.id}">
+                        <!-- Members here -->
+                    </div>
+                `;
+
+                const memberList = card.querySelector('.group-members');
+                if (g.memberIds.length === 0) {
+                    memberList.innerHTML = `<div class="empty-hint">${isAdmin ? '여기에 멤버를 드롭하세요' : '비어 있음'}</div>`;
+                } else {
+                    g.memberIds.forEach(uid => {
+                        const m = allMembers.find(member => member.id === uid);
+                        if (m) {
+                            const div = document.createElement('div');
+                            div.className = 'placed-member';
+                            div.draggable = isAdmin;
+                            if (!isAdmin) div.style.cursor = 'default';
+                            div.innerHTML = `
+                                <span>${m.nickname} <small style="color:#64748b; font-size:10px;">(${m.main_class || m.occupation})</small></span>
+                                ${isAdmin ? `<span class="remove-member" onclick="removeMemberFromGroup(${g.id}, ${m.id})">&times;</span>` : ''}
+                            `;
+                            
+                            if (isAdmin) {
+                                div.addEventListener('dragstart', (e) => {
+                                    e.dataTransfer.setData('userId', m.id);
+                                    e.dataTransfer.setData('sourceGroupId', g.id);
+                                });
+                            }
+
+                            memberList.appendChild(div);
+                        }
+                    });
+                }
+
+                if (isAdmin) {
+                    card.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        card.classList.add('drag-over');
+                    });
+                    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+                    card.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        card.classList.remove('drag-over');
+                        const userId = parseInt(e.dataTransfer.getData('userId'));
+                        const sourceGroupId = e.dataTransfer.getData('sourceGroupId');
+                        handleMemberMove(userId, sourceGroupId, g.id);
+                    });
+                }
+
+                container.appendChild(card);
+            });
+        }
+
+        async function createNewGroup() {
+            if (!isAdmin) return;
+            const name = prompt('그룹 이름을 입력하세요:', '새 그룹');
+            if (!name) return;
+            try {
+                const res = await fetch('/api/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                    const newGroup = await res.json();
+                    groups.push({ ...newGroup, memberIds: [] });
+                    renderGroups();
+                }
+            } catch (err) { alert('그룹 생성 실패'); }
+        }
+
+        async function updateGroupName(id, newName) {
+            if (!isAdmin) return;
+            try {
+                await fetch(`/api/groups/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name: newName })
+                });
+            } catch (err) { console.error('Name update failed', err); }
+        }
+
+        async function deleteGroup(id) {
+            if (!isAdmin) return;
+            if (!confirm('그룹을 삭제하시겠습니까?')) return;
+            try {
+                const res = await fetch(`/api/groups/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    groups = groups.filter(g => g.id !== id);
+                    renderMembers();
+                    renderGroups();
+                }
+            } catch (err) { alert('그룹 삭제 실패'); }
+        }
+
+        async function handleMemberMove(userId, sourceGroupId, targetGroupId) {
+            if (!isAdmin) return;
+            if (sourceGroupId === targetGroupId.toString()) return;
+
+            if (sourceGroupId !== 'sidebar') {
+                const sId = parseInt(sourceGroupId);
+                const sGroup = groups.find(g => g.id === sId);
+                if (sGroup) {
+                    const newUserIds = sGroup.memberIds.filter(id => id !== userId);
+                    await saveGroupMembersSilently(sId, newUserIds);
+                    sGroup.memberIds = newUserIds;
+                }
+            }
+
+            const tGroup = groups.find(g => g.id === targetGroupId);
+            if (tGroup && !tGroup.memberIds.includes(userId)) {
+                const newUserIds = [...tGroup.memberIds, userId];
+                await saveGroupMembersSilently(targetGroupId, newUserIds);
+                tGroup.memberIds = newUserIds;
+            }
+
+            renderMembers();
+            renderGroups();
+        }
+
+        async function removeMemberFromGroup(groupId, userId) {
+            if (!isAdmin) return;
+            const g = groups.find(group => group.id === groupId);
+            if (!g) return;
+            
+            const newUserIds = g.memberIds.filter(id => id !== userId);
+            await saveGroupMembersSilently(groupId, newUserIds);
+            g.memberIds = newUserIds;
+            renderMembers();
+            renderGroups();
+        }
+
+        async function saveGroupMembersSilently(groupId, userIds) {
+            try {
+                await fetch(`/api/groups/${groupId}/members`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userIds })
+                });
+            } catch (err) { 
+                console.error('Save failed', err);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

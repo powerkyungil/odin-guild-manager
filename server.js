@@ -166,6 +166,21 @@ function initDB() {
             PRIMARY KEY (boss, nickname)
         )`);
 
+        // Content Groups Table (New)
+        db.run(`CREATE TABLE IF NOT EXISTS content_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Group Members Table (New)
+        db.run(`CREATE TABLE IF NOT EXISTS group_members (
+            group_id INTEGER,
+            user_id INTEGER,
+            PRIMARY KEY (group_id, user_id),
+            FOREIGN KEY (group_id) REFERENCES content_groups(id) ON DELETE CASCADE
+        )`);
+
         // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
         db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -474,6 +489,70 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
             db.run("DELETE FROM users WHERE id = ?", [req.params.id]);
             db.run("COMMIT", () => res.json({ success: true }));
         });
+    });
+});
+
+// --- CONTENT GROUPS API ---
+app.get('/api/groups', verifyToken, (req, res) => {
+    db.all(`
+        SELECT g.id, g.name, IFNULL(GROUP_CONCAT(gm.user_id), '') as memberIds
+        FROM content_groups g
+        LEFT JOIN group_members gm ON g.id = gm.group_id
+        GROUP BY g.id
+    `, (err, rows) => {
+        if (err) {
+            console.error('❌ GET /api/groups Error:', err.message);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows.map(r => ({
+            id: r.id,
+            name: r.name,
+            memberIds: r.memberIds ? r.memberIds.split(',').map(Number) : []
+        })));
+    });
+});
+
+app.post('/api/groups', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { name } = req.body;
+    db.run("INSERT INTO content_groups (name) VALUES (?)", [name || '새 그룹'], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: this.lastID, name: name || '새 그룹' });
+    });
+});
+
+app.put('/api/groups/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { name } = req.body;
+    db.run("UPDATE content_groups SET name = ? WHERE id = ?", [name, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+app.delete('/api/groups/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const groupId = req.params.id;
+    db.serialize(() => {
+        db.run("DELETE FROM group_members WHERE group_id = ?", [groupId]);
+        db.run("DELETE FROM content_groups WHERE id = ?", [groupId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
+    });
+});
+
+app.post('/api/groups/:id/members', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const groupId = req.params.id;
+    const { userIds } = req.body; // Array of user IDs
+    db.serialize(() => {
+        db.run("DELETE FROM group_members WHERE group_id = ?", [groupId]);
+        if (userIds && userIds.length > 0) {
+            const stmt = db.prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)");
+            userIds.forEach(uid => stmt.run(groupId, uid));
+            stmt.finalize();
+        }
+        res.json({ success: true });
     });
 });
 
