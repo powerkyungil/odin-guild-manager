@@ -89,7 +89,12 @@ setInterval(() => {
     });
 }, 30000);
 
-// --- DB Setup ---
+// --- Public API ---
+app.get('/api/time', (req, res) => {
+    res.json({ serverTime: Date.now() });
+});
+
+// --- Auth Routes ---
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {

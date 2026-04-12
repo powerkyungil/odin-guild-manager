@@ -14,6 +14,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
   if (!token) window.location.href = 'login.html';
 
+  // --- Server Time Sync ---
+  let serverTimeOffset = 0;
+  async function syncServerTime() {
+    try {
+      const start = Date.now();
+      const res = await fetch('/api/time');
+      const data = await res.json();
+      const end = Date.now();
+      const rtt = end - start;
+      // Offset = (ServerTime + RTT/2) - ClientTime
+      serverTimeOffset = (data.serverTime + (rtt / 2)) - end;
+    } catch (e) {
+      console.warn("Failed to sync server time, using local time.");
+    }
+  }
+  syncServerTime();
+  // Sync every 5 minutes to stay accurate
+  setInterval(syncServerTime, 5 * 60 * 1000);
+
+  function getNow() {
+    return new Date(Date.now() + serverTimeOffset);
+  }
+
   // --- Voice Notification State ---
   const voiceToggle = document.getElementById('voice-toggle');
   const voiceTestBtn = document.getElementById('voice-test-btn');
@@ -60,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateImminentHighlight = () => {
     const rows = document.querySelectorAll('.schedule-row');
-    const now = Date.now();
+    const now = getNow().getTime();
     let foundImminent = false;
     
     rows.forEach(row => {
@@ -74,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const updateSystemTimers = () => {
-    const now = new Date();
+    const now = getNow();
     const nowMs = now.getTime();
 
     // 1. Update Main Clock
@@ -579,11 +602,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const injectFixedEventsInto = (schedules) => {
     const daysArr = ['일','월','화','수','목','금','토'];
-    const nowLocalDate = new Date();
+    const nowLocalDate = getNow();
     
     // Inject for Today and Tomorrow (24h+ rolling window)
     for (let i = 0; i <= 1; i++) {
-        const targetDate = new Date();
+        const targetDate = getNow();
         targetDate.setDate(targetDate.getDate() + i);
         const label = daysArr[targetDate.getDay()];
 
@@ -595,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tDate.setHours(h, m, s, 0);
             
             // Only add if it's in the future or within the last 30 mins
-            const now = Date.now();
+            const now = getNow().getTime();
             if (tDate.getTime() < now - 30 * 60 * 1000) return;
 
             const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === tDate.getTime());
@@ -641,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!hasError) {
-        if (!baseMs) baseMs = Date.now();
+        if (!baseMs) baseMs = getNow().getTime();
 
         form.querySelectorAll('.boss-input').forEach(bInput => {
           bInput.classList.remove('invalid');
@@ -704,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    const now = Date.now();
+    const now = getNow().getTime();
     // Logic: Future bosses + specialized past bosses
     const futureBosses = schedules.filter(s => s.spawnTime > now);
     
@@ -731,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const hh = String(spawnDate.getHours()).padStart(2, '0');
       const mm = String(spawnDate.getMinutes()).padStart(2, '0');
       
-      const nowDay = new Date();
+      const nowDay = getNow();
       const nowZero = new Date(nowDay.getFullYear(), nowDay.getMonth(), nowDay.getDate());
       const spawnZero = new Date(spawnDate.getFullYear(), spawnDate.getMonth(), spawnDate.getDate());
       const diffDays = Math.round((spawnZero - nowZero) / (1000 * 60 * 60 * 24));
