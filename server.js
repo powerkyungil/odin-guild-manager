@@ -200,6 +200,12 @@ function initDB() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )`);
 
+        // Excluded Members Table (For item distribution priority)
+        db.run(`CREATE TABLE IF NOT EXISTS excluded_members (
+            user_id INTEGER PRIMARY KEY,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`);
+
         // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
         db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -458,6 +464,25 @@ app.post('/api/participation-targets', verifyToken, (req, res) => {
 });
 
 // --- COLLECTIONS ---
+app.get('/api/excluded-members', verifyToken, (req, res) => {
+    db.all("SELECT user_id FROM excluded_members", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows.map(r => r.user_id));
+    });
+});
+
+app.post('/api/excluded-members/toggle', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { userId } = req.body;
+    db.get("SELECT * FROM excluded_members WHERE user_id = ?", [userId], (err, row) => {
+        if (row) {
+            db.run("DELETE FROM excluded_members WHERE user_id = ?", [userId], () => res.json({ status: 'removed' }));
+        } else {
+            db.run("INSERT INTO excluded_members (user_id) VALUES (?)", [userId], () => res.json({ status: 'added' }));
+        }
+    });
+});
+
 app.get('/api/user-collections', verifyToken, (req, res) => {
     db.all("SELECT user_id, collection_name FROM user_collections", (err, rows) => res.json(rows));
 });

@@ -34,16 +34,26 @@
         }
         .col-ench { 
             position: sticky; 
-            left: 280px; /* Based on col-part width + padding */
+            left: 250px; 
             z-index: 50; 
             background: #0f172a; 
             text-align: center; 
-            min-width: 100px;
-            border-right: 2px solid var(--primary-color);
+            min-width: 70px;
             color: #94a3b8;
             font-weight: 600;
         }
-        th.col-part, th.col-ench { z-index: 150; }
+        .col-priority {
+            position: sticky;
+            left: 320px;
+            z-index: 50;
+            background: #0f172a;
+            text-align: center;
+            min-width: 120px;
+            border-right: 2px solid var(--primary-color);
+            color: #fbbf24;
+            font-weight: 700;
+        }
+        th.col-part, th.col-ench, th.col-priority { z-index: 150; }
 
         .member-header { min-width: 120px; }
         .combat-p { font-size: 13px; color: var(--text-muted); font-weight: 400; }
@@ -160,9 +170,15 @@
             
             /* Squeeze the table columns horizontally */
             .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; }
-            .col-part { min-width: 140px; font-size: 13px; max-width: 140px; white-space: normal; line-height: 1.2; word-break: break-all; left: 0; }
-            .col-ench { min-width: 45px; left: 140px; font-size: 12px; padding: 6px; }
+            .col-part { min-width: 140px; font-size: 13px; max-width: 140px; white-space: normal; line-height: 1.2; word-break: break-all; left: 0; position: sticky; z-index: 150; }
             
+            /* Remove sticky on mobile for Ench and Priority to free up horizontal space */
+            .col-ench { position: relative !important; left: auto !important; min-width: 50px; font-size: 12px; padding: 6px; z-index: 10 !important; border-right: none; }
+            .col-priority { position: relative !important; left: auto !important; min-width: 100px; font-size: 12px; padding: 6px; z-index: 10 !important; border-right: 1px solid rgba(255,255,255,0.05); }
+            
+            th.col-ench, th.col-priority { z-index: 20 !important; }
+            
+            .member-header { min-width: 100px; font-size: 12px; }
             th, td { padding: 6px 8px; font-size: 13px; }
             table { font-size: 14px; }
             input[type="checkbox"] { width: 18px; height: 18px; }
@@ -175,7 +191,10 @@
     <div class="auth-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <a href="menu.html" style="color: var(--text-muted); text-decoration: none; margin: 20px; display: inline-block; font-size: 16px; font-weight: 600;">← 메뉴로 돌아가기</a>
-            <button id="addCollBtn" class="btn-add" onclick="openModal()" style="margin-right: 20px;">+ 컬렉션 추가</button>
+            <div style="display: flex; gap: 10px; margin-right: 20px;">
+                <button id="excludeBtn" class="btn-add" onclick="openExcludedModal()" style="background: #475569; padding: 10px 15px; display: none;">미달 인원 설정</button>
+                <button id="addCollBtn" class="btn-add" onclick="openModal()" style="display: none;">+ 컬렉션 추가</button>
+            </div>
         </div>
         
         <div class="auth-header" style="text-align: left; padding: 0 20px;">
@@ -197,6 +216,7 @@
                     <tr id="tableHeader">
                         <th class="col-part">부위/컬렉션</th>
                         <th class="col-ench">강화</th>
+                        <th class="col-priority">1순위</th>
                         <!-- Members injected here -->
                     </tr>
                 </thead>
@@ -233,6 +253,23 @@
         </div>
     </div>
 
+    <!-- Excluded Members Modal -->
+    <div id="excludedModal" class="modal">
+        <div class="modal-content" style="width: 400px;">
+            <div class="modal-header">
+                <h2>이 달의 미달 인원 설정</h2>
+                <span style="cursor:pointer; font-size: 24px;" onclick="closeExcludedModal()">&times;</span>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">선택된 멤버는 아이템 지급 우선순위(1순위)에서 자동으로 제외됩니다.</p>
+            <div id="memberExclusionList" style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 10px;">
+                <!-- Members listed here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-add" style="background: var(--primary-color); display: block; width: 100%;" onclick="closeExcludedModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         let myUserId = parseInt(localStorage.getItem('userId') || sessionStorage.getItem('userId'));
@@ -242,10 +279,14 @@
         let members = [];
         let statusData = [];
         let collectionsData = [];
+        let excludedUserIds = []; // NEW
         let editingCollId = null; // To track if we are editing or adding
 
         async function init() {
-            if (isAdmin) document.getElementById('addCollBtn').style.display = 'block';
+            if (isAdmin) {
+                document.getElementById('addCollBtn').style.display = 'block';
+                document.getElementById('excludeBtn').style.display = 'block';
+            }
 
             try {
                 if (!myUserId || isNaN(myUserId)) {
@@ -274,6 +315,10 @@
                 if (sRes.status === 401) return handleAuthError();
                 statusData = await sRes.json();
 
+                // Excluded Members
+                const eRes = await fetch('/api/excluded-members', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (eRes.ok) excludedUserIds = await eRes.json();
+
                 renderTable();
             } catch (err) {
                 console.error(err);
@@ -295,7 +340,7 @@
 
             const nameTd = document.createElement('td');
             nameTd.className = 'col-part row-coll';
-            nameTd.setAttribute('colspan', '2');
+            nameTd.setAttribute('colspan', '3'); // Changed from 2 to 3
             nameTd.style.textAlign = 'center';
             nameTd.style.position = 'relative';
             
@@ -369,6 +414,18 @@
             enchTd.textContent = ench;
             tr.appendChild(enchTd);
 
+            const priorityTd = document.createElement('td');
+            priorityTd.className = 'col-priority';
+            const priorityMember = calculatePriority(uniqueKey);
+            if (priorityMember) {
+                priorityTd.textContent = priorityMember.isExcluded ? `${priorityMember.nickname} (미달)` : priorityMember.nickname;
+                if (priorityMember.isExcluded) priorityTd.style.color = '#94a3b8';
+                priorityTd.title = `투력: ${priorityMember.combat_power.toLocaleString()}`;
+            } else {
+                priorityTd.textContent = '-';
+            }
+            tr.appendChild(priorityTd);
+
             members.forEach(m => {
                 const td = document.createElement('td');
                 const isCompleted = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
@@ -386,13 +443,31 @@
             return tr;
         }
 
+        function calculatePriority(uniqueKey) {
+            // First pass: Normal members who are not excluded
+            for (const m of members) {
+                if (excludedUserIds.includes(m.id)) continue;
+                const hasItem = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
+                if (!hasItem) return { ...m, isExcluded: false };
+            }
+            
+            // Second pass: Fallback to excluded members if everyone else is done
+            for (const m of members) {
+                if (!excludedUserIds.includes(m.id)) continue;
+                const hasItem = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
+                if (!hasItem) return { ...m, isExcluded: true };
+            }
+            
+            return null;
+        }
+
         function renderTable() {
             const header = document.getElementById('tableHeader');
             const body = document.getElementById('tableBody');
             body.innerHTML = '';
             let itemCnt = 0;
 
-            header.innerHTML = '<th class="col-part">부위/컬렉션</th><th class="col-ench">강화</th>';
+            header.innerHTML = '<th class="col-part">부위/컬렉션</th><th class="col-ench">강화</th><th class="col-priority">1순위</th>';
             members.forEach(m => {
                 const th = document.createElement('th');
                 th.className = 'member-header';
@@ -421,6 +496,16 @@
                     body: JSON.stringify({ userId, collectionName: key })
                 });
                 if (!res.ok) throw new Error('Failed');
+                
+                const data = await res.json();
+                if (data.status === 'added') {
+                    statusData.push({ user_id: userId, collection_name: key });
+                } else {
+                    statusData = statusData.filter(s => !(s.user_id === userId && s.collection_name === key));
+                }
+                
+                // Re-render only the rows is complex, so let's just refresh the body
+                renderTable(); 
             } catch (err) {
                 cb.checked = !cb.checked;
                 alert('권한이 없거나 저장에 실패했습니다.');
@@ -437,7 +522,7 @@
             const headerThs = Array.from(document.getElementById('tableHeader').getElementsByTagName('th'));
             
             headerThs.forEach((th, idx) => {
-                if (idx < 2) return; // Skip part/enchant columns
+                if (idx < 3) return; // Skip part/enchant/priority columns
                 const nick = th.innerText.split('\n')[0];
                 if (showOnlyMine) {
                     if (nick === myNickname) th.style.display = "";
@@ -450,7 +535,7 @@
             trs.forEach(tr => {
                 const tds = Array.from(tr.getElementsByTagName('td'));
                 tds.forEach((td, idx) => {
-                    if (idx < 2) return;
+                    if (idx < 3) return;
                     const th = headerThs[idx];
                     td.style.display = th.style.display;
                 });
@@ -562,6 +647,78 @@
                 }
             } catch (err) { alert('서버 통신 오류'); }
         }
+
+        // --- Excluded Members Functions ---
+        function openExcludedModal() {
+            if (!isAdmin) return alert('운영진 전용 기능입니다.');
+            renderExclusionList();
+            document.getElementById('excludedModal').style.display = 'flex';
+        }
+
+        function closeExcludedModal() {
+            document.getElementById('excludedModal').style.display = 'none';
+        }
+
+        function renderExclusionList() {
+            const container = document.getElementById('memberExclusionList');
+            container.innerHTML = '';
+            
+            members.forEach(m => {
+                const isExcluded = excludedUserIds.includes(m.id);
+                const div = document.createElement('div');
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+                div.style.padding = '10px';
+                div.style.background = 'rgba(255,255,255,0.03)';
+                div.style.borderRadius = '8px';
+                div.style.border = isExcluded ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.05)';
+
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: 700; color: ${isExcluded ? '#ef4444' : '#fff'}">${m.nickname}</span>
+                        <span style="font-size: 12px; color: var(--text-muted)">투력: ${m.combat_power.toLocaleString()}</span>
+                    </div>
+                    <button class="btn-add btn-small" onclick="event.stopPropagation(); window.toggleExclusion(${m.id})" style="background: ${isExcluded ? '#ef4444' : '#334155'}; padding: 6px 12px; display: block;">
+                        ${isExcluded ? '제외됨' : '지급대상'}
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function toggleExclusion(userId) {
+            try {
+                const res = await fetch('/api/excluded-members/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'added') excludedUserIds.push(userId);
+                    else excludedUserIds = excludedUserIds.filter(id => id !== userId);
+                    
+                    renderExclusionList();
+                    renderTable(); // Re-calculate priorities
+                } else {
+                    const error = await res.json();
+                    alert(`설정 실패: ${error.error || '알 수 없는 오류'}`);
+                }
+            } catch (err) { alert(`통신 오류: ${err.message}`); }
+        }
+
+        // Expose to window
+        window.openExcludedModal = openExcludedModal;
+        window.closeExcludedModal = closeExcludedModal;
+        window.toggleExclusion = toggleExclusion;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.addItemInput = addItemInput;
+        window.saveNewCollection = saveNewCollection;
+        window.deleteCollection = deleteCollection;
+        window.toggleCollection = toggleCollection;
+        window.filterTable = filterTable;
 
         init();
     </script>
