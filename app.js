@@ -43,29 +43,55 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Save preference per user nickname
   const voiceKey = `voice_enabled_${myNickname}`;
-  let voiceEnabled = localStorage.getItem(voiceKey) === 'true';
+  const savedVoice = localStorage.getItem(voiceKey);
+  let voiceEnabled = (savedVoice === null) ? true : (savedVoice === 'true');
   if (voiceToggle) voiceToggle.checked = voiceEnabled;
   const playedVoiceKeys = new Set();
 
   const playGoogleTTS = (text) => {
     if (!voiceEnabled) return;
+    console.log(`[TTS Alert] Attempting to speak: ${text}`);
+    showToast(`📢 ${text}`); // Visual confirmation that trigger worked
 
-    // Use Browser Native Web Speech API instead of external Google URL to avoid 404/Block issues
     if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech to prevent overlapping/delay
         window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ko-KR';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
         
-        window.speechSynthesis.speak(utterance);
+        setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            const koVoice = voices.find(v => v.lang.includes('ko'));
+            if (koVoice) utterance.voice = koVoice;
+            
+            // SpeechSynthesis can sometimes get into a 'stuck' state. 
+            // Calling resume() before speak() can help.
+            window.speechSynthesis.resume();
+            window.speechSynthesis.speak(utterance);
+        }, 50);
     } else {
-        console.warn("Web Speech API not supported in this browser.");
-        showToast("이 브라우저는 음성 알림을 지원하지 않습니다.");
+        console.warn("Web Speech API not supported.");
     }
   };
+  
+  // Stuck state recovery interval
+  setInterval(() => {
+    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+    }
+  }, 10000);
+
+  // Pre-load voices
+  if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+      }
+  }
 
   if (voiceToggle) {
     voiceToggle.addEventListener('change', (e) => {
@@ -112,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.row-remaining').forEach(el => {
       const row = el.closest('.schedule-row');
       const bossName = row ? row.dataset.bossName : null;
+      const bossType = row ? row.dataset.bossType : null;
       const spawnTime = parseInt(el.dataset.spawnTime);
       const diff = spawnTime - nowMs;
 
@@ -121,17 +148,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const secs = totalSecs % 60;
         el.textContent = `-${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-        // --- Voice Trigger (5min and 1min) ---
-        if (bossName && secs === 0) {
-            if (mins === 5 || mins === 1) {
-                const voiceKey = `${bossName}_${mins}min`;
-                if (!playedVoiceKeys.has(voiceKey)) {
-                    playGoogleTTS(`${bossName} ${mins}분 전입니다.`);
-                    playedVoiceKeys.add(voiceKey);
-                    // Clear after 65 seconds to prevent re-triggering and keep memory clean
-                    setTimeout(() => playedVoiceKeys.delete(voiceKey), 65000);
+        // --- Voice Trigger (Precise Timing: 5:00, 1:00, 0:00) ---
+        if (bossName) {
+            const targets = [ {s: 300, m: 5}, {s: 60, m: 1}, {s: 0, m: 0} ];
+            targets.forEach(t => {
+                // VERY STRICT: Only trigger if we are within 2 seconds of the exact target
+                // For example, trigger between 300s and 298s.
+                if (totalSecs <= t.s && totalSecs > t.s - 3) {
+                    const voiceKey = `${bossName}_${el.dataset.spawnTime}_${t.m}min_v6`; // Key change to force re-play after fix
+                    if (!playedVoiceKeys.has(voiceKey)) {
+                        const typeLabel = bossType ? `${bossType} ` : '';
+                        const message = t.m === 0 ? `${typeLabel}${bossName} 타임입니다.` : `${typeLabel}${bossName} ${t.m}분 전입니다.`;
+                        console.log(`[TTS Match] Boss: ${bossName}, Current: ${totalSecs}s, Target: ${t.s}s`);
+                        playGoogleTTS(message);
+                        playedVoiceKeys.add(voiceKey);
+                        setTimeout(() => playedVoiceKeys.delete(voiceKey), 60000);
+                    }
                 }
-            }
+            });
         }
       } else {
         el.textContent = '';
@@ -778,6 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.className = `row schedule-row ${typeClass} ${isPast ? 'past-boss' : ''}`;
       row.dataset.spawnTime = item.spawnTime;
       row.dataset.bossName = item.boss;
+      row.dataset.bossType = item.type;
       row.style.animationDelay = `${Math.min(index * 0.03, 1)}s`;
       row.classList.add('animate-in');
       

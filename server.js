@@ -48,7 +48,7 @@ setInterval(() => {
     const windowMax = now + 6 * 60 * 1000;
     const windowMin = now;
 
-    db.all("SELECT id, boss, spawnTime FROM boss_schedules WHERE spawnTime > ? AND spawnTime <= ?", [windowMin, windowMax], (err, bosses) => {
+    db.all("SELECT id, boss, type, spawnTime FROM boss_schedules WHERE spawnTime > ? AND spawnTime <= ?", [windowMin, windowMax], (err, bosses) => {
         if (err) {
             return;
         }
@@ -58,15 +58,20 @@ setInterval(() => {
                 let alertType = null;
                 let content = '';
 
-                // 5-minute alert (4.5m ~ 5.5m)
-                if (diffMin > 4.5 && diffMin <= 5.5) {
+                // 5-minute alert (4.75m ~ 5.25m) - 30s window centered at 5.0
+                if (diffMin > 4.75 && diffMin <= 5.25) {
                     alertType = '5min';
-                    content = `${b.boss} 5분 전입니다.`;
+                    content = `${b.type} ${b.boss} 5분 전입니다.`;
                 }
-                // 1-minute alert (0.5m ~ 1.5m)
-                else if (diffMin > 0.5 && diffMin <= 1.5) {
+                // 1-minute alert (0.75m ~ 1.25m) - 30s window centered at 1.0
+                else if (diffMin > 0.75 && diffMin <= 1.25) {
                     alertType = '1min';
-                    content = `${b.boss} 1분 전입니다.`;
+                    content = `${b.type} ${b.boss} 1분 전입니다.`;
+                }
+                // Spawn alert (-0.25m ~ 0.25m) - 30s window centered at 0.0
+                else if (diffMin > -0.25 && diffMin <= 0.25) {
+                    alertType = 'spawn';
+                    content = `${b.type} ${b.boss} 타임입니다.`;
                 }
 
                 if (alertType && isDiscordEnabled) {
