@@ -79,9 +79,9 @@ setInterval(() => {
                                         notifiedBosses.add(notifyKey);
                                         // Auto cleanup after 15 mins
                                         setTimeout(() => notifiedBosses.delete(notifyKey), 15 * 60 * 1000);
-                                    }).catch(e => {});
+                                    }).catch(e => { });
                                 }
-                            }).catch(err => {});
+                            }).catch(err => { });
                     }
                 }
             });
@@ -497,6 +497,20 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
     });
 });
 
+app.put('/api/admin/users/:id/reset-password', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    db.get("SELECT role FROM users WHERE id = ?", [req.params.id], (err, user) => {
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+        if (user.role === 'MASTER' && req.userRole !== 'MASTER') return res.status(403).json({ error: 'Only Master can reset Master password.' });
+        
+        const hash = bcrypt.hashSync('1234', 10);
+        db.run("UPDATE users SET password_hash = ? WHERE id = ?", [hash, req.params.id], (err) => {
+            if (err) return res.status(500).json({ error: 'DB Error.' });
+            res.json({ success: true });
+        });
+    });
+});
+
 // --- CONTENT GROUPS API ---
 app.get('/api/groups', verifyToken, (req, res) => {
     db.all(`
@@ -520,7 +534,7 @@ app.get('/api/groups', verifyToken, (req, res) => {
 app.post('/api/groups', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
     const { name } = req.body;
-    db.run("INSERT INTO content_groups (name) VALUES (?)", [name || '새 그룹'], function(err) {
+    db.run("INSERT INTO content_groups (name) VALUES (?)", [name || '새 그룹'], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ id: this.lastID, name: name || '새 그룹' });
     });
@@ -529,7 +543,7 @@ app.post('/api/groups', verifyToken, (req, res) => {
 app.put('/api/groups/:id', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
     const { name } = req.body;
-    db.run("UPDATE content_groups SET name = ? WHERE id = ?", [name, req.params.id], function(err) {
+    db.run("UPDATE content_groups SET name = ? WHERE id = ?", [name, req.params.id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
@@ -539,7 +553,7 @@ app.delete('/api/groups/:id', verifyToken, (req, res) => {
     const groupId = req.params.id;
     db.serialize(() => {
         db.run("DELETE FROM group_members WHERE group_id = ?", [groupId]);
-        db.run("DELETE FROM content_groups WHERE id = ?", [groupId], function(err) {
+        db.run("DELETE FROM content_groups WHERE id = ?", [groupId], function (err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
         });
