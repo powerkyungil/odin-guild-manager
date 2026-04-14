@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오딘 보스 스케줄 - 공성전 참여</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        .auth-container { max-width: 1000px; margin: 40px auto; width: 95%; }
+        .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
+        .back-link:hover { color: var(--text-light); }
+        
+        .siege-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .my-status-card {
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(30, 41, 59, 0.4));
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 20px;
+            align-items: flex-end;
+        }
+        
+        .status-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .status-input-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #818cf8;
+        }
+        
+        .status-input-group input {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .save-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            height: 46px;
+        }
+        
+        .save-btn:hover { background: #4f46e5; transform: translateY(-2px); }
+        
+        .summary-bar {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+        }
+        
+        .summary-item { text-align: center; }
+        .summary-item .label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+        .summary-item .val { font-size: 24px; font-weight: 800; color: #fbbf24; }
+        
+        .siege-table-container {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        
+        .siege-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .siege-table th { background: rgba(0,0,0,0.2); padding: 15px 20px; font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .siege-table td { padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; }
+        .siege-table tr:last-child td { border-bottom: none; }
+        
+        .admin-input {
+            width: 80px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            color: white;
+            padding: 4px 8px;
+            font-size: 13px;
+            outline: none;
+            text-align: right;
+        }
+        .admin-input:focus { border-color: #6366f1; }
+        
+        .mini-save-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .mini-save-btn:hover { background: #4f46e5; }
+        
+        .dia-val { font-family: 'Inter', monospace; font-weight: 700; color: #fbbf24; }
+        .update-time { font-size: 11px; color: var(--text-muted); }
+        
+        @media (max-width: 768px) {
+            .my-status-card { grid-template-columns: 1fr; }
+            .summary-bar { flex-direction: column; gap: 15px; }
+            .siege-table thead { display: none; }
+            .siege-table, .siege-table tbody, .siege-table tr, .siege-table td { display: block; }
+            .siege-table tr { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+            .siege-table td { padding: 8px 0; border: none; display: flex; justify-content: space-between; }
+            .siege-table td::before { content: attr(data-label); color: var(--text-muted); font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <a href="menu.html" class="back-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7l-7 7 7 7"/></svg>
+            메뉴로 돌아가기
+        </a>
+
+        <div class="siege-header">
+            <div>
+                <h1 style="margin: 0; font-size: 28px; font-weight: 900; background: linear-gradient(to right, #fff, #818cf8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">공성전 참여 현황</h1>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">길드원들의 시작 전/종료 후 다이아 정보를 관리합니다.</p>
+            </div>
+            <div id="adminSiegeActions" style="display: none;">
+                <button class="save-btn" style="background: #991b1b; font-size: 13px; height: auto; padding: 10px 16px;" onclick="resetAllSiegeData()">데이터 전체 초기화</button>
+            </div>
+        </div>
+
+        <div class="my-status-card">
+            <div class="status-input-group">
+                <label for="currentDia">⚔️ 공성 시작 전 다이아</label>
+                <input type="number" id="currentDia" placeholder="시작 전 보유량">
+            </div>
+            <div class="status-input-group">
+                <label for="remainingDia">🏁 공성 종료 후 다이아</label>
+                <input type="number" id="remainingDia" placeholder="종료 후 잔여량">
+            </div>
+            <button class="save-btn" onclick="saveMyStatus()">상태 업데이트</button>
+        </div>
+
+        <div class="summary-bar">
+            <div class="summary-item">
+                <div class="label">전체 시작 전 다이아 총합</div>
+                <div class="val" id="totalCurrent">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">전체 종료 후 다이아 총합</div>
+                <div class="val" id="totalRemaining" style="color: #60a5fa;">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">전체 사용 다이아(차액)</div>
+                <div class="val" id="totalUsed" style="color: #f43f5e;">0</div>
+            </div>
+        </div>
+
+        <div class="siege-table-container">
+            <table class="siege-table" id="siegeTable">
+                <thead>
+                    <tr>
+                        <th>닉네임</th>
+                        <th>클래스</th>
+                        <th>전투력</th>
+                        <th>시작 전</th>
+                        <th>종료 후</th>
+                        <th>사용(차액)</th>
+                        <th>마지막 업데이트</th>
+                        <th id="adminColHead" style="display: none;">관리</th>
+                    </tr>
+                </thead>
+                <tbody id="siegeBody">
+                    <!-- Data here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const userId = parseInt(localStorage.getItem('userId') || sessionStorage.getItem('userId'));
+        const role = localStorage.getItem('role') || sessionStorage.getItem('role');
+
+        if (!token) window.location.href = 'login.html';
+
+        if (role === 'MASTER' || role === 'ADMIN') {
+            document.getElementById('adminSiegeActions').style.display = 'block';
+            document.getElementById('adminColHead').style.display = 'table-cell';
+        }
+
+        async function fetchSiegeData() {
+            try {
+                const res = await fetch('/api/siege', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                renderSiege(data);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderSiege(data) {
+            const body = document.getElementById('siegeBody');
+            body.innerHTML = '';
+            const isAdmin = (role === 'MASTER' || role === 'ADMIN');
+
+            let totalCurrent = 0;
+            let totalRemaining = 0;
+            let totalUsed = 0;
+
+            data.forEach(u => {
+                const startBalance = u.current_diamonds || 0;
+                const endBalance = u.remaining_diamonds || 0;
+                const difference = endBalance - startBalance;
+
+                totalCurrent += startBalance;
+                totalRemaining += endBalance;
+                totalUsed += difference;
+
+                if (u.id === userId) {
+                    document.getElementById('currentDia').value = startBalance;
+                    document.getElementById('remainingDia').value = endBalance;
+                }
+
+                const updatedStr = u.updated_at ? new Date(u.updated_at).toLocaleString('ko-KR', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : '-';
+
+                const row = document.createElement('tr');
+                if (u.id === userId) row.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+
+                let startCell = `<td data-label="시작 전" class="dia-val">${startBalance.toLocaleString()}</td>`;
+                let endCell = `<td data-label="종료 후" class="dia-val" style="color: #60a5fa;">${endBalance.toLocaleString()}</td>`;
+                let adminCell = '';
+
+                if (isAdmin) {
+                    startCell = `<td data-label="시작 전"><input type="number" class="admin-input" id="admin-start-${u.id}" value="${startBalance}"></td>`;
+                    endCell = `<td data-label="종료 후"><input type="number" class="admin-input" id="admin-end-${u.id}" value="${endBalance}" style="color: #60a5fa;"></td>`;
+                    adminCell = `<td data-label="관리"><button class="mini-save-btn" onclick="saveAdminEdit(${u.id})">변경</button></td>`;
+                }
+
+                row.innerHTML = `
+                    <td data-label="닉네임" style="font-weight: 700;">${u.nickname} ${u.id === userId ? '(나)' : ''}</td>
+                    <td data-label="클래스" style="color: var(--text-muted);">${u.main_class || '-'}</td>
+                    <td data-label="전투력">${u.combat_power.toLocaleString()}</td>
+                    ${startCell}
+                    ${endCell}
+                    <td data-label="사용(차액)" class="dia-val" style="color: ${difference < 0 ? '#f43f5e' : (difference > 0 ? '#10b981' : '#94a3b8')};">
+                        ${difference > 0 ? '+' : ''}${difference.toLocaleString()}
+                    </td>
+                    <td data-label="업데이트" class="update-time">${updatedStr}</td>
+                    ${adminCell}
+                `;
+                body.appendChild(row);
+            });
+
+            document.getElementById('totalCurrent').textContent = totalCurrent.toLocaleString();
+            document.getElementById('totalRemaining').textContent = totalRemaining.toLocaleString();
+            document.getElementById('totalUsed').textContent = (totalUsed > 0 ? '+' : '') + totalUsed.toLocaleString();
+            document.getElementById('totalUsed').style.color = totalUsed < 0 ? '#f43f5e' : (totalUsed > 0 ? '#10b981' : '#94a3b8');
+        }
+
+        async function saveAdminEdit(targetId) {
+            const start = parseInt(document.getElementById(`admin-start-${targetId}`).value) || 0;
+            const end = parseInt(document.getElementById(`admin-end-${targetId}`).value) || 0;
+
+            try {
+                const res = await fetch(`/api/admin/siege/${targetId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_diamonds: start,
+                        remaining_diamonds: end
+                    })
+                });
+
+                if (res.ok) {
+                    fetchSiegeData();
+                } else {
+                    alert('수정 권한이 없거나 서버 오류입니다.');
+                }
+            } catch (err) {
+                alert('통신 오류');
+            }
+        }
+
+        async function saveMyStatus() {
+            const current = parseInt(document.getElementById('currentDia').value) || 0;
+            const remaining = parseInt(document.getElementById('remainingDia').value) || 0;
+
+            try {
+                const res = await fetch('/api/siege/me', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_diamonds: current,
+                        remaining_diamonds: remaining
+                    })
+                });
+
+                if (res.ok) {
+                    alert('성공적으로 업데이트되었습니다.');
+                    fetchSiegeData();
+                } else {
+                    alert('업데이트 실패');
+                }
+            } catch (err) {
+                alert('통신 오류');
+            }
+        }
+
+        async function resetAllSiegeData() {
+            if (!confirm('초기화 하시겠습니까?')) return;
+
+            try {
+                const res = await fetch('/api/siege/all', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    fetchSiegeData();
+                } else {
+                    const errorData = await res.json();
+                    console.error('Reset failed:', errorData);
+                    alert('초기화 실패: ' + (errorData.error || '잠시 후 다시 시도해주세요.'));
+                }
+            } catch (err) {
+                console.error('Network error during reset:', err);
+                alert('통신 오류가 발생했습니다.');
+            }
+        }
+
+        fetchSiegeData();
+    </script>
+</body>
+</html>

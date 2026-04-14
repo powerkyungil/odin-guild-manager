@@ -186,6 +186,15 @@ function initDB() {
             FOREIGN KEY (group_id) REFERENCES content_groups(id) ON DELETE CASCADE
         )`);
 
+        // Siege Participation Data Table (New)
+        db.run(`CREATE TABLE IF NOT EXISTS siege_data (
+            user_id INTEGER PRIMARY KEY,
+            current_diamonds INTEGER DEFAULT 0,
+            remaining_diamonds INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`);
+
         // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
         db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -272,6 +281,7 @@ const verifyToken = (req, res, next) => {
         req.userId = decoded.id;
         req.userRole = decoded.role;
         req.userNickname = decoded.nickname;
+        req.userName = decoded.username;
         next();
     });
 };
@@ -572,6 +582,83 @@ app.post('/api/groups/:id/members', verifyToken, (req, res) => {
             stmt.finalize();
         }
         res.json({ success: true });
+    });
+});
+
+// --- SIEGE PARTICIPATION API ---
+app.get('/api/siege', verifyToken, (req, res) => {
+    const query = `
+        SELECT u.id, u.nickname, u.main_class, u.combat_power,
+               IFNULL(s.current_diamonds, 0) as current_diamonds,
+               IFNULL(s.remaining_diamonds, 0) as remaining_diamonds,
+               s.updated_at
+        FROM users u
+        LEFT JOIN siege_data s ON u.id = s.user_id
+        ORDER BY u.combat_power DESC
+    `;
+    db.all(query, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.put('/api/siege/me', verifyToken, (req, res) => {
+    const { current_diamonds, remaining_diamonds } = req.body;
+    const userId = req.userId;
+    const now = new Date().toISOString();
+
+    db.get("SELECT user_id FROM siege_data WHERE user_id = ?", [userId], (err, row) => {
+        if (row) {
+            db.run("UPDATE siege_data SET current_diamonds = ?, remaining_diamonds = ?, updated_at = ? WHERE user_id = ?",
+                [current_diamonds, remaining_diamonds, now, userId], (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ success: true });
+                });
+        } else {
+            db.run("INSERT INTO siege_data (user_id, current_diamonds, remaining_diamonds, updated_at) VALUES (?, ?, ?, ?)",
+                [userId, current_diamonds, remaining_diamonds, now], (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ success: true });
+                });
+        }
+    });
+});
+
+app.delete('/api/siege/all', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') {
+        console.warn(`⚠️ Unauthorized Siege Reset Attempt by ${req.userNickname || req.userName}`);
+        return res.status(403).json({ error: 'Unauthorized.' });
+    }
+    console.log(`🧹 Siege data reset initiated by ${req.userNickname || req.userName}`);
+    db.run("DELETE FROM siege_data", (err) => {
+        if (err) {
+            console.error('❌ Siege Reset Error:', err.message);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ success: true });
+    });
+});
+
+app.put('/api/admin/siege/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const targetUserId = req.params.id;
+    const { current_diamonds, remaining_diamonds } = req.body;
+    const now = new Date().toISOString();
+
+    db.get("SELECT user_id FROM siege_data WHERE user_id = ?", [targetUserId], (err, row) => {
+        if (row) {
+            db.run("UPDATE siege_data SET current_diamonds = ?, remaining_diamonds = ?, updated_at = ? WHERE user_id = ?",
+                [current_diamonds, remaining_diamonds, now, targetUserId], (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ success: true });
+                });
+        } else {
+            db.run("INSERT INTO siege_data (user_id, current_diamonds, remaining_diamonds, updated_at) VALUES (?, ?, ?, ?)",
+                [targetUserId, current_diamonds, remaining_diamonds, now], (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ success: true });
+                });
+        }
     });
 });
 
