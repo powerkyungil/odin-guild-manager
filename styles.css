@@ -899,6 +899,20 @@ h1 {
     font-weight: 700;
     flex-wrap: nowrap !important;
     white-space: nowrap;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
+@media (max-width: 480px) {
+    .row.compact .boss-name {
+        font-size: 13px;
+        letter-spacing: -0.04em;
+    }
+    .row.compact {
+        grid-template-columns: 50px 1fr auto;
+        padding: 8px 10px;
+        gap: 8px;
+    }
 }
 
 .row.compact.main { border-left: 3px solid var(--main); }
