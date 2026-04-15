@@ -157,75 +157,12 @@ document.addEventListener('DOMContentLoaded', () => {
       window.speechSynthesis.getVoices();
   }
 
-  // --- Background Persistence (Silent Audio & Wake Lock) ---
-  let silentAudio = null;
-  let wakeLock = null;
-
-  async function manageBackgroundPersistence(enabled) {
-    if (enabled) {
-      // 1. Silent Audio Loop (Keep-Alive)
-      if (!silentAudio) {
-        silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-        silentAudio.loop = true;
-      }
-      silentAudio.play().catch(e => {
-          console.warn("Silent audio play blocked. Interaction needed.");
-          // Add one-time listener to unlock
-          const unlock = () => {
-              if (silentAudio) silentAudio.play();
-              // Warm up TTS too
-              if ('speechSynthesis' in window) {
-                  const warmUp = new SpeechSynthesisUtterance(" ");
-                  warmUp.volume = 0;
-                  window.speechSynthesis.speak(warmUp);
-              }
-              document.removeEventListener('click', unlock);
-              document.removeEventListener('touchstart', unlock);
-          };
-          document.addEventListener('click', unlock);
-          document.addEventListener('touchstart', unlock);
-      });
-      
-      // 2. Wake Lock
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-        } catch (err) {
-          console.warn(`Wake Lock failed: ${err.name}, ${err.message}`);
-        }
-      }
-    } else {
-      if (silentAudio) {
-        silentAudio.pause();
-        silentAudio = null;
-      }
-      if (wakeLock) {
-        wakeLock.release().then(() => { wakeLock = null; });
-      }
-    }
-  }
-
-  // Re-acquire lock on visibility change
-  document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') {
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-      } catch (e) {}
-    }
-  });
-
   if (voiceToggle) {
     voiceToggle.addEventListener('change', (e) => {
       voiceEnabled = e.target.checked;
       localStorage.setItem(voiceKey, voiceEnabled);
       showToast(`웹 음성 알림이 ${voiceEnabled ? '켜졌습니다' : '꺼졌습니다'}`);
-      manageBackgroundPersistence(voiceEnabled);
     });
-    // Initial state
-    if (voiceEnabled) {
-      // Small delay to ensure user interaction has occurred if this is after a refresh
-      setTimeout(() => manageBackgroundPersistence(true), 1000);
-    }
   }
 
   if (voiceTestBtn) {
