@@ -897,6 +897,8 @@ h1 {
 .row.compact .boss-name {
     font-size: 15px;
     font-weight: 700;
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
 }
 
 .row.compact.main { border-left: 3px solid var(--main); }
