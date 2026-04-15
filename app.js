@@ -56,31 +56,72 @@ document.addEventListener('DOMContentLoaded', () => {
   let voiceEnabled = (savedVoice === null) ? true : (savedVoice === 'true');
   if (voiceToggle) voiceToggle.checked = voiceEnabled;
   const playedVoiceKeys = new Set();
+  let hasInitialScrolled = false;
+
+  let viewMode = localStorage.getItem('viewMode') || 'normal';
+  const toggleViewBtn = document.getElementById('toggle-view-btn');
+  const updateToggleUI = () => {
+    if (!toggleViewBtn) return;
+    toggleViewBtn.innerHTML = viewMode === 'normal' 
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg> 간략히 보기'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 상세히 보기';
+  };
+  if (toggleViewBtn) {
+    updateToggleUI();
+    toggleViewBtn.addEventListener('click', () => {
+      viewMode = viewMode === 'normal' ? 'compact' : 'normal';
+      localStorage.setItem('viewMode', viewMode);
+      updateToggleUI();
+      fetchSchedules(); // Re-render
+    });
+  }
+
+  const playBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(500, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  };
 
   const playGoogleTTS = (text) => {
     if (!voiceEnabled) return;
     console.log(`[TTS Alert] Attempting to speak: ${text}`);
-    showToast(`📢 ${text}`); // Visual confirmation that trigger worked
+    showToast(`📢 ${text}`);
+    
+    // Play beep to wake up audio context
+    playBeep();
 
     if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        
+        // Small delay after beep before TTS
         setTimeout(() => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ko-KR';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
-
-            const voices = window.speechSynthesis.getVoices();
-            const koVoice = voices.find(v => v.lang.includes('ko'));
-            if (koVoice) utterance.voice = koVoice;
+            window.speechSynthesis.cancel();
             
-            // SpeechSynthesis can sometimes get into a 'stuck' state. 
-            // Calling resume() before speak() can help.
-            window.speechSynthesis.resume();
-            window.speechSynthesis.speak(utterance);
-        }, 50);
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ko-KR';
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+
+                const voices = window.speechSynthesis.getVoices();
+                const koVoice = voices.find(v => v.lang.includes('ko'));
+                if (koVoice) utterance.voice = koVoice;
+                
+                window.speechSynthesis.resume();
+                window.speechSynthesis.speak(utterance);
+            }, 50);
+        }, 100);
     } else {
         console.warn("Web Speech API not supported.");
     }
@@ -113,7 +154,23 @@ document.addEventListener('DOMContentLoaded', () => {
         silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
         silentAudio.loop = true;
       }
-      silentAudio.play().catch(e => console.warn("Silent audio play blocked. Interaction needed."));
+      silentAudio.play().catch(e => {
+          console.warn("Silent audio play blocked. Interaction needed.");
+          // Add one-time listener to unlock
+          const unlock = () => {
+              if (silentAudio) silentAudio.play();
+              // Warm up TTS too
+              if ('speechSynthesis' in window) {
+                  const warmUp = new SpeechSynthesisUtterance(" ");
+                  warmUp.volume = 0;
+                  window.speechSynthesis.speak(warmUp);
+              }
+              document.removeEventListener('click', unlock);
+              document.removeEventListener('touchstart', unlock);
+          };
+          document.addEventListener('click', unlock);
+          document.addEventListener('touchstart', unlock);
+      });
       
       // 2. Wake Lock
       if ('wakeLock' in navigator) {
@@ -174,6 +231,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!foundImminent && spanTime > now) {
         row.classList.add('imminent');
         foundImminent = true;
+        
+        // Auto-scroll on first load
+        if (!hasInitialScrolled) {
+            setTimeout(() => {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 500); // Small delay to ensure rendering is complete
+            hasInitialScrolled = true;
+        }
       }
     });
   };
@@ -811,7 +876,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderSchedules = (schedules) => {
     scheduleContainer.innerHTML = '';
-    
+    scheduleContainer.className = viewMode === 'compact' ? 'list compact-view' : 'list';
+    let lastDateStr = '';
     if (!schedules || schedules.length === 0) {
       scheduleContainer.innerHTML = `
         <div class="empty-state">
@@ -869,8 +935,21 @@ document.addEventListener('DOMContentLoaded', () => {
         timeLabel = `<span style="font-size: 12px; color: var(--muted); font-weight: 500; margin-right: 4px; vertical-align: middle;">${dayText}</span>${hh}:${mm}`;
       }
       
+      // Date Separator for Compact View
+      if (viewMode === 'compact') {
+          const dateOptions = { month: '2-digit', day: '2-digit', weekday: 'long' };
+          const currentDateStr = spawnDate.toLocaleDateString('ko-KR', dateOptions);
+          if (currentDateStr !== lastDateStr) {
+              const sep = document.createElement('div');
+              sep.className = 'date-separator';
+              sep.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${currentDateStr}`;
+              scheduleContainer.appendChild(sep);
+              lastDateStr = currentDateStr;
+          }
+      }
+
       const row = document.createElement('div');
-      row.className = `row schedule-row ${typeClass} ${isPast ? 'past-boss' : ''}`;
+      row.className = `row schedule-row ${typeClass} ${isPast ? 'past-boss' : ''} ${viewMode === 'compact' ? 'compact' : ''}`;
       row.dataset.spawnTime = item.spawnTime;
       row.dataset.bossName = item.boss;
       row.dataset.bossType = item.type;
@@ -911,14 +990,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="type-pill ${typeClass}">${isPast ? '지난보스' : item.type}</div>
         <div class="boss-area">
           <div class="boss-name" style="display:flex; align-items:center; flex-wrap: wrap;">
-            ${item.boss} ${isPast ? '<span style="font-size:10px; opacity:0.6; margin-left:4px;">(처리됨)</span>' : ''}
+            ${item.boss}
             ${item.is_mung ? '<span style="background: #a855f7; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">멍</span>' : ''}
             ${participationHtml}
           </div>
           <div class="meta">${item.region}</div>
         </div>
         <div class="time-action-group" style="grid-column: 3 / 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
-          ${!isPast && !item.isFixed ? `<div class="row-remaining" data-spawn-time="${item.spawnTime}">${remainingStr}</div>` : ''}
+          ${!isPast ? `<div class="row-remaining" data-spawn-time="${item.spawnTime}">${remainingStr}</div>` : ''}
           ${!item.isFixed ? `
             <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
             ${isPast && item.type !== '침공' ? `<button class="mung-btn" style="background: #a855f7; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">멍</button>` : ''}

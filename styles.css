@@ -699,7 +699,14 @@ h1 {
   .spawn-time { font-size: 18px !important; }
   .type-pill { padding: 6px 10px; font-size: 12px; }
   .time-action-group { gap: 8px !important; }
-  .cut-btn { padding: 4px 8px !important; font-size: 12px !important; }
+  .cut-btn, .mung-btn { 
+    padding: 4px 10px !important; 
+    font-size: 12px !important; 
+    min-width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
@@ -724,8 +731,50 @@ h1 {
   .break-row { font-size: 12px; flex-direction: column; gap: 4px; padding: 10px; text-align: center; }
   
   .time-action-group { gap: 6px !important; }
-  .cut-btn { padding: 3px 6px !important; font-size: 11px !important; }
+  .cut-btn, .mung-btn { 
+    padding: 3px 8px !important; 
+    font-size: 11px !important; 
+    min-width: 28px;
+  }
   .delete-row-btn { width: 24px !important; height: 24px !important; padding: 2px !important; margin-left: 0 !important; }
+
+  /* Toolbar Optimization */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 12px;
+  }
+  .toolbar-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .voice-control-group {
+    margin-left: 0 !important;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .toolbar-actions {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px !important;
+    width: 100%;
+  }
+  .toolbar-actions .action-btn {
+    justify-content: center;
+    padding: 10px 4px !important;
+    font-size: 11px !important;
+    flex-direction: column;
+    gap: 4px;
+    height: auto;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .toolbar-actions .action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 #toast-container {
@@ -814,4 +863,92 @@ h1 {
 .row.main.imminent {
   border-left: 4px solid var(--primary-color) !important;
   background: rgba(99, 102, 241, 0.08) !important;
+}
+
+/* Compact View Styles */
+.list.compact-view {
+  gap: 6px;
+  padding: 10px 5px;
+}
+
+.row.compact {
+  grid-template-columns: 60px 1fr auto;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  gap: 12px;
+}
+
+.row.compact:hover {
+  background: rgba(255,255,255,0.04);
+  transform: none;
+}
+
+.row.compact .type-pill {
+    display: none;
+}
+
+.row.compact .boss-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.row.compact .boss-name {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.row.compact.main { border-left: 3px solid var(--main); }
+.row.compact.inv { border-left: 3px solid var(--inv); }
+.row.compact.fixed { border-left: 3px solid #ffde5a; }
+.row.compact.common { border-left: 3px solid #8cffc4; }
+
+.row.compact .meta, 
+.row.compact .row-remaining,
+.row.compact .cut-btn,
+.row.compact .mung-btn,
+.row.compact .delete-row-btn {
+    display: none;
+}
+
+.row.compact .spawn-time {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.row.compact.imminent .spawn-time {
+    color: #ff7b7b;
+}
+
+.row.compact .p-btn {
+    height: 18px !important;
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+}
+
+/* Date Separator */
+.date-separator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px 0 10px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.date-separator::before,
+.date-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+}
+
+.date-separator svg {
+    color: var(--main);
+    opacity: 0.7;
 }
