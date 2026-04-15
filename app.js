@@ -155,9 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pre-load voices
   if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-          window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-      }
   }
 
   // --- Background Persistence (Silent Audio & Wake Lock) ---
