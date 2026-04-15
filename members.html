@@ -194,7 +194,16 @@
     <script>
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const userRole = localStorage.getItem('role') || sessionStorage.getItem('role');
-        if (!token) window.location.href = 'login.html';
+
+        const handleAuthError = () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('nickname');
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        };
+
+        if (!token) handleAuthError();
 
         async function changeUserRole(userId, newRole) {
             if (!confirm(`회원의 권한을 ${newRole}으로 변경하시겠습니까?`)) {
@@ -210,6 +219,7 @@
                     },
                     body: JSON.stringify({ role: newRole })
                 });
+                if (res.status === 401) return handleAuthError();
                 if (res.ok) {
                     alert('권한이 변경되었습니다.');
                     location.reload();
@@ -230,10 +240,11 @@
                 const res = await fetch(`/api/admin/users/${id}/reset-password`, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`,
+                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     }
                 });
+                if (res.status === 401) return handleAuthError();
                 if (res.ok) {
                     alert('비밀번호가 1234로 초기화되었습니다.');
                 } else {
@@ -252,6 +263,7 @@
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) return handleAuthError();
                 if (res.ok) {
                     alert('회원이 삭제되었습니다.');
                     location.reload();
@@ -270,11 +282,7 @@
                 const res = await fetch('/api/users', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (res.status === 401) {
-                    alert('세션이 만료되었습니다. 다시 로그인해주세요.');
-                    window.location.href = 'login.html';
-                    return;
-                }
+                if (res.status === 401) return handleAuthError();
                 if (!res.ok) throw new Error('Unauthorized');
                 
                 let users = await res.json();

@@ -12,7 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
   const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
-  if (!token) window.location.href = 'login.html';
+  
+  const handleAuthError = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('nickname');
+    sessionStorage.clear();
+    window.location.href = 'login.html';
+  };
+
+  if (!token) handleAuthError();
 
   // --- Server Time Sync ---
   let serverTimeOffset = 0;
@@ -93,12 +102,59 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   }
 
+  // --- Background Persistence (Silent Audio & Wake Lock) ---
+  let silentAudio = null;
+  let wakeLock = null;
+
+  async function manageBackgroundPersistence(enabled) {
+    if (enabled) {
+      // 1. Silent Audio Loop (Keep-Alive)
+      if (!silentAudio) {
+        silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+        silentAudio.loop = true;
+      }
+      silentAudio.play().catch(e => console.warn("Silent audio play blocked. Interaction needed."));
+      
+      // 2. Wake Lock
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.warn(`Wake Lock failed: ${err.name}, ${err.message}`);
+        }
+      }
+    } else {
+      if (silentAudio) {
+        silentAudio.pause();
+        silentAudio = null;
+      }
+      if (wakeLock) {
+        wakeLock.release().then(() => { wakeLock = null; });
+      }
+    }
+  }
+
+  // Re-acquire lock on visibility change
+  document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+      } catch (e) {}
+    }
+  });
+
   if (voiceToggle) {
     voiceToggle.addEventListener('change', (e) => {
       voiceEnabled = e.target.checked;
       localStorage.setItem(voiceKey, voiceEnabled);
       showToast(`웹 음성 알림이 ${voiceEnabled ? '켜졌습니다' : '꺼졌습니다'}`);
+      manageBackgroundPersistence(voiceEnabled);
     });
+    // Initial state
+    if (voiceEnabled) {
+      // Small delay to ensure user interaction has occurred if this is after a refresh
+      setTimeout(() => manageBackgroundPersistence(true), 1000);
+    }
   }
 
   if (voiceTestBtn) {
@@ -305,9 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchParticipationData = async () => {
     try {
       const [tRes, pRes] = await Promise.all([
-        fetch('/api/participation-targets', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/participants', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
+      if (tRes.status === 401 || pRes.status === 401) return handleAuthError();
       if (tRes.ok) participationTargets = await tRes.json();
       if (pRes.ok) participantsMap = await pRes.json();
     } catch (err) { console.error('Failed to fetch participation data', err); }
@@ -319,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/schedules', {
           headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.status === 401 || res.status === 403) window.location.href = 'login.html';
+      if (res.status === 401) return handleAuthError();
       const data = await res.json();
       
       const fixedAndShared = [...data];
@@ -343,6 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(newItems)
       });
+      if (res.status === 401) return handleAuthError();
       if (res.ok) {
           fetchSchedules();
       } else {
@@ -362,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401) return handleAuthError();
       if (res.ok) fetchSchedules();
     } catch (e) {
       console.error('Failed to clear schedules', e);
@@ -374,6 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401) return handleAuthError();
       if (res.ok) fetchSchedules();
     } catch (e) {
       console.error('Failed to delete schedule', e);
@@ -394,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
           boss: item.boss
         })
       });
+      if (res.status === 401) return handleAuthError();
       if (res.ok) {
         showToast(`${item.boss} 컷 확인! 다음 젠이 예약되었습니다.`);
         fetchSchedules();
@@ -555,6 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                   body: JSON.stringify({ bosses: checkedBoxes })
               });
+              if (r.status === 401) return handleAuthError();
               if (r.ok) {
                   showToast('참여 보스 목록이 반영되었습니다.');
                   fetchSchedules(); 
@@ -883,7 +944,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   fetch('/api/participants/'+encodeURIComponent(item.boss), { 
                      method: 'POST', 
                      headers: { 'Authorization': `Bearer ${token}` } 
-                  }).then(r => r.json()).then(res => {
+                  }).then(r => {
+                     if (r.status === 401) return handleAuthError();
+                     return r.json();
+                  }).then(res => {
                      fetchSchedules(); // reload data naturally
                   });
               }
@@ -916,6 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         currentSpawnTime: item.spawnTime 
                       })
                   });
+                  if (res.status === 401) return handleAuthError();
                   if (res.ok) {
                       showToast(`${item.boss} 멍 처리 완료!`);
                       fetchSchedules();

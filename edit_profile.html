@@ -99,7 +99,16 @@
 
     <script>
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) window.location.href = 'login.html';
+        
+        const handleAuthError = () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('nickname');
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        };
+
+        if (!token) handleAuthError();
 
         const messageDiv = document.getElementById('message');
         const classMap = {
@@ -192,6 +201,7 @@
                 const res = await fetch('/api/users/me', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) return handleAuthError();
                 const data = await res.json();
                 
                 if (res.ok) {
@@ -282,6 +292,7 @@
                     },
                     body: JSON.stringify(body)
                 });
+                if (res.status === 401) return handleAuthError();
                 const data = await res.json();
 
                 if (res.ok) {

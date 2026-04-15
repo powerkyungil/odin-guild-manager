@@ -206,7 +206,15 @@
         const userId = parseInt(localStorage.getItem('userId') || sessionStorage.getItem('userId'));
         const role = localStorage.getItem('role') || sessionStorage.getItem('role');
 
-        if (!token) window.location.href = 'login.html';
+        const handleAuthError = () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('nickname');
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        };
+
+        if (!token) handleAuthError();
 
         if (role === 'MASTER' || role === 'ADMIN') {
             document.getElementById('adminSiegeActions').style.display = 'block';
@@ -218,6 +226,7 @@
                 const res = await fetch('/api/siege', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) return handleAuthError();
                 const data = await res.json();
                 renderSiege(data);
             } catch (err) {
@@ -303,6 +312,7 @@
                     })
                 });
 
+                if (res.status === 401) return handleAuthError();
                 if (res.ok) {
                     fetchSiegeData();
                 } else {
@@ -330,6 +340,7 @@
                     })
                 });
 
+                if (res.status === 401) return handleAuthError();
                 if (res.ok) {
                     alert('성공적으로 업데이트되었습니다.');
                     fetchSiegeData();
@@ -350,6 +361,7 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
+                if (res.status === 401) return handleAuthError();
                 if (res.ok) {
                     fetchSiegeData();
                 } else {

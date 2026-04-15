@@ -228,8 +228,15 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) window.location.href = 'login.html';
+        const logout = () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('nickname');
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        };
+
+        if (!token) logout();
 
         let allMembers = [];
         let groups = [];
@@ -397,6 +404,7 @@
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ name })
                 });
+                if (res.status === 401) return logout();
                 if (res.ok) {
                     const newGroup = await res.json();
                     groups.push({ ...newGroup, memberIds: [] });
@@ -408,11 +416,12 @@
         async function updateGroupName(id, newName) {
             if (!isAdmin) return;
             try {
-                await fetch(`/api/groups/${id}`, {
+                const res = await fetch(`/api/groups/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ name: newName })
                 });
+                if (res.status === 401) return logout();
             } catch (err) { console.error('Name update failed', err); }
         }
 
@@ -424,6 +433,7 @@
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) return logout();
                 if (res.ok) {
                     groups = groups.filter(g => g.id !== id);
                     renderMembers();
@@ -471,11 +481,12 @@
 
         async function saveGroupMembersSilently(groupId, userIds) {
             try {
-                await fetch(`/api/groups/${groupId}/members`, {
+                const res = await fetch(`/api/groups/${groupId}/members`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ userIds })
                 });
+                if (res.status === 401) return logout();
             } catch (err) { 
                 console.error('Save failed', err);
             }

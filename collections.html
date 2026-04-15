@@ -317,6 +317,7 @@
 
                 // Excluded Members
                 const eRes = await fetch('/api/excluded-members', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (eRes.status === 401) return handleAuthError();
                 if (eRes.ok) excludedUserIds = await eRes.json();
 
                 renderTable();

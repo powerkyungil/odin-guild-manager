@@ -210,9 +210,16 @@
 
     <script>
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) {
+        
+        const handleAuthError = () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('nickname');
+            sessionStorage.clear();
             window.location.href = 'login.html';
-        }
+        };
+
+        if (!token) handleAuthError();
 
         document.getElementById('userNameDisplay').textContent = localStorage.getItem('username') || sessionStorage.getItem('username');
         const role = localStorage.getItem('role') || sessionStorage.getItem('role');
@@ -226,7 +233,8 @@
 
         async function loadSettings() {
             try {
-                const res = await fetch('/api/settings');
+                const res = await fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.status === 401) return handleAuthError();
                 const settings = await res.json();
                 if (settings.guild_name) {
                     const el = document.getElementById('dynamicGuildName');
@@ -270,6 +278,7 @@
                         discord_enabled
                     })
                 });
+                if (res.status === 401) return logout();
                 if (res.ok) {
                     alert('길드 설정 및 디스코드 정보가 저장되었습니다.');
                     location.reload();
@@ -290,6 +299,7 @@
                         'Authorization': `Bearer ${token}` 
                     }
                 });
+                if (res.status === 401) return logout();
                 const data = await res.json();
                 if (res.ok) {
                     alert('디스코드로 테스트 메시지를 보냈습니다! 채널을 확인하세요.');
