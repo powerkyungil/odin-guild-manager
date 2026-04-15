@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (voiceToggle) voiceToggle.checked = voiceEnabled;
   const playedVoiceKeys = new Set();
   let hasInitialScrolled = false;
+  let lastScheduleHash = "";
 
   let viewMode = localStorage.getItem('viewMode') || 'normal';
   const toggleViewBtn = document.getElementById('toggle-view-btn');
@@ -127,13 +128,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   
-  // Stuck state recovery interval
+  // Stuck state recovery interval (Only if speaking for too long)
+  let speakingStartTime = 0;
   setInterval(() => {
-    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
+    if ('speechSynthesis' in window) {
+        if (window.speechSynthesis.speaking) {
+            if (speakingStartTime === 0) speakingStartTime = Date.now();
+            // If speaking for more than 15s, it might be stuck
+            if (Date.now() - speakingStartTime > 15000) {
+                window.speechSynthesis.pause();
+                window.speechSynthesis.resume();
+                speakingStartTime = Date.now(); // reset
+            }
+        } else {
+            speakingStartTime = 0;
+        }
     }
-  }, 10000);
+  }, 5000);
 
   // Pre-load voices
   if ('speechSynthesis' in window) {
@@ -447,7 +458,15 @@ document.addEventListener('DOMContentLoaded', () => {
       injectFixedEventsInto(fixedAndShared);
       fixedAndShared.sort((a, b) => a.spawnTime - b.spawnTime);
       
-      renderSchedules(fixedAndShared);
+      // Memory Optimization: Only render if data has changed
+      // We use a simple JSON hash to detect deep changes in schedules or participation
+      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + viewMode;
+      if (currentHash !== lastScheduleHash) {
+          console.log('[Sync] Data changed, re-rendering schedules.');
+          renderSchedules(fixedAndShared);
+          lastScheduleHash = currentHash;
+      }
+      
       updateImminentHighlight();
     } catch (e) {
       console.error('Failed to fetch schedules', e);
