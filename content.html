@@ -228,14 +228,7 @@
     </div>
 
     <script>
-        const logout = () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('role');
-            localStorage.removeItem('nickname');
-            sessionStorage.clear();
-            window.location.href = 'login.html';
-        };
-
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (!token) logout();
 
         let allMembers = [];

@@ -833,6 +833,12 @@ document.addEventListener('DOMContentLoaded', () => {
     saveInputsToStorage();
   };
 
+  const formatBossNameWithBreak = (name) => {
+    const chars = Array.from(String(name || ''));
+    if (chars.length <= 6) return String(name || '');
+    return `${chars.slice(0, 6).join('')}<wbr>${chars.slice(6).join('')}`;
+  };
+
   const renderSchedules = (schedules) => {
     scheduleContainer.innerHTML = '';
     scheduleContainer.className = viewMode === 'compact' ? 'list compact-view' : 'list';
@@ -949,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="type-pill ${typeClass}">${isPast ? '지난보스' : item.type}</div>
         <div class="boss-area">
           <div class="boss-name" style="display:flex; align-items:center; flex-wrap: wrap;">
-            ${item.boss}
+            ${formatBossNameWithBreak(item.boss)}
             ${item.is_mung ? '<span style="background: #a855f7; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">멍</span>' : ''}
             ${participationHtml}
           </div>
