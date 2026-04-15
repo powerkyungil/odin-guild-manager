@@ -77,22 +77,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  let globalAudioCtx = null;
   const playBeep = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      if (!globalAudioCtx) globalAudioCtx = new AudioCtx();
+      
+      if (globalAudioCtx.state === 'suspended') globalAudioCtx.resume();
+
+      const osc = globalAudioCtx.createOscillator();
+      const gain = globalAudioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(500, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(500, globalAudioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, globalAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, globalAudioCtx.currentTime + 0.1);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(globalAudioCtx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
+      osc.stop(globalAudioCtx.currentTime + 0.1);
+    } catch (e) {
+      console.warn("playBeep error:", e);
+    }
   };
 
   const playGoogleTTS = (text) => {
