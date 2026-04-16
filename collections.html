@@ -487,6 +487,8 @@
             });
 
             document.getElementById('resultCount').textContent = `총 ${itemCnt}개 아이템 로드됨`;
+            // Preserve current filter/column visibility state after re-render.
+            filterTable();
         }
 
         async function toggleCollection(userId, key, cb) {
