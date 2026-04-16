@@ -105,7 +105,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         // Error opening database
     } else {
-        initDB();
+        // Enforce FK constraints/cascades in SQLite for this connection.
+        db.run("PRAGMA foreign_keys = ON", () => initDB());
     }
 });
 
@@ -526,14 +527,39 @@ app.put('/api/admin/users/:id/role', verifyToken, (req, res) => {
 
 app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
-    db.get("SELECT role FROM users WHERE id = ?", [req.params.id], (err, user) => {
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId) return res.status(400).json({ error: 'Invalid user id.' });
+
+    db.get("SELECT role, nickname FROM users WHERE id = ?", [targetUserId], (err, user) => {
+        if (err) return res.status(500).json({ error: 'DB Error.' });
+        if (!user) return res.status(404).json({ error: 'User not found.' });
         if (user.role === 'MASTER') return res.status(403).json({ error: 'Master role protected.' });
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            db.run("DELETE FROM user_collections WHERE user_id = ?", [req.params.id]);
-            db.run("DELETE FROM users WHERE id = ?", [req.params.id]);
-            db.run("COMMIT", () => res.json({ success: true }));
+
+        const runSql = (sql, params = []) => new Promise((resolve, reject) => {
+            db.run(sql, params, function (runErr) {
+                if (runErr) reject(runErr);
+                else resolve(this);
+            });
         });
+
+        (async () => {
+            try {
+                await runSql("BEGIN TRANSACTION");
+                await runSql("DELETE FROM user_collections WHERE user_id = ?", [targetUserId]);
+                await runSql("DELETE FROM group_members WHERE user_id = ?", [targetUserId]);
+                await runSql("DELETE FROM excluded_members WHERE user_id = ?", [targetUserId]);
+                await runSql("DELETE FROM siege_data WHERE user_id = ?", [targetUserId]);
+                if (user.nickname) {
+                    await runSql("DELETE FROM boss_participants WHERE nickname = ?", [user.nickname]);
+                }
+                await runSql("DELETE FROM users WHERE id = ?", [targetUserId]);
+                await runSql("COMMIT");
+                res.json({ success: true });
+            } catch (txErr) {
+                try { await runSql("ROLLBACK"); } catch (_) {}
+                res.status(500).json({ error: 'Delete transaction failed.' });
+            }
+        })();
     });
 });
 
