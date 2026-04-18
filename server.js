@@ -123,8 +123,23 @@ function initDB() {
             main_class TEXT,
             combat_power INTEGER,
             equipment TEXT,
-            skills TEXT
+            skills TEXT,
+            max_crit_rate INTEGER DEFAULT 0,
+            max_crit_resist INTEGER DEFAULT 0,
+            status_effect_acc INTEGER DEFAULT 0
         )`);
+
+        // Migration: Add new columns if they don't exist
+        db.all("PRAGMA table_info(users)", (err, columns) => {
+            if (err || !columns) return;
+            const hasCritRate = columns.some(c => c.name === 'max_crit_rate');
+            const hasCritResist = columns.some(c => c.name === 'max_crit_resist');
+            const hasStatusAcc = columns.some(c => c.name === 'status_effect_acc');
+            
+            if (!hasCritRate) db.run("ALTER TABLE users ADD COLUMN max_crit_rate INTEGER DEFAULT 0");
+            if (!hasCritResist) db.run("ALTER TABLE users ADD COLUMN max_crit_resist INTEGER DEFAULT 0");
+            if (!hasStatusAcc) db.run("ALTER TABLE users ADD COLUMN status_effect_acc INTEGER DEFAULT 0");
+        });
 
         // Invitations Table
         db.run(`CREATE TABLE IF NOT EXISTS invitations (
@@ -316,7 +331,7 @@ app.post('/api/invites', verifyToken, (req, res) => {
     if (targetRole === 'ADMIN' && req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Only Master or Admin can invite.' });
     const token = crypto.randomBytes(16).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 1);
+    expiresAt.setHours(expiresAt.getHours() + 1);
     db.run("INSERT INTO invitations (token, role, created_by, expires_at) VALUES (?, ?, ?, ?)", [token, targetRole || 'MEMBER', req.userId, expiresAt.toISOString()], (err) => {
         if (err) return res.status(500).json({ error: 'Error generating invite.' });
         res.json({ inviteToken: token, role: targetRole || 'MEMBER' });
@@ -324,13 +339,13 @@ app.post('/api/invites', verifyToken, (req, res) => {
 });
 
 app.post('/api/users/register', (req, res) => {
-    const { token, username, password, nickname, occupation, main_class, combat_power, equipment, skills } = req.body;
+    const { token, username, password, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc } = req.body;
     if (!username || !password || !nickname) return res.status(400).json({ error: 'Missing required fields.' });
     db.get("SELECT * FROM invitations WHERE token = ? AND is_used = 0", [token], (err, invite) => {
         if (err || !invite) return res.status(400).json({ error: 'Invalid token.' });
         const hash = bcrypt.hashSync(password, 10);
-        db.run(`INSERT INTO users (username, password_hash, role, nickname, occupation, main_class, combat_power, equipment, skills) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [username, hash, invite.role, nickname, occupation, main_class, combat_power, JSON.stringify(equipment), JSON.stringify(skills)], function (err) {
+        db.run(`INSERT INTO users (username, password_hash, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [username, hash, invite.role, nickname, occupation, main_class, combat_power, JSON.stringify(equipment), JSON.stringify(skills), max_crit_rate || 0, max_crit_resist || 0, status_effect_acc || 0], function (err) {
                 if (err) return res.status(400).json({ error: 'Username exists.' });
                 db.run("UPDATE invitations SET is_used = 1 WHERE token = ?", [token]);
                 res.json({ success: true });
@@ -339,16 +354,16 @@ app.post('/api/users/register', (req, res) => {
 });
 
 app.get('/api/users/me', verifyToken, (req, res) => {
-    db.get("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills FROM users WHERE id = ?", [req.userId], (err, row) => {
+    db.get("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users WHERE id = ?", [req.userId], (err, row) => {
         if (err || !row) return res.status(404).json({ error: 'User not found.' });
         res.json(row);
     });
 });
 
 app.put('/api/users/me', verifyToken, (req, res) => {
-    const { password, nickname, occupation, main_class, combat_power, equipment, skills } = req.body;
-    let sql = `UPDATE users SET nickname = ?, occupation = ?, main_class = ?, combat_power = ?, equipment = ?, skills = ?`;
-    let params = [nickname, occupation, main_class, combat_power, JSON.stringify(equipment), JSON.stringify(skills)];
+    const { password, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc } = req.body;
+    let sql = `UPDATE users SET nickname = ?, occupation = ?, main_class = ?, combat_power = ?, equipment = ?, skills = ?, max_crit_rate = ?, max_crit_resist = ?, status_effect_acc = ?`;
+    let params = [nickname, occupation, main_class, combat_power, JSON.stringify(equipment), JSON.stringify(skills), max_crit_rate || 0, max_crit_resist || 0, status_effect_acc || 0];
     if (password && password.trim() !== "") {
         params.push(bcrypt.hashSync(password, 10));
         sql += `, password_hash = ?`;
@@ -359,7 +374,7 @@ app.put('/api/users/me', verifyToken, (req, res) => {
 });
 
 app.get('/api/users', verifyToken, (req, res) => {
-    db.all("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills FROM users", (err, rows) => res.json(rows));
+    db.all("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users", (err, rows) => res.json(rows));
 });
 
 // --- BOSS API ---

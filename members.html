@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="auth.css">
     <style>
-        .auth-container { max-width: 1550px; margin: 40px auto; width: 100%; overflow-x: hidden; }
+        .auth-container { max-width: 1600px; margin: 20px auto; width: 98%; overflow-x: hidden; }
         .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
         .back-link:hover { color: var(--text-light); }
         
@@ -21,7 +21,7 @@
         }
         .equip-box {
             flex: 1;
-            min-width: 50px;
+            min-width: 38px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -37,7 +37,7 @@
             white-space: nowrap;
         }
         .equip-box-val {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 700;
             text-align: center;
             word-break: break-all;
@@ -61,7 +61,7 @@
             border: 1px solid rgba(255,255,255,0.05);
             display: flex;
             gap: 3px;
-            width: 42px;
+            width: 38px;
             justify-content: center;
         }
         .skill-hero { color: #d946ef; border-color: rgba(217, 70, 239, 0.2); background: rgba(217, 70, 239, 0.05); } /* Purple */
@@ -75,8 +75,8 @@
         .skill-max { color: #f472b6; text-shadow: 0 0 5px rgba(244, 114, 182, 0.3); } /* 10강 */
 
         /* Adjust Table overall */
-        .members-table th { font-size: 11px; padding: 10px 15px; }
-        .members-table td { padding: 8px 15px; }
+        .members-table th { font-size: 11px; padding: 10px 10px; white-space: nowrap; }
+        .members-table td { padding: 8px 10px; }
         .rank-badge { width: 22px; height: 22px; font-size: 11px; }
 
         @media (max-width: 768px) {
@@ -154,6 +154,41 @@
         }
         .save-settings-btn:hover { background: #4f46e5; transform: translateY(-1px); }
         .discord-help { font-size: 11px; color: #a5b4fc; margin-top: 4px; line-height: 1.4; }
+        
+        /* Sorting Styles */
+        .sortable { cursor: pointer; user-select: none; position: relative; transition: color 0.2s; }
+        .sortable:hover { color: #818cf8; }
+        .sortable::after {
+            content: '↕';
+            margin-left: 6px;
+            font-size: 10px;
+            opacity: 0.3;
+        }
+        .sortable.active::after {
+            opacity: 1;
+            color: #818cf8;
+        }
+        .sortable.asc::after { content: '↑'; }
+        .sortable.desc::after { content: '↓'; }
+
+        .sort-btn-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .sort-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .sort-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--primary-color); }
+        .sort-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); font-weight: 700; }
     </style>
 </head>
 <body>
@@ -168,7 +203,15 @@
                 <h1>길드원 명단</h1>
                 <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">길드원들의 실시간 장비 및 스킬 현황을 비교합니다.</p>
             </div>
-            <div id="memberCount" style="font-size: 14px; color: var(--primary-color); font-weight: 600;">총 0명</div>
+            <div style="text-align: right;">
+                <div class="sort-btn-group">
+                    <button class="sort-btn active" id="btn-combat_power" onclick="setSort('combat_power')">전투력 순</button>
+                    <button class="sort-btn" id="btn-max_crit_rate" onclick="setSort('max_crit_rate')">치확 순</button>
+                    <button class="sort-btn" id="btn-max_crit_resist" onclick="setSort('max_crit_resist')">치저 순</button>
+                    <button class="sort-btn" id="btn-status_effect_acc" onclick="setSort('status_effect_acc')">상적/충적 순</button>
+                </div>
+                <div id="memberCount" style="font-size: 14px; color: var(--primary-color); font-weight: 600;">총 0명</div>
+            </div>
         </div>
 
 
@@ -176,12 +219,13 @@
             <table class="members-table">
                 <thead>
                     <tr>
-                        <th style="width: 40px;">#</th>
-                        <th style="width: 120px;">닉네임</th>
-                        <th style="width: 160px;">직업 / 주클래스</th>
-                        <th style="width: 90px;">전투력</th>
+                        <th style="width: 30px;">#</th>
+                        <th style="width: 100px;">닉네임</th>
+                        <th style="width: 130px;">직업 / 주클래스</th>
+                        <th style="width: 70px;">전투력</th>
+                        <th style="width: 125px;">치명타 / 상적</th>
                         <th>장비 정보 (무기 ~ 벨트)</th>
-                        <th style="width: 320px;">스킬 강화 현황</th>
+                        <th style="width: 290px;">스킬 강화 현황</th>
                     </tr>
                 </thead>
                 <tbody id="memberTableBody">
@@ -276,6 +320,39 @@
             }
         }
 
+        let allUsers = [];
+        let currentSort = { key: 'combat_power', dir: 'desc' };
+
+        function setSort(key) {
+            if (currentSort.key === key) {
+                currentSort.dir = currentSort.dir === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSort.key = key;
+                currentSort.dir = 'desc';
+            }
+            
+            // Update UI
+            document.querySelectorAll('.sort-btn').forEach(el => {
+                el.classList.remove('active');
+                el.textContent = el.textContent.replace(' ↑', '').replace(' ↓', '');
+            });
+            const activeBtn = document.getElementById(`btn-${key}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.textContent += currentSort.dir === 'desc' ? ' ↓' : ' ↑';
+            }
+            
+            applySortAndRender();
+        }
+
+        function applySortAndRender() {
+            const sorted = [...allUsers].sort((a, b) => {
+                let valA = a[currentSort.key] || 0;
+                let valB = b[currentSort.key] || 0;
+                return currentSort.dir === 'desc' ? valB - valA : valA - valB;
+            });
+            renderTable(sorted);
+        }
 
         async function fetchMembers() {
             try {
@@ -286,11 +363,14 @@
                 if (!res.ok) throw new Error('Unauthorized');
                 
                 let users = await res.json();
-                users = users.filter(u => u.nickname);
-                users.sort((a, b) => b.combat_power - a.combat_power);
+                allUsers = users.filter(u => u.nickname);
                 
-                renderTable(users);
-                document.getElementById('memberCount').textContent = `총 ${users.length}명`;
+                // Set initial sort state UI
+                const initialBtn = document.getElementById('btn-combat_power');
+                if (initialBtn) initialBtn.textContent += ' ↓';
+                
+                applySortAndRender();
+                document.getElementById('memberCount').textContent = `총 ${allUsers.length}명`;
             } catch (err) {
                 console.error(err);
                 if (err.message !== 'Unauthorized') {
@@ -425,11 +505,16 @@
                             ` : ''}
                         </div>
                     </td>
-                    <td data-label="직업 / 주클래스" style="color: var(--text-muted); font-size: 11px; line-height: 1.4;">
+                    <td data-label="직업 / 주클래스" style="color: var(--text-muted); font-size: 10px; line-height: 1.3;">
                         <div style="color: var(--text-light); font-weight: 600;">${u.occupation}</div>
-                        <div>${u.main_class}</div>
+                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.main_class}</div>
                     </td>
-                    <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:15px;">${u.combat_power.toLocaleString()}</td>
+                    <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:14px;">${u.combat_power.toLocaleString()}</td>
+                    <td data-label="치명타 / 상태이상" style="font-size: 11px; line-height: 1.5; color: #94a3b8;">
+                        <div>치확: <span style="color: #e2e8f0; font-weight: 700;">${u.max_crit_rate || 0}%</span></div>
+                        <div>치저: <span style="color: #e2e8f0; font-weight: 700;">${u.max_crit_resist || 0}%</span></div>
+                        <div>상적/충적: <span style="color: #e2e8f0; font-weight: 700;">${u.status_effect_acc || 0}%</span></div>
+                    </td>
                     <td data-label="장비 현황">${equipHtml}</td>
                     <td data-label="스킬 현황">${skillHtml}</td>
                 `;

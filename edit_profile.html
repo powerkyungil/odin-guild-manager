@@ -60,6 +60,20 @@
                         </select>
                     </div>
                 </div>
+                <div class="grid-3" style="margin-top: 15px;">
+                    <div class="form-group">
+                        <label for="max_crit_rate">최고 치명타확률 (%)</label>
+                        <input type="number" id="max_crit_rate" step="0.1" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="max_crit_resist">최고 치명타저항 (%)</label>
+                        <input type="number" id="max_crit_resist" step="0.1" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="status_effect_acc">상적 / 충적 (%)</label>
+                        <input type="number" id="status_effect_acc" step="0.1" placeholder="0">
+                    </div>
+                </div>
             </div>
 
             <!-- 3. 장비 정보 -->
@@ -216,6 +230,10 @@
                         occSelect.dispatchEvent(new Event('change'));
                         classSelect.value = data.main_class;
                     }
+                    
+                    document.getElementById('max_crit_rate').value = data.max_crit_rate || 0;
+                    document.getElementById('max_crit_resist').value = data.max_crit_resist || 0;
+                    document.getElementById('status_effect_acc').value = data.status_effect_acc || 0;
 
 
                     // Pre-fill equipment
@@ -279,6 +297,9 @@
                 combat_power: parseInt(document.getElementById('combat_power').value.replace(/,/g, '')),
                 occupation: document.getElementById('occupation').value,
                 main_class: document.getElementById('main_class').value,
+                max_crit_rate: parseFloat(document.getElementById('max_crit_rate').value) || 0,
+                max_crit_resist: parseFloat(document.getElementById('max_crit_resist').value) || 0,
+                status_effect_acc: parseFloat(document.getElementById('status_effect_acc').value) || 0,
                 equipment,
                 skills
             };
