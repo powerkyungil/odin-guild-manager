@@ -82,9 +82,9 @@
         @media (max-width: 768px) {
             .auth-container { margin: 20px auto; padding: 0 10px; }
             .members-table thead { display: none; }
-            .members-table, .members-table tbody, .members-table tr, .members-table td { display: block; width: 100%; }
+            .members-table, .members-table tbody, .members-table tr, .members-table td { display: block; width: 100%; box-sizing: border-box; }
             .members-table tr { margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(255,255,255,0.02); padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-            .members-table td { padding: 10px 0; border: none !important; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+            .members-table td { padding: 10px 0; border: none !important; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.05) !important; position: relative; }
             .members-table td:last-child { border-bottom: none !important; }
             .members-table td::before {
                 content: attr(data-label);
@@ -96,10 +96,10 @@
                 letter-spacing: 0.05em;
             }
             .equip-strip { flex-wrap: wrap; gap: 4px; padding: 8px; }
-            .equip-box { flex: 1 1 calc(33.333% - 4px); min-width: unset; padding: 6px 4px; }
+            .equip-box { flex: 1 1 calc(20% - 4px); min-width: unset; padding: 6px 4px; }
             .skill-line { flex-wrap: wrap; align-items: center; }
             .skill-mini-tag { width: auto; min-width: 42px; padding: 4px 6px; }
-            /* Hide rank label completely if we want just the badge, but keep it for layout */
+            
             td[data-label="#"] { flex-direction: row; align-items: center; justify-content: space-between; border-bottom: none !important; padding-bottom: 0; }
             td[data-label="#"]::before { display: none; }
 
@@ -114,6 +114,17 @@
                 min-width: 80px;
                 height: 32px;
             }
+
+            /* Custom Mobile Header */
+            .auth-header { flex-direction: column !important; align-items: flex-start !important; gap: 15px; }
+            .sort-btn-group { justify-content: flex-start; margin-bottom: 0px; gap: 5px; }
+            .sort-btn { padding: 4px 8px; font-size: 11px; }
+        }
+
+        /* Landscape Specific or Small Desktop */
+        @media (min-width: 769px) and (max-width: 1200px) {
+            .members-table th, .members-table td { font-size: 10px; padding: 8px 4px; }
+            .equip-box { min-width: 30px; }
         }
         
         /* Guild Settings Panel */
@@ -205,12 +216,12 @@
             </div>
             <div style="text-align: right;">
                 <div class="sort-btn-group">
+                    <div id="memberCount" style="font-size: 14px; color: var(--primary-color); font-weight: 600; align-self: center; margin-right: 10px;">총 0명</div>
                     <button class="sort-btn active" id="btn-combat_power" onclick="setSort('combat_power')">전투력 순</button>
                     <button class="sort-btn" id="btn-max_crit_rate" onclick="setSort('max_crit_rate')">치확 순</button>
                     <button class="sort-btn" id="btn-max_crit_resist" onclick="setSort('max_crit_resist')">치저 순</button>
                     <button class="sort-btn" id="btn-status_effect_acc" onclick="setSort('status_effect_acc')">상적/충적 순</button>
                 </div>
-                <div id="memberCount" style="font-size: 14px; color: var(--primary-color); font-weight: 600;">총 0명</div>
             </div>
         </div>
 
@@ -223,7 +234,7 @@
                         <th style="width: 100px;">닉네임</th>
                         <th style="width: 130px;">직업 / 주클래스</th>
                         <th style="width: 70px;">전투력</th>
-                        <th style="width: 125px;">치명타 / 상적</th>
+                        <th style="width: 125px;">치명타 / 적중</th>
                         <th>장비 정보 (무기 ~ 벨트)</th>
                         <th style="width: 290px;">스킬 강화 현황</th>
                     </tr>
@@ -510,7 +521,7 @@
                         <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.main_class}</div>
                     </td>
                     <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:14px;">${u.combat_power.toLocaleString()}</td>
-                    <td data-label="치명타 / 상태이상" style="font-size: 11px; line-height: 1.5; color: #94a3b8;">
+                    <td data-label="치명타 / 적중" style="font-size: 11px; line-height: 1.5; color: #94a3b8;">
                         <div>치확: <span style="color: #e2e8f0; font-weight: 700;">${u.max_crit_rate || 0}%</span></div>
                         <div>치저: <span style="color: #e2e8f0; font-weight: 700;">${u.max_crit_resist || 0}%</span></div>
                         <div>상적/충적: <span style="color: #e2e8f0; font-weight: 700;">${u.status_effect_acc || 0}%</span></div>
