@@ -6,6 +6,7 @@
     <title>컨텐츠 참여 - 그룹 빌더</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="auth.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         :root {
             --sidebar-width: 320px;
@@ -196,6 +197,15 @@
             .groups-container { grid-template-columns: 1fr; }
             .back-link { margin-bottom: 10px; padding: 5px 0; }
         }
+
+        /* Sortable Styles */
+        .sortable-ghost {
+            opacity: 0.4;
+            background: var(--primary-color) !important;
+        }
+        .sortable-drag {
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
@@ -282,38 +292,50 @@
             const assignedIds = new Set();
             groups.forEach(g => g.memberIds.forEach(id => assignedIds.add(id)));
 
+            const val = (document.getElementById('memberSearch')?.value || '').toUpperCase();
+
             allMembers.forEach(m => {
                 if (assignedIds.has(m.id)) return;
 
                 const item = document.createElement('div');
                 item.className = 'member-item';
-                item.draggable = isAdmin;
-                if (!isAdmin) item.style.cursor = 'default';
                 item.dataset.userId = m.id;
+                if (!isAdmin) item.style.cursor = 'default';
                 
                 item.innerHTML = `
                     <div class="nick">${m.nickname}</div>
                     <div class="info">${m.main_class || m.occupation || 'N/A'} | ${Math.floor(m.combat_power/10000)}만</div>
                 `;
 
-                if (isAdmin) {
-                    item.addEventListener('dragstart', (e) => {
-                        e.dataTransfer.setData('userId', m.id);
-                        e.dataTransfer.setData('sourceGroupId', 'sidebar');
-                    });
+                // Filter search
+                if (val && !m.nickname.toUpperCase().includes(val)) {
+                    item.style.display = 'none';
                 }
 
                 list.appendChild(item);
             });
+
+            if (isAdmin && !list.dataset.sortable) {
+                Sortable.create(list, {
+                    group: 'members',
+                    draggable: '.member-item, .placed-member',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onAdd: () => {
+                        // Re-render is handled by the source group's onRemove
+                        // but we call it here too just in case of race conditions
+                        setTimeout(() => {
+                            renderMembers();
+                            renderGroups();
+                        }, 50);
+                    }
+                });
+                list.dataset.sortable = 'true';
+            }
         }
 
         function filterMembers() {
-            const val = document.getElementById('memberSearch').value.toUpperCase();
-            const items = document.querySelectorAll('.member-item');
-            items.forEach(item => {
-                const nick = item.querySelector('.nick').innerText.toUpperCase();
-                item.style.display = nick.includes(val) ? '' : 'none';
-            });
+            renderMembers(); // Re-render with filter
         }
 
         function renderGroups() {
@@ -335,7 +357,7 @@
                         <div class="group-name" ${isAdmin ? 'contenteditable="true"' : ''} onblur="updateGroupName(${g.id}, this.innerText)">${g.name}</div>
                         ${isAdmin ? `<button class="btn-delete" onclick="deleteGroup(${g.id})">삭제</button>` : ''}
                     </div>
-                    <div class="group-members" id="group-members-${g.id}">
+                    <div class="group-members" id="group-members-${g.id}" data-group-id="${g.id}">
                         <!-- Members here -->
                     </div>
                 `;
@@ -349,37 +371,33 @@
                         if (m) {
                             const div = document.createElement('div');
                             div.className = 'placed-member';
-                            div.draggable = isAdmin;
+                            div.dataset.userId = m.id;
                             if (!isAdmin) div.style.cursor = 'default';
                             div.innerHTML = `
                                 <span>${m.nickname} <small style="color:#64748b; font-size:10px;">(${m.main_class || m.occupation})</small></span>
                                 ${isAdmin ? `<span class="remove-member" onclick="removeMemberFromGroup(${g.id}, ${m.id})">&times;</span>` : ''}
                             `;
-                            
-                            if (isAdmin) {
-                                div.addEventListener('dragstart', (e) => {
-                                    e.dataTransfer.setData('userId', m.id);
-                                    e.dataTransfer.setData('sourceGroupId', g.id);
-                                });
-                            }
-
                             memberList.appendChild(div);
                         }
                     });
                 }
 
                 if (isAdmin) {
-                    card.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        card.classList.add('drag-over');
-                    });
-                    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
-                    card.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        card.classList.remove('drag-over');
-                        const userId = parseInt(e.dataTransfer.getData('userId'));
-                        const sourceGroupId = e.dataTransfer.getData('sourceGroupId');
-                        handleMemberMove(userId, sourceGroupId, g.id);
+                    Sortable.create(memberList, {
+                        group: 'members',
+                        draggable: '.member-item, .placed-member',
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        onAdd: (evt) => {
+                            syncGroup(g.id);
+                        },
+                        onRemove: (evt) => {
+                            syncGroup(g.id);
+                        },
+                        onEnd: (evt) => {
+                            // Re-order within group
+                            syncGroup(g.id);
+                        }
                     });
                 }
 
@@ -435,29 +453,25 @@
             } catch (err) { alert('그룹 삭제 실패'); }
         }
 
-        async function handleMemberMove(userId, sourceGroupId, targetGroupId) {
+        async function syncGroup(groupId) {
             if (!isAdmin) return;
-            if (sourceGroupId === targetGroupId.toString()) return;
+            const listEl = document.getElementById(`group-members-${groupId}`);
+            const userIds = Array.from(listEl.children)
+                                 .filter(el => el.dataset.userId)
+                                 .map(el => parseInt(el.dataset.userId));
+            
+            // Update local state IMMEDIATELY before async call
+            const g = groups.find(x => x.id === groupId);
+            if (g) g.memberIds = userIds;
 
-            if (sourceGroupId !== 'sidebar') {
-                const sId = parseInt(sourceGroupId);
-                const sGroup = groups.find(g => g.id === sId);
-                if (sGroup) {
-                    const newUserIds = sGroup.memberIds.filter(id => id !== userId);
-                    await saveGroupMembersSilently(sId, newUserIds);
-                    sGroup.memberIds = newUserIds;
-                }
-            }
-
-            const tGroup = groups.find(g => g.id === targetGroupId);
-            if (tGroup && !tGroup.memberIds.includes(userId)) {
-                const newUserIds = [...tGroup.memberIds, userId];
-                await saveGroupMembersSilently(targetGroupId, newUserIds);
-                tGroup.memberIds = newUserIds;
-            }
-
-            renderMembers();
-            renderGroups();
+            // Save to backend
+            await saveGroupMembersSilently(groupId, userIds);
+            
+            // Re-render to ensure UI consistency
+            setTimeout(() => {
+                renderMembers();
+                renderGroups();
+            }, 10);
         }
 
         async function removeMemberFromGroup(groupId, userId) {
