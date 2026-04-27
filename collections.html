@@ -19,6 +19,15 @@
         }
         table { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 18px; }
         
+        /* Grab to Scroll */
+        .table-wrapper {
+            cursor: grab;
+            user-select: none; /* Prevent text selection while dragging */
+        }
+        .table-wrapper:active {
+            cursor: grabbing;
+        }
+        
         /* Sticky Headers and Columns */
         th, td { padding: 8px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; white-space: nowrap; }
         th { background: #1e293b; position: sticky; top: 0; z-index: 100; font-weight: 700; color: var(--text-light); border-bottom: 2px solid var(--primary-color); }
@@ -723,7 +732,48 @@
         window.toggleCollection = toggleCollection;
         window.filterTable = filterTable;
 
+        function initGrabToScroll() {
+            const slider = document.querySelector('.table-wrapper');
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+            let startY;
+            let scrollTop;
+
+            slider.addEventListener('mousedown', (e) => {
+                if (e.target.closest('input, button, .row-coll button')) return;
+                isDown = true;
+                slider.style.cursor = 'grabbing';
+                startX = e.pageX - slider.offsetLeft;
+                startY = e.pageY - slider.offsetTop;
+                scrollLeft = slider.scrollLeft;
+                scrollTop = slider.scrollTop;
+            });
+
+            slider.addEventListener('mouseleave', () => {
+                isDown = false;
+                slider.style.cursor = 'grab';
+            });
+
+            slider.addEventListener('mouseup', () => {
+                isDown = false;
+                slider.style.cursor = 'grab';
+            });
+
+            slider.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - slider.offsetLeft;
+                const y = e.pageY - slider.offsetTop;
+                const walkX = (x - startX) * 1.5; // Scroll speed
+                const walkY = (y - startY) * 1.5;
+                slider.scrollLeft = scrollLeft - walkX;
+                slider.scrollTop = scrollTop - walkY;
+            });
+        }
+
         init();
+        initGrabToScroll();
     </script>
 </body>
 </html>
