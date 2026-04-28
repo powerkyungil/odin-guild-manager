@@ -487,9 +487,18 @@
 
             collectionsData.forEach(col => {
                 body.appendChild(createHeaderRow(members, col.name, col.id));
+                
+                const seenCounts = {};
                 col.items.forEach((fullItemStr) => {
                     const [part, ench] = fullItemStr.split('|').map(s => s.trim());
-                    const uniqueKey = `${col.name}||${part}||${ench}`;
+                    const key = fullItemStr.trim();
+                    seenCounts[key] = (seenCounts[key] || 0) + 1;
+
+                    let uniqueKey = `${col.name}||${part}||${ench}`;
+                    if (seenCounts[key] > 1) {
+                        uniqueKey = `${uniqueKey}||${seenCounts[key]}`;
+                    }
+                    
                     body.appendChild(createItemRow(members, part, ench, uniqueKey, col.name));
                     itemCnt++;
                 });
