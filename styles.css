@@ -981,3 +981,5 @@ h1 {
     color: var(--main);
     opacity: 0.7;
 }
+
+.tag { padding: 4px 8px; border-radius: 6px; font-size: 12px; }

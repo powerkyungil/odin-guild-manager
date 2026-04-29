@@ -254,8 +254,12 @@ function initDB() {
             cooldown INTEGER,
             timeStr TEXT,
             days TEXT,
+            color TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`, () => {
+            // Add color column if not exists
+            db.run("ALTER TABLE boss_definitions ADD COLUMN color TEXT", (err) => {});
+
             // Migration
             db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='custom_bosses'", (err, row) => {
                 if (row) {
@@ -373,19 +377,19 @@ const DEFAULT_FIXED_EVENTS = [
 function seedDefaultBosses() {
     db.serialize(() => {
         db.run("BEGIN TRANSACTION");
-        const stmt = db.prepare("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days) VALUES (?, ?, ?, ?, ?, ?)");
+        const stmt = db.prepare("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days, color) VALUES (?, ?, ?, ?, ?, ?, ?)");
         
         DEFAULT_BOSS_DATA.forEach(cat => {
             cat.regions.forEach(reg => {
                 reg.bosses.forEach(boss => {
                     const cd = BOSS_TIMERS[boss] || 0;
-                    stmt.run(cat.type, reg.name, boss, cd, null, null);
+                    stmt.run(cat.type, reg.name, boss, cd, null, null, null);
                 });
             });
         });
         
         DEFAULT_FIXED_EVENTS.forEach(fe => {
-            stmt.run(fe.type, fe.region, fe.boss, 0, fe.timeStr, fe.days);
+            stmt.run(fe.type, fe.region, fe.boss, 0, fe.timeStr, fe.days, null);
         });
         
         stmt.finalize();
@@ -540,11 +544,11 @@ app.get('/api/custom-bosses', (req, res) => {
 
 app.post('/api/custom-bosses', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    const { type, region, boss, cooldown, timeStr, days } = req.body;
+    const { type, region, boss, cooldown, timeStr, days, color } = req.body;
     if (!boss || !type) return res.status(400).json({ error: 'Required fields missing.' });
 
-    db.run("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days) VALUES (?, ?, ?, ?, ?, ?)",
-        [type, region || '공통', boss, cooldown || 0, timeStr || null, days || null], function (err) {
+    db.run("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days, color) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [type, region || '공통', boss, cooldown || 0, timeStr || null, days || null, color || null], function (err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true, id: this.lastID });
         });

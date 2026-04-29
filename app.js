@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         customBossesList.filter(b => b.type !== '고정').forEach(cb => {
           let cat = BOSS_DATA.find(c => c.type === cb.type);
           if (!cat) {
-            cat = { type: cb.type, regions: [] };
+            cat = { type: cb.type, color: cb.color || null, regions: [] };
             BOSS_DATA.push(cat);
           }
           let reg = cat.regions.find(r => r.name === cb.region);
@@ -508,9 +508,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const header = document.createElement('button');
         header.className = `accordion-header ${category.type}`;
+        const colorStyle = category.color ? `style="color: ${category.color}; background: ${category.color}20;"` : '';
         header.innerHTML = `
           <span>
-            <span class="tag">[${category.type}]</span> 
+            <span class="tag" ${colorStyle}>[${category.type}]</span> 
             ${region.name}
           </span>
           <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
@@ -687,6 +688,10 @@ document.addEventListener('DOMContentLoaded', () => {
                           <input type="text" id="cb-cat-input" placeholder="예: 본섭" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
                       </div>
                       <div class="form-group">
+                          <label>태그 색상 (선택)</label>
+                          <input type="color" id="cb-color-input" value="#94a3b8" style="width:100%; height:40px; padding:2px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">
+                      </div>
+                      <div class="form-group">
                           <label>지역</label>
                           <input type="text" id="cb-region-input" placeholder="예: 요툰하임" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
                       </div>
@@ -736,7 +741,8 @@ document.addEventListener('DOMContentLoaded', () => {
             boss: addContent.querySelector('#cb-boss-input').value.trim(),
             cooldown: isFixed ? 0 : parseInt(addContent.querySelector('#cb-cd-input').value) || 0,
             timeStr: isFixed ? addContent.querySelector('#cb-time-input').value.trim() : null,
-            days: isFixed ? addContent.querySelector('#cb-days-input').value.trim() : null
+            days: isFixed ? addContent.querySelector('#cb-days-input').value.trim() : null,
+            color: isFixed ? null : addContent.querySelector('#cb-color-input').value
           };
 
           if (!payload.boss || (!isFixed && !payload.type)) {
