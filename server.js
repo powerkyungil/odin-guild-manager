@@ -255,10 +255,12 @@ function initDB() {
             timeStr TEXT,
             days TEXT,
             color TEXT,
+            sort_order INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`, () => {
-            // Add color column if not exists
+            // Add color and sort_order column if not exists
             db.run("ALTER TABLE boss_definitions ADD COLUMN color TEXT", (err) => {});
+            db.run("ALTER TABLE boss_definitions ADD COLUMN sort_order INTEGER DEFAULT 0", (err) => {});
 
             // Migration
             db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='custom_bosses'", (err, row) => {
@@ -539,7 +541,26 @@ app.delete('/api/schedules-all', verifyToken, (req, res) => {
 
 // --- CUSTOM BOSSES API ---
 app.get('/api/custom-bosses', (req, res) => {
-    db.all("SELECT * FROM boss_definitions", (err, rows) => res.json(rows));
+    db.all("SELECT * FROM boss_definitions ORDER BY sort_order ASC, id ASC", (err, rows) => res.json(rows));
+});
+
+app.post('/api/custom-bosses/reorder', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { orderList } = req.body; 
+    if (!orderList || !Array.isArray(orderList)) return res.status(400).json({ error: 'Invalid orderList' });
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        const stmt = db.prepare("UPDATE boss_definitions SET sort_order = ? WHERE boss = ?");
+        orderList.forEach(item => {
+            stmt.run(item.sort_order, item.boss);
+        });
+        stmt.finalize();
+        db.run('COMMIT', (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
+    });
 });
 
 app.post('/api/custom-bosses', verifyToken, (req, res) => {

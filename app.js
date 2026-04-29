@@ -525,21 +525,28 @@ document.addEventListener('DOMContentLoaded', () => {
         content.dataset.type = category.type;
         content.dataset.region = region.name;
 
-        let bossesHtml = '';
+        let bossesHtml = '<div class="boss-list-container">';
         region.bosses.forEach(boss => {
           const val = chapterState.bosses[boss] || '';
           bossesHtml += `
-            <div class="form-row">
-              <label>${boss}</label>
-              <input type="text" class="boss-input" data-boss-name="${boss}" value="${val}" placeholder="2410 또는 10분 20초" />
+            <div class="form-row boss-row" data-boss-name="${boss}">
+              <div style="display:flex; align-items:center; gap:8px; min-width: 90px; flex-shrink: 0;">
+                <span class="drag-handle" style="cursor: grab; color: var(--text-muted); display: none;">☰</span>
+                <label style="width: auto; margin: 0;">${boss}</label>
+              </div>
+              <input type="text" class="boss-input" data-boss-name="${boss}" value="${val}" placeholder="2410 또는 10분 20초" style="flex: 1; min-width: 0;" />
             </div>
           `;
         });
+        bossesHtml += '</div>';
 
         content.innerHTML = `
           <div class="accordion-body">
             <div class="form-group">
-              <label>기준 시간 (비워두면 계산 시점 자동 반영)</label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; gap: 8px;">
+                <label style="margin:0; flex: 1; word-break: keep-all; line-height: 1.3;">기준 시간 (비워두면 계산 시점 자동 반영)</label>
+                <button class="secondary-btn toggle-reorder-btn" style="padding: 4px 12px; font-size: 12px; width: auto; flex-shrink: 0; margin-top: 0; min-width: 50px;">나열</button>
+              </div>
               <input type="text" class="base-time-input" value="${chapterState.baseTime || ''}" placeholder="예: 11:34:01" />
             </div>
             ${bossesHtml}
@@ -566,6 +573,53 @@ document.addEventListener('DOMContentLoaded', () => {
         wrapper.appendChild(header);
         wrapper.appendChild(content);
         formContainer.appendChild(wrapper);
+
+        const listContainer = content.querySelector('.boss-list-container');
+        let sortableInstance = null;
+        if (listContainer && window.Sortable) {
+          sortableInstance = Sortable.create(listContainer, {
+            handle: '.drag-handle',
+            animation: 150,
+            disabled: true,
+            onEnd: async () => {
+              const rows = Array.from(listContainer.querySelectorAll('.boss-row'));
+              const orderList = rows.map((row, index) => ({
+                boss: row.dataset.bossName,
+                sort_order: index
+              }));
+
+              try {
+                const res = await fetch('/api/custom-bosses/reorder', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({ orderList })
+                });
+                if (!res.ok) console.error('Failed to save order');
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          });
+        }
+
+        const toggleReorderBtn = content.querySelector('.toggle-reorder-btn');
+        let isReorderMode = false;
+        if (toggleReorderBtn) {
+          toggleReorderBtn.addEventListener('click', () => {
+            isReorderMode = !isReorderMode;
+            if (isReorderMode) {
+              toggleReorderBtn.textContent = '정리 완료';
+              toggleReorderBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+              content.querySelectorAll('.drag-handle').forEach(el => el.style.display = 'inline-block');
+              if (sortableInstance) sortableInstance.option("disabled", false);
+            } else {
+              toggleReorderBtn.textContent = '나열';
+              toggleReorderBtn.style.background = '';
+              content.querySelectorAll('.drag-handle').forEach(el => el.style.display = 'none');
+              if (sortableInstance) sortableInstance.option("disabled", true);
+            }
+          });
+        }
       });
     });
 
