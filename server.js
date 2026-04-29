@@ -135,7 +135,7 @@ function initDB() {
             const hasCritRate = columns.some(c => c.name === 'max_crit_rate');
             const hasCritResist = columns.some(c => c.name === 'max_crit_resist');
             const hasStatusAcc = columns.some(c => c.name === 'status_effect_acc');
-            
+
             if (!hasCritRate) db.run("ALTER TABLE users ADD COLUMN max_crit_rate INTEGER DEFAULT 0");
             if (!hasCritResist) db.run("ALTER TABLE users ADD COLUMN max_crit_resist INTEGER DEFAULT 0");
             if (!hasStatusAcc) db.run("ALTER TABLE users ADD COLUMN status_effect_acc INTEGER DEFAULT 0");
@@ -245,6 +245,37 @@ function initDB() {
             });
         });
 
+        // Boss Definitions Table (Replaces custom_bosses)
+        db.run(`CREATE TABLE IF NOT EXISTS boss_definitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT,
+            region TEXT,
+            boss TEXT,
+            cooldown INTEGER,
+            timeStr TEXT,
+            days TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, () => {
+            // Migration
+            db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='custom_bosses'", (err, row) => {
+                if (row) {
+                    db.get("SELECT COUNT(*) as cnt FROM custom_bosses", (err, cntRow) => {
+                        if (cntRow && cntRow.cnt > 0) {
+                            db.run("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days, created_at) SELECT type, region, boss, cooldown, timeStr, days, created_at FROM custom_bosses", () => {
+                                db.run("DROP TABLE custom_bosses");
+                                seedDefaultBosses();
+                            });
+                        } else {
+                            db.run("DROP TABLE custom_bosses");
+                            checkAndSeedDefaultBosses();
+                        }
+                    });
+                } else {
+                    checkAndSeedDefaultBosses();
+                }
+            });
+        });
+
         // Discord Bot Auth - Try auto-login
         setTimeout(() => {
             db.get("SELECT discord_token, discord_channel_id, discord_enabled FROM odin_settings LIMIT 1", (err, row) => {
@@ -295,6 +326,78 @@ function initDB() {
                 db.run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", ['master', hash, 'MASTER']);
             }
         });
+    });
+}
+
+const BOSS_TIMERS = {
+    "4층분노의모네가름": 12, "스칼라니르": 12, "니드호그": 12, "라이노르": 12, "라타토스크": 12, "바우티": 12, "야른": 12, "브륀힐드": 12, "비요른": 12, "셀로비아": 12, "수드리": 12, "페티": 12, "파르바": 12, "헤르모드": 12, "흐니르": 12,
+    "7층나태의드라우그": 24, "굴베이그": 24, "두라스로르": 24, "드라우그": 24, "스바르트": 24, "모네가름": 24,
+    "우로보로스": 36, "10층다인홀로크": 36, "최하층강글": 36, "메기르": 36, "탕그리스니르": 36, "최하층굴베": 36, "헤르가름": 36, "신마라": 36, "엘드룬": 36,
+    "발리": 48, "샤무크": 48, "스칼드메르": 48, "노트": 48, "그로아": 48,
+    "헤이드": 60, "호드": 60, "히로킨": 60,
+    "수르트": 72, "오딘": 72, "최하층스네르": 72, "토르": 72, "티르": 72, "미미르": 72,
+    "이미르": 120
+};
+
+const DEFAULT_BOSS_DATA = [
+    { type: '공통', regions: [{ name: '던전', bosses: ['4층분노의모네가름', '7층나태의드라우그', '10층다인홀로크', '최하층강글', '최하층굴베', '최하층스네르'] }] },
+    { type: '침공', regions: [
+        { name: '요툰하임', bosses: ['파르바', '흐니르', '셀로비아', '니드호그', '바우티', '페티', '야른', '티르'] },
+        { name: '니다벨리르', bosses: ['라이노르', '라타토스크', '비요른', '헤르모드', '스칼라니르', '브륀힐드', '수드리', '토르'] },
+        { name: '알브하임', bosses: ['스바르트', '모네가름', '두라스로르', '드라우그', '굴베이그', '오딘'] },
+        { name: '무스펠', bosses: ['신마라', '메기르', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스', '수르트'] },
+        { name: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아', '미미르'] },
+        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르'] },
+    ]},
+    { type: '본섭', regions: [
+        { name: '요툰하임', bosses: ['파르바', '흐니르', '셀로비아', '니드호그', '바우티', '페티', '야른', '티르'] },
+        { name: '니다벨리르', bosses: ['라이노르', '라타토스크', '비요른', '헤르모드', '스칼라니르', '브륀힐드', '수드리', '토르'] },
+        { name: '알브하임', bosses: ['스바르트', '모네가름', '두라스로르', '드라우그', '굴베이그', '오딘'] },
+        { name: '무스펠', bosses: ['신마라', '메기르', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스', '수르트'] },
+        { name: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아', '미미르'] },
+        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르'] },
+    ]}
+];
+
+const DEFAULT_FIXED_EVENTS = [
+    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '12:00:00', days: '월,화,수,목,금,토,일' },
+    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '20:00:00', days: '월,화,수,목,금,토,일' },
+    { type: '고정', region: '공통', boss: '정예몬스터', timeStr: '19:00:00', days: '월,화,수,목,금,토,일' },
+    { type: '고정', region: '공통', boss: '니다 닻', timeStr: '18:30:00', days: '수' },
+    { type: '고정', region: '공통', boss: '알브 닻', timeStr: '20:30:00', days: '수' },
+    { type: '고정', region: '공통', boss: '성채보스', timeStr: '21:30:00', days: '화,목' },
+    { type: '고정', region: '공통', boss: '무스펠 닻', timeStr: '22:30:00', days: '수' },
+    { type: '고정', region: '공통', boss: '지옥성채보스', timeStr: '22:30:00', days: '목' }
+];
+
+function seedDefaultBosses() {
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        const stmt = db.prepare("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days) VALUES (?, ?, ?, ?, ?, ?)");
+        
+        DEFAULT_BOSS_DATA.forEach(cat => {
+            cat.regions.forEach(reg => {
+                reg.bosses.forEach(boss => {
+                    const cd = BOSS_TIMERS[boss] || 0;
+                    stmt.run(cat.type, reg.name, boss, cd, null, null);
+                });
+            });
+        });
+        
+        DEFAULT_FIXED_EVENTS.forEach(fe => {
+            stmt.run(fe.type, fe.region, fe.boss, 0, fe.timeStr, fe.days);
+        });
+        
+        stmt.finalize();
+        db.run("COMMIT");
+    });
+}
+
+function checkAndSeedDefaultBosses() {
+    db.get("SELECT COUNT(*) as count FROM boss_definitions", (err, row) => {
+        if (row && row.count === 0) {
+            seedDefaultBosses();
+        }
     });
 }
 
@@ -378,15 +481,6 @@ app.get('/api/users', verifyToken, (req, res) => {
 });
 
 // --- BOSS API ---
-const BOSS_TIMERS = {
-    "4층분노의모네가름": 12 * 3600, "스칼라니르": 12 * 3600, "니드호그": 12 * 3600, "라이노르": 12 * 3600, "라타토스크": 12 * 3600, "바우티": 12 * 3600, "야른": 12 * 3600, "브륀힐드": 12 * 3600, "비요른": 12 * 3600, "셀로비아": 12 * 3600, "수드리": 12 * 3600, "페티": 12 * 3600, "파르바": 12 * 3600, "헤르모드": 12 * 3600, "흐니르": 12 * 3600,
-    "7층나태의드라우그": 24 * 3600, "굴베이그": 24 * 3600, "두라스로르": 24 * 3600, "드라우그": 24 * 3600, "스바르트": 24 * 3600, "모네가름": 24 * 3600,
-    "우로보로스": 36 * 3600, "10층다인홀로크": 36 * 3600, "최하층강글": 36 * 3600, "메기르": 36 * 3600, "탕그리스니르": 36 * 3600, "최하층굴베": 36 * 3600, "헤르가름": 36 * 3600, "신마라": 36 * 3600, "엘드룬": 36 * 3600,
-    "발리": 48 * 3600, "샤무크": 48 * 3600, "스칼드메르": 48 * 3600, "노트": 48 * 3600, "그로아": 48 * 3600,
-    "헤이드": 60 * 3600, "호드": 60 * 3600, "히로킨": 60 * 3600,
-    "수르트": 72 * 3600, "오딘": 72 * 3600, "최하층스네르": 72 * 3600, "토르": 72 * 3600, "티르": 72 * 3600, "미미르": 72 * 3600,
-    "이미르": 120 * 3600
-};
 
 app.get('/api/schedules', verifyToken, (req, res) => {
     db.all("SELECT * FROM boss_schedules ORDER BY spawnTime ASC", (err, rows) => res.json(rows));
@@ -408,23 +502,25 @@ app.post('/api/schedules', verifyToken, (req, res) => {
 
 app.post('/api/schedules/cut', verifyToken, (req, res) => {
     const { type, region, boss } = req.body;
-    const cooldown = BOSS_TIMERS[boss];
-    if (!cooldown) return res.status(400).json({ error: 'No cooldown.' });
-    const spawnTime = Date.now() + (cooldown * 1000);
-    db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], () => {
-        db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
-        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)", [type, region, boss, spawnTime, req.userId], () => res.json({ success: true, nextSpawn: spawnTime }));
+    db.get("SELECT cooldown FROM boss_definitions WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], (err, row) => {
+        if (!row || !row.cooldown) return res.status(400).json({ error: 'No cooldown defined for this boss.' });
+        const spawnTime = Date.now() + (row.cooldown * 3600 * 1000);
+        db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], () => {
+            db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
+            db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)", [type, region, boss, spawnTime, req.userId], () => res.json({ success: true, nextSpawn: spawnTime }));
+        });
     });
 });
 
 app.post('/api/schedules/mung', verifyToken, (req, res) => {
     const { type, region, boss, currentSpawnTime } = req.body;
-    const cooldown = BOSS_TIMERS[boss];
-    if (!cooldown) return res.status(400).json({ error: 'No cooldown.' });
-    const nextSpawn = parseInt(currentSpawnTime) + (cooldown * 1000);
-    db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], () => {
-        db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
-        db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 1)", [type, region, boss, nextSpawn, req.userId], () => res.json({ success: true, nextSpawn: nextSpawn }));
+    db.get("SELECT cooldown FROM boss_definitions WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], (err, row) => {
+        if (!row || !row.cooldown) return res.status(400).json({ error: 'No cooldown defined for this boss.' });
+        const nextSpawn = parseInt(currentSpawnTime) + (row.cooldown * 3600 * 1000);
+        db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], () => {
+            db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
+            db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 1)", [type, region, boss, nextSpawn, req.userId], () => res.json({ success: true, nextSpawn: nextSpawn }));
+        });
     });
 });
 
@@ -435,6 +531,48 @@ app.delete('/api/schedules/:id', verifyToken, (req, res) => {
 app.delete('/api/schedules-all', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
     db.run("DELETE FROM boss_schedules", () => res.json({ success: true }));
+});
+
+// --- CUSTOM BOSSES API ---
+app.get('/api/custom-bosses', (req, res) => {
+    db.all("SELECT * FROM boss_definitions", (err, rows) => res.json(rows));
+});
+
+app.post('/api/custom-bosses', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { type, region, boss, cooldown, timeStr, days } = req.body;
+    if (!boss || !type) return res.status(400).json({ error: 'Required fields missing.' });
+
+    db.run("INSERT INTO boss_definitions (type, region, boss, cooldown, timeStr, days) VALUES (?, ?, ?, ?, ?, ?)",
+        [type, region || '공통', boss, cooldown || 0, timeStr || null, days || null], function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID });
+        });
+});
+
+app.delete('/api/custom-bosses/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+
+    db.get("SELECT boss, type, region FROM boss_definitions WHERE id = ?", [req.params.id], (err, row) => {
+        if (!row) return res.status(404).json({ error: 'Boss not found.' });
+        const { boss: bossName, type, region } = row;
+        db.serialize(() => {
+            db.run("DELETE FROM boss_definitions WHERE id = ?", [req.params.id]);
+            db.run("DELETE FROM boss_schedules WHERE boss = ? AND type = ? AND region = ?", [bossName, type, region]);
+            res.json({ success: true });
+        });
+    });
+});
+
+app.post('/api/admin/reset-bosses', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    db.serialize(() => {
+        db.run("DELETE FROM boss_definitions");
+        db.run("DELETE FROM boss_schedules", () => {
+            seedDefaultBosses();
+            res.json({ success: true });
+        });
+    });
 });
 
 // --- PARTICIPANTS ---
@@ -571,7 +709,7 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
                 await runSql("COMMIT");
                 res.json({ success: true });
             } catch (txErr) {
-                try { await runSql("ROLLBACK"); } catch (_) {}
+                try { await runSql("ROLLBACK"); } catch (_) { }
                 res.status(500).json({ error: 'Delete transaction failed.' });
             }
         })();
@@ -583,7 +721,7 @@ app.put('/api/admin/users/:id/reset-password', verifyToken, (req, res) => {
     db.get("SELECT role FROM users WHERE id = ?", [req.params.id], (err, user) => {
         if (!user) return res.status(404).json({ error: 'User not found.' });
         if (user.role === 'MASTER' && req.userRole !== 'MASTER') return res.status(403).json({ error: 'Only Master can reset Master password.' });
-        
+
         const hash = bcrypt.hashSync('1234', 10);
         db.run("UPDATE users SET password_hash = ? WHERE id = ?", [hash, req.params.id], (err) => {
             if (err) return res.status(500).json({ error: 'DB Error.' });

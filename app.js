@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
   const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
-  
+
   const handleAuthError = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Voice Notification State ---
   const voiceToggle = document.getElementById('voice-toggle');
   const voiceTestBtn = document.getElementById('voice-test-btn');
-  
+
   // Save preference per user nickname
   const voiceKey = `voice_enabled_${myNickname}`;
   const savedVoice = localStorage.getItem(voiceKey);
@@ -63,9 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleViewBtn = document.getElementById('toggle-view-btn');
   const updateToggleUI = () => {
     if (!toggleViewBtn) return;
-    toggleViewBtn.innerHTML = viewMode === 'normal' 
-        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg> 간략히 보기'
-        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 상세히 보기';
+    toggleViewBtn.innerHTML = viewMode === 'normal'
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg> 간략히 보기'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 상세히 보기';
   };
   if (toggleViewBtn) {
     updateToggleUI();
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       if (!globalAudioCtx) globalAudioCtx = new AudioCtx();
-      
+
       if (globalAudioCtx.state === 'suspended') globalAudioCtx.resume();
 
       const osc = globalAudioCtx.createOscillator();
@@ -105,56 +105,56 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!voiceEnabled) return;
     console.log(`[TTS Alert] Attempting to speak: ${text}`);
     showToast(`📢 ${text}`);
-    
+
     // Play beep to wake up audio context
     playBeep();
 
     if ('speechSynthesis' in window) {
-        // Small delay after beep before TTS
-        setTimeout(() => {
-            window.speechSynthesis.cancel();
-            
-            setTimeout(() => {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'ko-KR';
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                utterance.volume = 1.0;
+      // Small delay after beep before TTS
+      setTimeout(() => {
+        window.speechSynthesis.cancel();
 
-                const voices = window.speechSynthesis.getVoices();
-                const koVoice = voices.find(v => v.lang.includes('ko'));
-                if (koVoice) utterance.voice = koVoice;
-                
-                window.speechSynthesis.resume();
-                window.speechSynthesis.speak(utterance);
-            }, 50);
-        }, 100);
+        setTimeout(() => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'ko-KR';
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+
+          const voices = window.speechSynthesis.getVoices();
+          const koVoice = voices.find(v => v.lang.includes('ko'));
+          if (koVoice) utterance.voice = koVoice;
+
+          window.speechSynthesis.resume();
+          window.speechSynthesis.speak(utterance);
+        }, 50);
+      }, 100);
     } else {
-        console.warn("Web Speech API not supported.");
+      console.warn("Web Speech API not supported.");
     }
   };
-  
+
   // Stuck state recovery interval (Only if speaking for too long)
   let speakingStartTime = 0;
   setInterval(() => {
     if ('speechSynthesis' in window) {
-        if (window.speechSynthesis.speaking) {
-            if (speakingStartTime === 0) speakingStartTime = Date.now();
-            // If speaking for more than 15s, it might be stuck
-            if (Date.now() - speakingStartTime > 15000) {
-                window.speechSynthesis.pause();
-                window.speechSynthesis.resume();
-                speakingStartTime = Date.now(); // reset
-            }
-        } else {
-            speakingStartTime = 0;
+      if (window.speechSynthesis.speaking) {
+        if (speakingStartTime === 0) speakingStartTime = Date.now();
+        // If speaking for more than 15s, it might be stuck
+        if (Date.now() - speakingStartTime > 15000) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+          speakingStartTime = Date.now(); // reset
         }
+      } else {
+        speakingStartTime = 0;
+      }
     }
   }, 5000);
 
   // Pre-load voices
   if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
+    window.speechSynthesis.getVoices();
   }
 
   if (voiceToggle) {
@@ -175,20 +175,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = document.querySelectorAll('.schedule-row');
     const now = getNow().getTime();
     let foundImminent = false;
-    
+
     rows.forEach(row => {
       const spanTime = parseInt(row.dataset.spawnTime, 10);
       row.classList.remove('imminent');
       if (!foundImminent && spanTime > now) {
         row.classList.add('imminent');
         foundImminent = true;
-        
+
         // Auto-scroll on first load
         if (!hasInitialScrolled) {
-            setTimeout(() => {
-                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 500); // Small delay to ensure rendering is complete
-            hasInitialScrolled = true;
+          setTimeout(() => {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 500); // Small delay to ensure rendering is complete
+          hasInitialScrolled = true;
         }
       }
     });
@@ -222,22 +222,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Voice Trigger (Precise Timing: 5:00, 1:00, 0:00) ---
         if (bossName) {
-            const targets = [ {s: 300, m: 5}, {s: 60, m: 1}, {s: 0, m: 0} ];
-            targets.forEach(t => {
-                // VERY STRICT: Only trigger if we are within 2 seconds of the exact target
-                // For example, trigger between 300s and 298s.
-                if (totalSecs <= t.s && totalSecs > t.s - 3) {
-                    const voiceKey = `${bossName}_${el.dataset.spawnTime}_${t.m}min_v6`; // Key change to force re-play after fix
-                    if (!playedVoiceKeys.has(voiceKey)) {
-                        const typeLabel = bossType ? `${bossType} ` : '';
-                        const message = t.m === 0 ? `${typeLabel}${bossName} 타임입니다.` : `${typeLabel}${bossName} ${t.m}분 전입니다.`;
-                        console.log(`[TTS Match] Boss: ${bossName}, Current: ${totalSecs}s, Target: ${t.s}s`);
-                        playGoogleTTS(message);
-                        playedVoiceKeys.add(voiceKey);
-                        setTimeout(() => playedVoiceKeys.delete(voiceKey), 60000);
-                    }
-                }
-            });
+          const targets = [{ s: 300, m: 5 }, { s: 60, m: 1 }, { s: 0, m: 0 }];
+          targets.forEach(t => {
+            // VERY STRICT: Only trigger if we are within 2 seconds of the exact target
+            // For example, trigger between 300s and 298s.
+            if (totalSecs <= t.s && totalSecs > t.s - 3) {
+              const voiceKey = `${bossName}_${el.dataset.spawnTime}_${t.m}min_v6`; // Key change to force re-play after fix
+              if (!playedVoiceKeys.has(voiceKey)) {
+                const typeLabel = bossType ? `${bossType} ` : '';
+                const message = t.m === 0 ? `${typeLabel}${bossName} 타임입니다.` : `${typeLabel}${bossName} ${t.m}분 전입니다.`;
+                console.log(`[TTS Match] Boss: ${bossName}, Current: ${totalSecs}s, Target: ${t.s}s`);
+                playGoogleTTS(message);
+                playedVoiceKeys.add(voiceKey);
+                setTimeout(() => playedVoiceKeys.delete(voiceKey), 60000);
+              }
+            }
+          });
         }
       } else {
         el.textContent = '';
@@ -261,18 +261,18 @@ document.addEventListener('DOMContentLoaded', () => {
     toast.className = 'toast';
     toast.textContent = message;
     container.appendChild(toast);
-    
+
     // Trigger reflow to ensure animation plays
     void toast.offsetWidth;
     toast.classList.add('show');
-    
+
     setTimeout(() => {
       toast.classList.remove('show');
       toast.classList.add('hide');
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   };
-  
+
   const toggleSidebar = () => {
     layout.classList.toggle('sidebar-closed');
     if (window.innerWidth <= 768) {
@@ -283,47 +283,8 @@ document.addEventListener('DOMContentLoaded', () => {
   sidebarToggle.addEventListener('click', toggleSidebar);
   sidebarClose.addEventListener('click', toggleSidebar);
 
-  const BOSS_DATA = [
-    {
-      type: '공통',
-      regions: [
-        { name: '던전', bosses: ['4층분노의모네가름', '7층나태의드라우그', '10층다인홀로크', '최하층강글', '최하층굴베', '최하층스네르'] }
-      ]
-    },
-    {
-      type: '침공',
-      regions: [
-        { name: '요툰하임', bosses: ['파르바', '흐니르', '셀로비아', '니드호그', '바우티', '페티', '야른', '티르'] },
-        { name: '니다벨리르', bosses: ['라이노르', '라타토스크', '비요른', '헤르모드', '스칼라니르', '브륀힐드', '수드리', '토르'] },
-        { name: '알브하임', bosses: ['스바르트', '모네가름', '두라스로르', '드라우그', '굴베이그', '오딘'] },
-        { name: '무스펠', bosses: ['신마라', '메기르', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스', '수르트'] },
-        { name: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아', '미미르'] },
-        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르'] },
-      ]
-    },
-    {
-      type: '본섭',
-      regions: [
-        { name: '요툰하임', bosses: ['파르바', '흐니르', '셀로비아', '니드호그', '바우티', '페티', '야른', '티르'] },
-        { name: '니다벨리르', bosses: ['라이노르', '라타토스크', '비요른', '헤르모드', '스칼라니르', '브륀힐드', '수드리', '토르'] },
-        { name: '알브하임', bosses: ['스바르트', '모네가름', '두라스로르', '드라우그', '굴베이그', '오딘'] },
-        { name: '무스펠', bosses: ['신마라', '메기르', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스', '수르트'] },
-        { name: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아', '미미르'] },
-        { name: '니플하임', bosses: ['히로킨', '호드', '헤이드', '이미르'] },
-      ]
-    }
-  ];
-
-  const FIXED_EVENTS = [
-    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '12:00:00', days: ['월','화','수','목','금','토','일'] },
-    { type: '고정', region: '공통', boss: '월드 보스', timeStr: '20:00:00', days: ['월','화','수','목','금','토','일'] },
-    { type: '고정', region: '공통', boss: '정예몬스터', timeStr: '19:00:00', days: ['월','화','수','목','금','토','일'] },
-    { type: '고정', region: '공통', boss: '니다 닻', timeStr: '18:30:00', days: ['수'] },
-    { type: '고정', region: '공통', boss: '알브 닻', timeStr: '20:30:00', days: ['수'] },
-    { type: '고정', region: '공통', boss: '성채보스', timeStr: '21:30:00', days: ['화','목'] },
-    { type: '고정', region: '공통', boss: '무스펠 닻', timeStr: '22:30:00', days: ['수'] },
-    { type: '고정', region: '공통', boss: '지옥성채보스', timeStr: '22:30:00', days: ['목'] }
-  ];
+  let BOSS_DATA = [];
+  let FIXED_EVENTS = [];
 
 
   let participationTargets = [];
@@ -367,13 +328,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const dataStr = localStorage.getItem(STORAGE_KEY_INPUTS);
     let allData = {};
     if (dataStr) {
-      try { allData = JSON.parse(dataStr); } catch (e) {}
+      try { allData = JSON.parse(dataStr); } catch (e) { }
     }
     allData[getTodayString()] = currentState;
     localStorage.setItem(STORAGE_KEY_INPUTS, JSON.stringify(allData));
   };
 
   // --- Backend Sync Functions ---
+  let customBossesList = [];
+
+  const fetchCustomBosses = async () => {
+    try {
+      const res = await fetch('/api/custom-bosses');
+      if (res.ok) {
+        customBossesList = await res.json();
+        BOSS_DATA = [];
+        FIXED_EVENTS = [];
+
+        // Merge into BOSS_DATA
+        customBossesList.filter(b => b.type !== '고정').forEach(cb => {
+          let cat = BOSS_DATA.find(c => c.type === cb.type);
+          if (!cat) {
+            cat = { type: cb.type, regions: [] };
+            BOSS_DATA.push(cat);
+          }
+          let reg = cat.regions.find(r => r.name === cb.region);
+          if (!reg) {
+            reg = { name: cb.region, bosses: [] };
+            cat.regions.push(reg);
+          }
+          if (!reg.bosses.includes(cb.boss)) {
+            reg.bosses.push(cb.boss);
+          }
+        });
+
+        // Merge into FIXED_EVENTS
+        customBossesList.filter(b => b.type === '고정').forEach(cb => {
+          if (!FIXED_EVENTS.find(f => f.boss === cb.boss && f.timeStr === cb.timeStr)) {
+            FIXED_EVENTS.push({
+              type: '고정',
+              region: cb.region,
+              boss: cb.boss,
+              timeStr: cb.timeStr,
+              days: cb.days ? cb.days.split(',') : ['월', '화', '수', '목', '금', '토', '일']
+            });
+          }
+        });
+      }
+    } catch (e) { console.error('Failed to fetch custom bosses', e); }
+  };
+
   const fetchParticipationData = async () => {
     try {
       const [tRes, pRes] = await Promise.all([
@@ -389,24 +393,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await fetchParticipationData();
       const res = await fetch('/api/schedules', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) return handleAuthError();
       const data = await res.json();
-      
+
       const fixedAndShared = [...data];
       injectFixedEventsInto(fixedAndShared);
       fixedAndShared.sort((a, b) => a.spawnTime - b.spawnTime);
-      
+
       // Memory Optimization: Only render if data has changed
       // We use a simple JSON hash to detect deep changes in schedules or participation
       const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + viewMode;
       if (currentHash !== lastScheduleHash) {
-          console.log('[Sync] Data changed, re-rendering schedules.');
-          renderSchedules(fixedAndShared);
-          lastScheduleHash = currentHash;
+        console.log('[Sync] Data changed, re-rendering schedules.');
+        renderSchedules(fixedAndShared);
+        lastScheduleHash = currentHash;
       }
-      
+
       updateImminentHighlight();
     } catch (e) {
       console.error('Failed to fetch schedules', e);
@@ -416,19 +420,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadSchedules = async (newItems) => {
     try {
       const res = await fetch('/api/schedules', {
-          method: 'POST',
-          headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(newItems)
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newItems)
       });
       if (res.status === 401) return handleAuthError();
       if (res.ok) {
-          fetchSchedules();
+        fetchSchedules();
       } else {
-          const data = await res.json();
-          alert('등록 실패: ' + (data.error || '알 수 없는 오류'));
+        const data = await res.json();
+        alert('등록 실패: ' + (data.error || '알 수 없는 오류'));
       }
     } catch (e) {
       console.error('Failed to upload schedules', e);
@@ -440,8 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('공유된 모든 데이터를 초기화하시겠습니까?')) return;
     try {
       const res = await fetch('/api/schedules-all', {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) return handleAuthError();
       if (res.ok) fetchSchedules();
@@ -453,8 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteScheduleOnServer = async (id) => {
     try {
       const res = await fetch(`/api/schedules/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) return handleAuthError();
       if (res.ok) fetchSchedules();
@@ -467,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch('/api/schedules/cut', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -493,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderForms = () => {
     const savedState = loadSavedInputs();
     formContainer.innerHTML = '';
-    
+
     BOSS_DATA.forEach((category, cIdx) => {
       category.regions.forEach((region, rIdx) => {
         const chapterId = `ch_${cIdx}_${rIdx}`;
@@ -564,13 +568,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    const isPrivileged = myRole === 'MASTER' || myRole === 'ADMIN' || myRole === '길드장' || myRole === '운영진' || 
-                         (localStorage.getItem('username') === 'master') || (sessionStorage.getItem('username') === 'master');
+    const isPrivileged = myRole === 'MASTER' || myRole === 'ADMIN' || myRole === '길드장' || myRole === '운영진' ||
+      (localStorage.getItem('username') === 'master') || (sessionStorage.getItem('username') === 'master');
 
     if (isPrivileged) {
       const adminWrapper = document.createElement('div');
       adminWrapper.className = 'accordion-item';
-      
+
       const adminHeader = document.createElement('button');
       adminHeader.className = 'accordion-header 본섭';
       adminHeader.innerHTML = `
@@ -584,21 +588,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const adminContent = document.createElement('div');
       adminContent.className = 'accordion-content';
-      
+
       let allBosses = [];
       BOSS_DATA.forEach(g => {
-          g.regions.forEach(r => {
-              r.bosses.forEach(b => {
-                  if (!allBosses.includes(b)) allBosses.push(b);
-              });
+        g.regions.forEach(r => {
+          r.bosses.forEach(b => {
+            if (!allBosses.includes(b)) allBosses.push(b);
           });
+        });
       });
       FIXED_EVENTS.forEach(fe => { if (!allBosses.includes(fe.boss)) allBosses.push(fe.boss); });
       allBosses.sort();
 
       let checkboxesHtml = allBosses.map(b => {
-         const checked = participationTargets.includes(b) ? 'checked' : '';
-         return `
+        const checked = participationTargets.includes(b) ? 'checked' : '';
+        return `
           <div class="form-row" style="display:flex; align-items:center; justify-content: flex-start; gap:8px;">
             <input type="checkbox" class="target-boss-chk" value="${b}" ${checked} style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor:pointer;">
             <label style="margin: 0; padding-top:2px; font-weight:normal; font-size:13px; cursor:pointer;" onclick="this.previousElementSibling.click()">${b}</label>
@@ -632,20 +636,244 @@ document.addEventListener('DOMContentLoaded', () => {
       formContainer.appendChild(adminWrapper);
 
       adminContent.querySelector('#save-participation-btn').addEventListener('click', async () => {
-          const checkedBoxes = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked')).map(cb => cb.value);
+        const checkedBoxes = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked')).map(cb => cb.value);
+        try {
+          const r = await fetch('/api/participation-targets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ bosses: checkedBoxes })
+          });
+          if (r.status === 401) return handleAuthError();
+          if (r.ok) {
+            showToast('참여 보스 목록이 반영되었습니다.');
+            fetchSchedules();
+          }
+        } catch (e) { console.error(e); }
+      });
+
+      // --- Add Boss Management UI ---
+      const addWrapper = document.createElement('div');
+      addWrapper.className = 'accordion-item';
+
+      const addHeader = document.createElement('button');
+      addHeader.className = 'accordion-header 본섭';
+      addHeader.innerHTML = `
+          <span>
+            <span class="tag" style="background: rgba(34, 197, 94, 0.2); color: #4ade80;">[관리]</span> 보스 추가
+          </span>
+          <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+      `;
+
+      const addContent = document.createElement('div');
+      addContent.className = 'accordion-content';
+
+      const renderAddForm = () => {
+        addContent.innerHTML = `
+            <div class="accordion-body">
+              <div style="padding-top:5px;">
+                  <h4 style="margin:0 0 8px 0; font-size:13px; color:#e2e8f0;">새 보스 추가</h4>
+                  <div class="form-group">
+                      <label>타입 선택</label>
+                      <select id="cb-type-sel" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                          <option value="챕터">챕터 (본섭/침공/공통)</option>
+                          <option value="고정">고정 (특정 시간/요일)</option>
+                      </select>
+                  </div>
+                  <div id="cb-chapter-fields">
+                      <div class="form-group">
+                          <label>분류 (본섭, 침공, 공통 등)</label>
+                          <input type="text" id="cb-cat-input" placeholder="예: 본섭" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      </div>
+                      <div class="form-group">
+                          <label>지역</label>
+                          <input type="text" id="cb-region-input" placeholder="예: 요툰하임" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      </div>
+                      <div class="form-group">
+                          <label>쿨타임 (시간)</label>
+                          <input type="number" id="cb-cd-input" placeholder="예: 12" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      </div>
+                  </div>
+                  <div id="cb-fixed-fields" style="display:none;">
+                      <div class="form-group">
+                          <label>등장 시간 (HH:MM:SS)</label>
+                          <input type="text" id="cb-time-input" placeholder="예: 21:30:00" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      </div>
+                      <div class="form-group">
+                          <label>등장 요일 (쉼표 구분)</label>
+                          <input type="text" id="cb-days-input" placeholder="예: 월,화,수,목,금,토,일" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      </div>
+                  </div>
+                  <div class="form-group">
+                      <label>보스 이름</label>
+                      <input type="text" id="cb-boss-input" placeholder="예: 신규보스" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                  </div>
+                  <button id="add-cb-btn" class="primary-btn" style="width:100%; margin-top:10px;">보스 추가</button>
+              </div>
+            </div>
+          `;
+
+        // Event Listeners for Add UI
+        const typeSel = addContent.querySelector('#cb-type-sel');
+        const chapFields = addContent.querySelector('#cb-chapter-fields');
+        const fixFields = addContent.querySelector('#cb-fixed-fields');
+        typeSel.addEventListener('change', () => {
+          if (typeSel.value === '고정') {
+            chapFields.style.display = 'none';
+            fixFields.style.display = 'block';
+          } else {
+            chapFields.style.display = 'block';
+            fixFields.style.display = 'none';
+          }
+        });
+
+        addContent.querySelector('#add-cb-btn').addEventListener('click', async () => {
+          const isFixed = typeSel.value === '고정';
+          const payload = {
+            type: isFixed ? '고정' : addContent.querySelector('#cb-cat-input').value.trim(),
+            region: isFixed ? '공통' : addContent.querySelector('#cb-region-input').value.trim(),
+            boss: addContent.querySelector('#cb-boss-input').value.trim(),
+            cooldown: isFixed ? 0 : parseInt(addContent.querySelector('#cb-cd-input').value) || 0,
+            timeStr: isFixed ? addContent.querySelector('#cb-time-input').value.trim() : null,
+            days: isFixed ? addContent.querySelector('#cb-days-input').value.trim() : null
+          };
+
+          if (!payload.boss || (!isFixed && !payload.type)) {
+            alert("필수 항목을 모두 입력해주세요."); return;
+          }
+
           try {
-              const r = await fetch('/api/participation-targets', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                  body: JSON.stringify({ bosses: checkedBoxes })
+            const r = await fetch('/api/custom-bosses', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify(payload)
+            });
+            if (r.status === 401) return handleAuthError();
+            if (r.ok) {
+              showToast('새 보스가 추가되었습니다. 반영을 위해 폼을 다시 렌더링합니다.');
+              window.location.reload(); // Reload to easily re-fetch and render all data
+            } else {
+              const data = await r.json();
+              alert(data.error || '추가 실패');
+            }
+          } catch (e) { console.error(e); }
+        });
+      };
+      
+      addHeader.addEventListener('click', () => {
+        const isActive = addHeader.classList.contains('active');
+        if (isActive) {
+          addHeader.classList.remove('active');
+          addContent.classList.remove('open');
+        } else {
+          addHeader.classList.add('active');
+          addContent.classList.add('open');
+        }
+      });
+      renderAddForm();
+      addWrapper.appendChild(addHeader);
+      addWrapper.appendChild(addContent);
+      formContainer.appendChild(addWrapper);
+
+      // --- Delete Boss Management UI ---
+      const delWrapper = document.createElement('div');
+      delWrapper.className = 'accordion-item';
+
+      const delHeader = document.createElement('button');
+      delHeader.className = 'accordion-header 본섭';
+      delHeader.innerHTML = `
+          <span>
+            <span class="tag" style="background: rgba(244, 63, 94, 0.2); color: #fb7185;">[관리]</span> 보스 삭제 / 초기화
+          </span>
+          <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+      `;
+
+      const delContent = document.createElement('div');
+      delContent.className = 'accordion-content';
+
+      const renderCustomBossesList = () => {
+        if (customBossesList.length === 0) return '<div style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">등록된 보스가 없습니다.</div>';
+        return customBossesList.map(cb => `
+              <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; margin-bottom:6px; font-size:12px;">
+                  <div>
+                      <strong style="color:var(--primary-color)">[${cb.type}]</strong> ${cb.boss}
+                      <span style="color:var(--text-muted); font-size:11px;">
+                          ${cb.type === '고정' ? `(${cb.timeStr} / ${cb.days})` : `(${cb.region} / ${cb.cooldown}시간)`}
+                      </span>
+                  </div>
+                  <button class="delete-cb-btn" data-id="${cb.id}" style="background:none; border:none; color:#ef4444; cursor:pointer;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+              </div>
+          `).join('');
+      };
+
+      const renderDelForm = () => {
+        delContent.innerHTML = `
+            <div class="accordion-body">
+              <button id="reset-bosses-btn" class="secondary-btn" style="width:100%; margin-bottom:15px; border-color:#fb7185; color:#fb7185;">기본 보스 목록으로 복구/초기화</button>
+              <div style="margin-bottom:15px;">
+                <h4 style="margin:0 0 8px 0; font-size:13px; color:#e2e8f0;">등록된 보스 목록 (삭제 시 스케줄도 지워집니다)</h4>
+                <div id="cb-list-container" style="max-height: 400px; overflow-y: auto;">
+                    ${renderCustomBossesList()}
+                </div>
+              </div>
+            </div>
+          `;
+
+        delContent.querySelector('#reset-bosses-btn').addEventListener('click', async () => {
+            if (!confirm('기존 보스 목록을 삭제하고 기본값(본섭, 침공, 고정)으로 초기화하시겠습니까? (커스텀 보스 및 모든 스케줄 삭제됨)')) return;
+            try {
+                const r = await fetch('/api/admin/reset-bosses', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (r.status === 401) return handleAuthError();
+                if (r.ok) {
+                    showToast('보스 목록이 초기화되었습니다.');
+                    window.location.reload();
+                }
+            } catch (e) { console.error(e); }
+        });
+
+        delContent.querySelectorAll('.delete-cb-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('해당 보스를 영구히 삭제하시겠습니까? (기존 스케줄도 삭제됨)')) return;
+            const id = btn.dataset.id;
+            try {
+              const r = await fetch(`/api/custom-bosses/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
               });
               if (r.status === 401) return handleAuthError();
               if (r.ok) {
-                  showToast('참여 보스 목록이 반영되었습니다.');
-                  fetchSchedules(); 
+                showToast('보스가 삭제되었습니다.');
+                window.location.reload();
               }
-          } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
+          });
+        });
+      };
+
+      delHeader.addEventListener('click', () => {
+        const isActive = delHeader.classList.contains('active');
+        if (isActive) {
+          delHeader.classList.remove('active');
+          delContent.classList.remove('open');
+        } else {
+          delHeader.classList.add('active');
+          delContent.classList.add('open');
+        }
       });
+      renderDelForm();
+      delWrapper.appendChild(delHeader);
+      delWrapper.appendChild(delContent);
+      formContainer.appendChild(delWrapper);
+
+
     }
 
     layout.addEventListener('input', (e) => {
@@ -653,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveInputsToStorage();
       }
     });
-    
+
     layout.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
         e.preventDefault();
@@ -671,19 +899,19 @@ document.addEventListener('DOMContentLoaded', () => {
       let dStr = clean;
       let s = 0, m = 0, h = 0;
       if (dStr.length === 4) {
-          // 4 digits: MMSS
-          s = parseInt(dStr.slice(-2), 10);
-          m = parseInt(dStr.slice(0, -2), 10);
+        // 4 digits: MMSS
+        s = parseInt(dStr.slice(-2), 10);
+        m = parseInt(dStr.slice(0, -2), 10);
       } else if (dStr.length === 6) {
-          // 6 digits: HHMMSS
-          s = parseInt(dStr.slice(-2), 10);
-          m = parseInt(dStr.slice(-4, -2), 10);
-          h = parseInt(dStr.slice(0, -4), 10);
+        // 6 digits: HHMMSS
+        s = parseInt(dStr.slice(-2), 10);
+        m = parseInt(dStr.slice(-4, -2), 10);
+        h = parseInt(dStr.slice(0, -4), 10);
       } else {
-          // Fallback (1-3, 5, etc): Minutes
-          m = parseInt(dStr, 10);
+        // Fallback (1-3, 5, etc): Minutes
+        m = parseInt(dStr, 10);
       }
-      
+
       if (isNaN(h) || isNaN(m) || isNaN(s)) return null;
       return (h * 3600 + m * 60 + s) * 1000;
     }
@@ -691,17 +919,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const noSpace = clean.replace(/\s+/g, '');
     const regex = /(?:(\d+)일)?(?:(\d+)시간)?(?:(\d+)분)?(?:(\d+)초)?/;
     const match = noSpace.match(regex);
-    
+
     if (match && match[0]) {
       const d = parseInt(match[1]) || 0;
       const h = parseInt(match[2]) || 0;
       const min = parseInt(match[3]) || 0;
       const s = parseInt(match[4]) || 0;
-      
+
       if (d === 0 && h === 0 && min === 0 && s === 0) return null;
       return (d * 86400 + h * 3600 + min * 60 + s) * 1000;
     }
-    
+
     return null;
   };
 
@@ -709,55 +937,55 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!str.trim()) return null;
     const m = str.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
     if (!m) return null;
-    
+
     const h = parseInt(m[1]);
     const min = parseInt(m[2]);
     const s = parseInt(m[3]) || 0;
-    
+
     const d = new Date();
     d.setHours(h, min, s, 0);
     return d.getTime();
   };
-  
+
   const injectFixedEventsInto = (schedules) => {
-    const daysArr = ['일','월','화','수','목','금','토'];
+    const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
     const nowLocalDate = getNow();
-    
+
     // Inject for Today and Tomorrow (24h+ rolling window)
     for (let i = 0; i <= 1; i++) {
-        const targetDate = getNow();
-        targetDate.setDate(targetDate.getDate() + i);
-        const label = daysArr[targetDate.getDay()];
+      const targetDate = getNow();
+      targetDate.setDate(targetDate.getDate() + i);
+      const label = daysArr[targetDate.getDay()];
 
-        FIXED_EVENTS.forEach(ev => {
-            if (!ev.days.includes(label)) return;
+      FIXED_EVENTS.forEach(ev => {
+        if (!ev.days.includes(label)) return;
 
-            const [h, m, s] = ev.timeStr.split(':').map(Number);
-            const tDate = new Date(targetDate);
-            tDate.setHours(h, m, s, 0);
-            
-            // Only add if it's in the future or within the last 30 mins
-            const now = getNow().getTime();
-            if (tDate.getTime() < now - 30 * 60 * 1000) return;
+        const [h, m, s] = ev.timeStr.split(':').map(Number);
+        const tDate = new Date(targetDate);
+        tDate.setHours(h, m, s, 0);
 
-            const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === tDate.getTime());
-            if (existingIdx === -1) {
-                schedules.push({
-                    type: ev.type,
-                    region: ev.region,
-                    boss: ev.boss,
-                    spawnTime: tDate.getTime(),
-                    isFixed: true
-                });
-            }
-        });
+        // Only add if it's in the future or within the last 30 mins
+        const now = getNow().getTime();
+        if (tDate.getTime() < now - 30 * 60 * 1000) return;
+
+        const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === tDate.getTime());
+        if (existingIdx === -1) {
+          schedules.push({
+            type: ev.type,
+            region: ev.region,
+            boss: ev.boss,
+            spawnTime: tDate.getTime(),
+            isFixed: true
+          });
+        }
+      });
     }
   };
 
   const processAll = (specificChapterIds = null) => {
     let hasError = false;
     let newItems = [];
-    
+
     const tonight = new Date();
     tonight.setHours(23, 59, 59, 999);
     const tonightMs = tonight.getTime();
@@ -771,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const baseInput = form.querySelector('.base-time-input');
       baseInput.classList.remove('invalid');
-      
+
       const baseTimeStr = baseInput.value;
       let baseMs = null;
       if (baseTimeStr.trim()) {
@@ -798,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           const spawnMs = baseMs + diffMs;
-          
+
           if (spawnMs <= tonightMs || type !== '침공') {
             newItems.push({
               type,
@@ -816,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const hasRemainingInputs = Array.from(form.querySelectorAll('.boss-input')).some(i => i.value.trim() !== '');
       if (!hasRemainingInputs) {
-          baseInput.value = '';
+        baseInput.value = '';
       }
     });
 
@@ -827,9 +1055,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (newItems.length > 0) {
-        uploadSchedules(newItems);
+      uploadSchedules(newItems);
     }
-    
+
     saveInputsToStorage();
   };
 
@@ -852,65 +1080,65 @@ document.addEventListener('DOMContentLoaded', () => {
       statsContainer.innerHTML = `<div class="stat">전체 0건</div><div class="stat">본섭 0건</div><div class="stat">침공 0건</div>`;
       return;
     }
-    
+
     const now = getNow().getTime();
     // Logic: Future bosses + specialized past bosses
     const futureBosses = schedules.filter(s => s.spawnTime > now);
-    
+
     // Regular bosses stay until cut (Including Invasion now as per request)
     const pastRegular = schedules.filter(s => s.spawnTime <= now && s.type !== '고정');
     // Fixed bosses only show 1 past (rolling window handles the rest)
     const pastSpecial = schedules.filter(s => s.spawnTime <= now && s.type === '고정')
-                                 .sort((a,b) => b.spawnTime - a.spawnTime)
-                                 .slice(0, 1);
-    
-    const displayList = [...pastRegular, ...pastSpecial, ...futureBosses].sort((a,b) => a.spawnTime - b.spawnTime);
+      .sort((a, b) => b.spawnTime - a.spawnTime)
+      .slice(0, 1);
+
+    const displayList = [...pastRegular, ...pastSpecial, ...futureBosses].sort((a, b) => a.spawnTime - b.spawnTime);
 
     let mainCount = 0; let invCount = 0; let fixedCount = 0; let commonCount = 0;
-    
+
     displayList.forEach((item, index) => {
       let typeClass = item.type === '본섭' ? 'main' : 'inv';
       if (item.type === '고정') { typeClass = 'fixed'; fixedCount++; }
       else if (item.type === '공통') { typeClass = 'common'; commonCount++; }
       else if (item.type === '본섭') { mainCount++; }
       else { invCount++; }
-      
+
       const isPast = item.spawnTime <= now;
       const spawnDate = new Date(item.spawnTime);
       const hh = String(spawnDate.getHours()).padStart(2, '0');
       const mm = String(spawnDate.getMinutes()).padStart(2, '0');
-      
+
       const nowDay = getNow();
       const nowZero = new Date(nowDay.getFullYear(), nowDay.getMonth(), nowDay.getDate());
       const spawnZero = new Date(spawnDate.getFullYear(), spawnDate.getMonth(), spawnDate.getDate());
       const diffDays = Math.round((spawnZero - nowZero) / (1000 * 60 * 60 * 24));
-      
+
       let timeLabel = `${hh}:${mm}`;
       if (isPast) {
-          const elapsedMs = now - item.spawnTime;
-          const elapsedMins = Math.floor(elapsedMs / 60000);
-          const elapsedHours = Math.floor(elapsedMins / 60);
-          const remMins = elapsedMins % 60;
-          let elapsedStr = elapsedHours > 0 ? `${elapsedHours}시간 ${remMins}분` : `${remMins}분`;
-          timeLabel = `${hh}:${mm} <span style="font-size: 11px; color: #ef4444; font-weight: 600; margin-left: 4px;">(+${elapsedStr})</span>`;
+        const elapsedMs = now - item.spawnTime;
+        const elapsedMins = Math.floor(elapsedMs / 60000);
+        const elapsedHours = Math.floor(elapsedMins / 60);
+        const remMins = elapsedMins % 60;
+        let elapsedStr = elapsedHours > 0 ? `${elapsedHours}시간 ${remMins}분` : `${remMins}분`;
+        timeLabel = `${hh}:${mm} <span style="font-size: 11px; color: #ef4444; font-weight: 600; margin-left: 4px;">(+${elapsedStr})</span>`;
       } else if (diffDays > 0) {
         let dayText = '내일';
         if (diffDays === 2) dayText = '모레';
         else if (diffDays > 2) dayText = `${diffDays}일후`;
         timeLabel = `<span style="font-size: 12px; color: var(--muted); font-weight: 500; margin-right: 4px; vertical-align: middle;">${dayText}</span>${hh}:${mm}`;
       }
-      
+
       // Date Separator for Compact View
       if (viewMode === 'compact') {
-          const dateOptions = { month: '2-digit', day: '2-digit', weekday: 'long' };
-          const currentDateStr = spawnDate.toLocaleDateString('ko-KR', dateOptions);
-          if (currentDateStr !== lastDateStr) {
-              const sep = document.createElement('div');
-              sep.className = 'date-separator';
-              sep.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${currentDateStr}`;
-              scheduleContainer.appendChild(sep);
-              lastDateStr = currentDateStr;
-          }
+        const dateOptions = { month: '2-digit', day: '2-digit', weekday: 'long' };
+        const currentDateStr = spawnDate.toLocaleDateString('ko-KR', dateOptions);
+        if (currentDateStr !== lastDateStr) {
+          const sep = document.createElement('div');
+          sep.className = 'date-separator';
+          sep.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${currentDateStr}`;
+          scheduleContainer.appendChild(sep);
+          lastDateStr = currentDateStr;
+        }
       }
 
       const row = document.createElement('div');
@@ -920,26 +1148,26 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.bossType = item.type;
       row.style.animationDelay = `${Math.min(index * 0.03, 1)}s`;
       row.classList.add('animate-in');
-      
+
       const isTarget = participationTargets.includes(item.boss);
       let participationHtml = '';
       if (isTarget) {
-          const list = participantsMap[item.boss] || [];
-          const IJoined = list.includes(myNickname);
-          const timeUntilSpawn = item.spawnTime - now;
-          const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 mins before
-          const isLate = timeUntilSpawn < -5 * 60 * 1000; // 5 mins after
+        const list = participantsMap[item.boss] || [];
+        const IJoined = list.includes(myNickname);
+        const timeUntilSpawn = item.spawnTime - now;
+        const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 mins before
+        const isLate = timeUntilSpawn < -5 * 60 * 1000; // 5 mins after
 
-          if (IJoined) {
-              // Show list (Grey unified UI)
-              participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
-          } else if (isSoon && !isLate) {
-              // Within join window, not yet joined (Keep green for action)
-              participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
-          } else if (isLate) {
-              // After window, allow viewing the list even if not joined (Grey unified UI)
-              participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
-          }
+        if (IJoined) {
+          // Show list (Grey unified UI)
+          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+        } else if (isSoon && !isLate) {
+          // Within join window, not yet joined (Keep green for action)
+          participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
+        } else if (isLate) {
+          // After window, allow viewing the list even if not joined (Grey unified UI)
+          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+        }
       }
 
       const remainingMs = item.spawnTime - now;
@@ -978,68 +1206,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const cutBtn = row.querySelector('.cut-btn');
       const mungBtn = row.querySelector('.mung-btn');
-      
+
       const pBtn = row.querySelector('.p-btn');
       if (pBtn) {
-          pBtn.addEventListener('click', async () => {
-              if (pBtn.classList.contains('joined')) {
-                  showParticipantModal(item.boss, participantsMap[item.boss] || []);
-              } else {
-                  fetch('/api/participants/'+encodeURIComponent(item.boss), { 
-                     method: 'POST', 
-                     headers: { 'Authorization': `Bearer ${token}` } 
-                  }).then(r => {
-                     if (r.status === 401) return handleAuthError();
-                     return r.json();
-                  }).then(res => {
-                     fetchSchedules(); // reload data naturally
-                  });
-              }
-          });
+        pBtn.addEventListener('click', async () => {
+          if (pBtn.classList.contains('joined')) {
+            showParticipantModal(item.boss, participantsMap[item.boss] || []);
+          } else {
+            fetch('/api/participants/' + encodeURIComponent(item.boss), {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` }
+            }).then(r => {
+              if (r.status === 401) return handleAuthError();
+              return r.json();
+            }).then(res => {
+              fetchSchedules(); // reload data naturally
+            });
+          }
+        });
       }
 
       if (cutBtn) {
-          cutBtn.addEventListener('click', () => {
-              if (item.type === '침공') {
-                  deleteScheduleOnServer(item.id);
-              } else {
-                  cutBoss(item);
-              }
-          });
+        cutBtn.addEventListener('click', () => {
+          if (item.type === '침공') {
+            deleteScheduleOnServer(item.id);
+          } else {
+            cutBoss(item);
+          }
+        });
       }
 
       if (mungBtn) {
-          mungBtn.addEventListener('click', async () => {
-              try {
-                  const res = await fetch('/api/schedules/mung', {
-                      method: 'POST',
-                      headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify({ 
-                        type: item.type, 
-                        region: item.region, 
-                        boss: item.boss, 
-                        currentSpawnTime: item.spawnTime 
-                      })
-                  });
-                  if (res.status === 401) return handleAuthError();
-                  if (res.ok) {
-                      showToast(`${item.boss} 멍 처리 완료!`);
-                      fetchSchedules();
-                  } else {
-                      const data = await res.json();
-                      alert(data.error || '처리 실패');
-                  }
-              } catch (err) { console.error(err); }
-          });
+        mungBtn.addEventListener('click', async () => {
+          try {
+            const res = await fetch('/api/schedules/mung', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                type: item.type,
+                region: item.region,
+                boss: item.boss,
+                currentSpawnTime: item.spawnTime
+              })
+            });
+            if (res.status === 401) return handleAuthError();
+            if (res.ok) {
+              showToast(`${item.boss} 멍 처리 완료!`);
+              fetchSchedules();
+            } else {
+              const data = await res.json();
+              alert(data.error || '처리 실패');
+            }
+          } catch (err) { console.error(err); }
+        });
       }
 
       row.querySelector('.delete-row-btn').addEventListener('click', () => {
         if (item.isFixed) {
-            alert('고정 이벤트는 삭제할 수 없습니다.');
-            return;
+          alert('고정 이벤트는 삭제할 수 없습니다.');
+          return;
         }
         deleteScheduleOnServer(item.id);
       });
@@ -1050,12 +1278,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (index < displayList.length - 1) {
         const nextItem = displayList[index + 1];
         const gapMs = nextItem.spawnTime - item.spawnTime;
-        if (gapMs >= 30 * 60 * 1000) { 
+        if (gapMs >= 30 * 60 * 1000) {
           const gapMins = Math.floor(gapMs / 60000);
           const gapHours = Math.floor(gapMins / 60);
           const remMins = gapMins % 60;
           let gapStr = (gapHours > 0 ? `${gapHours}시간 ` : '') + (remMins > 0 || gapHours === 0 ? `${remMins}분` : '');
-          
+
           const breakRow = document.createElement('div');
           breakRow.className = 'break-row';
           breakRow.innerHTML = `
@@ -1068,7 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
-    
+
     statsContainer.innerHTML = `
       <div class="stat">공유된 목록 ${displayList.length}건</div>
       <div class="stat">본섭 ${mainCount}</div>
@@ -1095,13 +1323,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (refreshBtn) refreshBtn.addEventListener('click', fetchSchedules);
 
   // Participant Modal Logic
-  window.showParticipantModal = function(boss, list) {
-      document.getElementById('participantModalTitle').innerText = boss + ' 참여 목록';
-      document.getElementById('participantCount').innerText = `총 ${list.length}명`;
-      const c = document.getElementById('participantListContainer');
-      c.innerHTML = list.map(n => `<div style="padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">${n}</div>`).join('');
-      if(list.length === 0) c.innerHTML = `<div style="text-align:center; color:#94a3b8; padding: 20px;">참여자가 없습니다.</div>`;
-      document.getElementById('participantModal').style.display = 'flex';
+  window.showParticipantModal = function (boss, list) {
+    document.getElementById('participantModalTitle').innerText = boss + ' 참여 목록';
+    document.getElementById('participantCount').innerText = `총 ${list.length}명`;
+    const c = document.getElementById('participantListContainer');
+    c.innerHTML = list.map(n => `<div style="padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">${n}</div>`).join('');
+    if (list.length === 0) c.innerHTML = `<div style="text-align:center; color:#94a3b8; padding: 20px;">참여자가 없습니다.</div>`;
+    document.getElementById('participantModal').style.display = 'flex';
   };
 
   const fetchSettings = async () => {
@@ -1112,15 +1340,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // We only update the browser tab title, as requested to remove from the page header
         document.title = `${settings.guild_name} 보스 스케줄`;
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // --- Init ---
   fetchSettings();
-  fetchSchedules().then(() => {
-     renderForms();
+  fetchCustomBosses().then(() => {
+    fetchSchedules().then(() => {
+      renderForms();
+    });
   });
-  
+
   // Polling every 30 seconds
   setInterval(fetchSchedules, 30000);
 });
