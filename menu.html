@@ -7,8 +7,48 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="auth.css">
     <style>
-        .auth-container { max-width: 600px; width: 95%; box-sizing: border-box; }
-        .user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 14px; flex-wrap: wrap; gap: 15px; }
+        .auth-container { max-width: 1180px; width: 96%; box-sizing: border-box; }
+        .menu-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 20px;
+        }
+        .menu-card {
+            text-align: left;
+            min-height: 130px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .menu-card h3 { margin-bottom: 6px; }
+        .menu-sub {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .menu-sub span {
+            font-size: 11px;
+            color: #cbd5e1;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05);
+            border-radius: 999px;
+            padding: 3px 8px;
+        }
+        .user-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.04);
+            flex-wrap: wrap;
+        }
+        .user-info { display: flex; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
+        .user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .role-badge { background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
         .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
         .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
@@ -76,8 +116,18 @@
             transform: translateX(26px);
         }
 
+        @media (max-width: 900px) {
+            .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 600px) {
+            .menu-grid { grid-template-columns: 1fr; }
+        }
+
         @media (max-width: 480px) {
             .guild-name-dynamic { font-size: 28px; }
+            .user-topbar { padding: 10px; }
+            .logout-btn { padding: 6px 10px; font-size: 12px; }
         }
 
         /* Guild Settings Panel (Integrated) */
@@ -124,12 +174,12 @@
         <div class="guild-header" id="guildHeader" style="display: none;">
             <h1 class="guild-name-dynamic" id="dynamicGuildName">--</h1>
         </div>
-        <div class="user-info">
-            <div>
+        <div class="user-topbar">
+            <div class="user-info">
                 <span id="userNameDisplay">--</span> 님 환영합니다!
                 <span id="userRoleBadge" class="role-badge">--</span>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div class="user-actions">
                 <button class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
                 <button class="logout-btn" onclick="logout()">로그아웃</button>
             </div>
@@ -140,6 +190,16 @@
         </div>
         
         <div class="menu-grid">
+            <a href="notice.html" class="menu-card">
+                <h3>공지</h3>
+                <p>길드 공지, 거래 기준, 보스 통제 확인</p>
+                <div class="menu-sub">
+                    <span>길드룰</span>
+                    <span>가격표</span>
+                    <span>보스통제</span>
+                </div>
+            </a>
+
             <a href="boss_schedule.html" class="menu-card">
                 <h3>보스 스케줄</h3>
                 <p>본섭/전서버 일반 보스 시간표 (공유됨)</p>
@@ -156,7 +216,6 @@
             </a>
 
             <a href="siege.html" class="menu-card">
-                <div class="badge" style="background: #10b981;">NEW</div>
                 <h3>공성전 참여</h3>
                 <p>보유/잔여 다이아 현황 관리</p>
             </a>

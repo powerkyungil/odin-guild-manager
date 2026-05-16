@@ -245,6 +245,51 @@ function initDB() {
             });
         });
 
+        // Notice: Guild Rules
+        db.run(`CREATE TABLE IF NOT EXISTS guild_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            color TEXT DEFAULT '#f8fafc',
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run("ALTER TABLE guild_rules ADD COLUMN color TEXT DEFAULT '#f8fafc'", () => {});
+
+        // Notice: Boss Control Matrix
+        db.run(`CREATE TABLE IF NOT EXISTS boss_control_states (
+            chapter TEXT NOT NULL,
+            boss TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'NONE',
+            updated_by INTEGER,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chapter, boss)
+        )`);
+
+        // Notice: Price List
+        db.run(`CREATE TABLE IF NOT EXISTS price_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            price TEXT NOT NULL,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Notice: Price Guide (Card/Section-based; same style as guild rules)
+        db.run(`CREATE TABLE IF NOT EXISTS price_guides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            color TEXT DEFAULT '#f8fafc',
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run("ALTER TABLE price_guides ADD COLUMN color TEXT DEFAULT '#f8fafc'", () => {});
+
         // Boss Definitions Table (Replaces custom_bosses)
         db.run(`CREATE TABLE IF NOT EXISTS boss_definitions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -894,6 +939,201 @@ app.put('/api/admin/siege/:id', verifyToken, (req, res) => {
                 });
         }
     });
+});
+
+// --- NOTICE (Guild Rules / Price List) ---
+app.get('/api/notices/rules', verifyToken, (req, res) => {
+    db.all("SELECT id, title, content, color, created_by, created_at, updated_at FROM guild_rules ORDER BY updated_at DESC, id DESC", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+    });
+});
+
+app.post('/api/notices/rules', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { title, content, color } = req.body;
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+    db.run(
+        "INSERT INTO guild_rules (title, content, color, created_by, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        [String(title).trim(), String(content || '').trim(), String(color || '#f8fafc').trim(), req.userId],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/notices/rules/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { title, content, color } = req.body;
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+    db.run(
+        "UPDATE guild_rules SET title = ?, content = ?, color = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [String(title).trim(), String(content || '').trim(), String(color || '#f8fafc').trim(), req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Rule not found.' });
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/notices/rules/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    db.run("DELETE FROM guild_rules WHERE id = ?", [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Rule not found.' });
+        res.json({ success: true });
+    });
+});
+
+// New price guide APIs (same behavior pattern as guild rules)
+app.get('/api/notices/price-guides', verifyToken, (req, res) => {
+    db.all("SELECT id, title, content, color, created_by, created_at, updated_at FROM price_guides ORDER BY updated_at DESC, id DESC", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+    });
+});
+
+app.post('/api/notices/price-guides', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { title, content, color } = req.body;
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+    db.run(
+        "INSERT INTO price_guides (title, content, color, created_by, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        [String(title).trim(), String(content || '').trim(), String(color || '#f8fafc').trim(), req.userId],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/notices/price-guides/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { title, content, color } = req.body;
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+    db.run(
+        "UPDATE price_guides SET title = ?, content = ?, color = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [String(title).trim(), String(content || '').trim(), String(color || '#f8fafc').trim(), req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Price guide not found.' });
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/notices/price-guides/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    db.run("DELETE FROM price_guides WHERE id = ?", [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Price guide not found.' });
+        res.json({ success: true });
+    });
+});
+
+app.get('/api/notices/prices', verifyToken, (req, res) => {
+    db.all("SELECT id, category, item_name, price, created_by, created_at, updated_at FROM price_items ORDER BY category ASC, item_name ASC, id DESC", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+    });
+});
+
+app.post('/api/notices/prices', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { category, item_name, price } = req.body;
+    if (!category || !item_name || !price) return res.status(400).json({ error: 'category, item_name, price are required.' });
+    db.run(
+        "INSERT INTO price_items (category, item_name, price, created_by, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        [String(category).trim(), String(item_name).trim(), String(price).trim(), req.userId],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/notices/prices/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { category, item_name, price } = req.body;
+    if (!category || !item_name || !price) return res.status(400).json({ error: 'category, item_name, price are required.' });
+    db.run(
+        "UPDATE price_items SET category = ?, item_name = ?, price = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [String(category).trim(), String(item_name).trim(), String(price).trim(), req.params.id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Price item not found.' });
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/notices/prices/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    db.run("DELETE FROM price_items WHERE id = ?", [req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Price item not found.' });
+        res.json({ success: true });
+    });
+});
+
+const BOSS_CONTROL_CHAPTERS = [
+    { chapter: '요툰하임', bosses: ['파르바', '셀로비아', '흐니르', '페티', '바우티', '니드호그', '야른'] },
+    { chapter: '니다벨리르', bosses: ['라이노르', '비요른', '헤르모드', '스칼라니르', '브륀힐드', '라타토스크', '수드리'] },
+    { chapter: '알브하임', bosses: ['스바르트', '두라스로르', '모네가름', '드라우그', '굴베이그'] },
+    { chapter: '무스펠하임', bosses: ['메기르', '신마라', '헤르가름', '탕그리스니르', '엘드룬', '우로보로스'] },
+    { chapter: '아스가르드', bosses: ['발리', '노트', '샤무크', '스칼드메르', '그로아'] },
+    { chapter: '니플하임', bosses: ['히로킨', '호드', '헤이드', '프레이'] },
+    { chapter: '절대자', bosses: ['티르', '토르', '오딘', '수르트', '미미르', '이미르'] },
+    { chapter: '지하감옥', bosses: ['최하층굴베', '최하층강글', '최하층스네르', '4층', '7층', '10층'] },
+    { chapter: '성채', bosses: ['2층', '3층', '4층', '5층', '6층', '7층', '8층'] },
+    { chapter: '지옥성채', bosses: ['1시 보스', '7시 보스', '이미르'] },
+    { chapter: '로키(필드)', bosses: ['요툰하임', '니다벨리르', '알브하임', '무스펠하임', '아스가르드', '니플하임', '바나하임'] },
+    { chapter: '로키(균열)', bosses: ['1단계', '2단계', '3단계', '4단계', '5단계'] }
+];
+const BOSS_CONTROL_STATUS = new Set(['CONTROL', 'ALLY_ONLY', 'NONE']);
+
+app.get('/api/notices/boss-controls', verifyToken, (req, res) => {
+    db.all("SELECT chapter, boss, status, updated_at FROM boss_control_states", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const statusMap = new Map();
+        (rows || []).forEach(r => {
+            statusMap.set(`${r.chapter}::${r.boss}`, BOSS_CONTROL_STATUS.has(r.status) ? r.status : 'NONE');
+        });
+
+        const chapters = BOSS_CONTROL_CHAPTERS.map(c => ({
+            chapter: c.chapter,
+            bosses: c.bosses.map(boss => ({
+                name: boss,
+                status: statusMap.get(`${c.chapter}::${boss}`) || 'NONE'
+            }))
+        }));
+
+        res.json({ chapters });
+    });
+});
+
+app.put('/api/notices/boss-controls', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const { chapter, boss, status } = req.body || {};
+    const chapterObj = BOSS_CONTROL_CHAPTERS.find(c => c.chapter === chapter);
+    if (!chapterObj || !chapterObj.bosses.includes(boss)) return res.status(400).json({ error: 'Invalid chapter/boss.' });
+    if (!BOSS_CONTROL_STATUS.has(status)) return res.status(400).json({ error: 'Invalid status.' });
+
+    db.run(
+        `INSERT INTO boss_control_states (chapter, boss, status, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(chapter, boss) DO UPDATE SET
+           status = excluded.status,
+           updated_by = excluded.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+        [chapter, boss, status, req.userId],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
 });
 
 // --- SETTINGS ---

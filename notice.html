@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지 - 길드룰 / 가격표 / 보스통제</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="auth.css">
+  <style>
+    .auth-container { max-width: 1120px; width: 95%; margin: 20px auto; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    .back-link { color: var(--text-muted); text-decoration:none; font-size:14px; font-weight:600; }
+    .role-chip { background: rgba(99,102,241,.2); color:#818cf8; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .tabs { display:flex; gap:10px; margin:14px 0 20px; flex-wrap:wrap; }
+    .tab-btn { border:1px solid var(--border-color); background:rgba(255,255,255,.04); color:var(--text-light); padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:700; }
+    .tab-btn.active { background:rgba(99,102,241,.2); border-color:#6366f1; }
+    .pane { display:none; }
+    .pane.active { display:block; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px; }
+    .section-head h2 { margin:0; font-size:18px; }
+    .btn { border:none; border-radius:8px; padding:9px 12px; cursor:pointer; font-weight:700; }
+    .btn-primary { background:#6366f1; color:#fff; }
+    .btn-muted { background:#334155; color:#fff; }
+
+    .list { display:grid; gap:12px; }
+    .card-item { border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); border-radius:12px; padding:14px; overflow:hidden; }
+    .rule-block-title { margin:0; width:100%; box-sizing:border-box; text-align:center; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.08); font-size:24px; font-weight:800; letter-spacing:-0.02em; }
+    .rule-section { margin-top:12px; }
+    .rule-section-title { color:#cbd5e1; font-weight:700; font-size:14px; margin:0 0 8px 0; }
+    .rule-table { width:100%; border-collapse:collapse; background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.06); border-radius:10px; overflow:hidden; }
+    .rule-table td { padding:8px 10px; border-bottom:1px dashed rgba(255,255,255,.08); vertical-align:top; }
+    .rule-table tr:last-child td { border-bottom:none; }
+    .rule-key { width:160px; font-weight:800; white-space:nowrap; }
+    .rule-val { color:#e2e8f0; white-space:pre-wrap; }
+    .price-val { font-weight:800; color:#facc15; }
+    .price-val.free { color:#4ade80; }
+    .price-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:14px; }
+    .price-box { background: rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
+    .price-box-title { margin:0 0 8px 0; color:#cbd5e1; font-weight:700; font-size:14px; padding-bottom:6px; border-bottom:1px solid rgba(148,163,184,.25); }
+    .price-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:6px 0; border-bottom:1px dashed rgba(148,163,184,.25); }
+    .price-row:last-child { border-bottom:none; }
+    .price-key { color:#e2e8f0; }
+    .diamond-icon { margin-left:4px; color:#38bdf8; font-size:12px; vertical-align:middle; }
+    .rule-footer { margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid rgba(255,255,255,.08); padding-top:10px; }
+    .rule-meta-line { color: var(--text-muted); font-size:12px; }
+    .actions { display:flex; gap:6px; }
+    .actions button { font-size:12px; padding:6px 9px; border:none; border-radius:7px; cursor:pointer; }
+    .actions .edit { background:#334155; color:#fff; }
+    .actions .del { background:#991b1b; color:#fff; }
+
+    .empty { text-align:center; color:var(--text-muted); border:1px dashed rgba(255,255,255,.08); border-radius:12px; padding:24px; }
+    .staff-summary { margin: 12px 0 6px; padding: 12px; border-radius: 12px; border: 1px solid rgba(129, 140, 248, .3); background: rgba(99, 102, 241, .08); }
+    .staff-summary-title { margin: 0 0 8px 0; color: #c7d2fe; font-size: 13px; font-weight: 800; }
+    .staff-summary-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .staff-chip { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,.15); background: rgba(51,65,85,.5); color:#e2e8f0; }
+    .staff-chip.master { border-color: rgba(251, 191, 36, .5); color: #fbbf24; background: rgba(120, 53, 15, .25); }
+    .staff-chip.admin { border-color: rgba(129, 140, 248, .45); color: #a5b4fc; background: rgba(49, 46, 129, .25); }
+
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:9999; align-items:center; justify-content:center; padding:14px; }
+    .modal-content { width:100%; max-width:860px; background:#1e293b; border-radius:12px; padding:18px; border:1px solid var(--border-color); }
+    .modal-content h3 { margin:0 0 12px 0; }
+    .input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid var(--border-color); border-radius:8px; color:#fff; padding:10px; margin-bottom:10px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
+
+    .color-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .color-row label { font-size:12px; color:#94a3b8; min-width:70px; }
+    .color-swatch { width:28px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,.2); background:#f8fafc; flex-shrink:0; }
+
+    .editor-toolbar { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-bottom:10px; }
+    .editor-toolbar .input { margin-bottom:0; }
+    .editor-toolbar .btn { height:42px; }
+    .editor-sections-wrap { display:grid; gap:10px; max-height:52vh; overflow-y:auto; padding-right:4px; }
+    .editor-section-card { border:1px dashed rgba(255,255,255,.12); border-radius:8px; padding:8px; }
+    .editor-section-head { display:flex; gap:8px; align-items:center; }
+    .section-head-title { flex:1; padding:10px 12px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-weight:700; color:#e2e8f0; }
+    .section-edit-body { margin-top:8px; }
+    .editor-rows { margin-top:8px; display:grid; gap:6px; }
+    .editor-row { display:grid; grid-template-columns:180px 1fr auto; gap:6px; }
+    .tiny-btn { padding:6px 9px; border-radius:8px; border:none; cursor:pointer; font-weight:700; }
+    .tiny-add { background:#334155; color:#fff; }
+    .tiny-del { background:#7f1d1d; color:#fff; }
+
+    .control-legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px; color:#94a3b8; font-size:12px; }
+    .legend-item { display:inline-flex; align-items:center; gap:6px; }
+    .legend-dot { width:10px; height:10px; border-radius:3px; border:1px solid rgba(255,255,255,.2); }
+    .legend-dot.control { background:rgba(239,68,68,.9); }
+    .legend-dot.ally { background:rgba(59,130,246,.9); }
+    .legend-dot.none { background:rgba(148,163,184,.8); }
+    .control-table-wrap { border:1px solid rgba(255,255,255,.08); border-radius:12px; overflow:hidden; background:rgba(255,255,255,.02); }
+    .control-table { width:100%; border-collapse:collapse; }
+    .control-table th, .control-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
+    .control-table tr:last-child td { border-bottom:none; }
+    .chapter-cell { width:180px; color:#cbd5e1; font-weight:700; white-space:nowrap; vertical-align:top; }
+    .boss-chip-wrap { display:flex; flex-wrap:wrap; gap:6px; }
+    .boss-chip { border:1px solid rgba(255,255,255,.25); background:rgba(51,65,85,.4); color:#e2e8f0; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; cursor:default; }
+    .boss-chip.is-clickable { cursor:pointer; }
+    .boss-chip.status-control { background:rgba(127,29,29,.45); border-color:#ef4444; color:#fca5a5; }
+    .boss-chip.status-ally { background:rgba(30,58,138,.45); border-color:#60a5fa; color:#bfdbfe; }
+    .boss-chip.status-none { background:rgba(71,85,105,.35); border-color:#94a3b8; color:#e2e8f0; }
+
+    @media (max-width: 768px) {
+      .auth-container { width:96%; margin:12px auto; }
+      .tab-btn { flex:1; }
+      .rule-block-title { font-size:24px; }
+      .rule-table,
+      .rule-table tbody,
+      .rule-table tr,
+      .rule-table td { display:block; width:100%; box-sizing:border-box; }
+      .rule-table tr { padding:8px 10px; border-bottom:1px dashed rgba(255,255,255,.08); }
+      .rule-table tr:last-child { border-bottom:none; }
+      .rule-table td { padding:0; border-bottom:none; }
+      .rule-key { width:auto; margin-bottom:4px; }
+      .rule-val { color:#e2e8f0; }
+      .editor-toolbar, .editor-row { grid-template-columns:1fr; }
+      .rule-footer { flex-direction:column; align-items:flex-start; }
+      .price-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="topbar">
+      <a href="menu.html" class="back-link">← 메뉴로 돌아가기</a>
+      <div id="roleChip" class="role-chip">--</div>
+    </div>
+    <div class="auth-header" style="text-align:left;">
+      <h1 style="margin-bottom:4px;">공지</h1>
+      <p style="margin:0; color: var(--text-muted);">길드룰, 가격표, 보스통제 정보를 확인하고 관리할 수 있습니다.</p>
+    </div>
+    <section class="staff-summary" aria-live="polite">
+      <h3 class="staff-summary-title">현재 운영진</h3>
+      <div id="staffSummaryList" class="staff-summary-list">
+        <span class="staff-chip">불러오는 중...</span>
+      </div>
+    </section>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="rules">길드룰</button>
+      <button class="tab-btn" data-tab="prices">가격표</button>
+      <button class="tab-btn" data-tab="controls">보스통제</button>
+    </div>
+
+    <section id="rulesPane" class="pane active">
+      <div class="section-head">
+        <h2>길드룰</h2>
+        <button id="addRuleBtn" class="btn btn-primary" style="display:none;">+ 길드룰 등록</button>
+      </div>
+      <div id="rulesList" class="list"></div>
+    </section>
+
+    <section id="pricesPane" class="pane">
+      <div class="section-head">
+        <h2>가격표</h2>
+        <button id="addPriceBtn" class="btn btn-primary" style="display:none;">+ 가격표 등록</button>
+      </div>
+      <div id="pricesList" class="list"></div>
+    </section>
+
+    <section id="controlsPane" class="pane">
+      <div class="section-head"><h2>보스 통제 매트릭스</h2></div>
+      <div class="control-legend">
+        <span class="legend-item"><span class="legend-dot control"></span>통제</span>
+        <span class="legend-item"><span class="legend-dot ally"></span>동맹한정</span>
+        <span class="legend-item"><span class="legend-dot none"></span>통제없음</span>
+      </div>
+      <div id="bossControlWrap"></div>
+    </section>
+  </div>
+
+  <div id="ruleModal" class="modal"><div class="modal-content">
+    <h3 id="ruleModalTitle">길드룰 등록</h3>
+    <input id="ruleTitle" class="input" placeholder="타이틀">
+    <div class="color-row">
+      <label>타이틀 색상</label>
+      <select id="ruleColor" class="input" style="margin-bottom:0;">
+        <option value="#f8fafc">기본(화이트)</option><option value="#22d3ee">하늘</option><option value="#4ade80">초록</option><option value="#f59e0b">주황</option><option value="#f472b6">핑크</option><option value="#a78bfa">보라</option><option value="#f87171">레드</option>
+      </select>
+      <div id="ruleColorSwatch" class="color-swatch"></div>
+    </div>
+    <div id="ruleSectionEditorBox">
+      <div class="editor-toolbar">
+        <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">섹션 선택</label><select id="ruleSectionSelect" class="input"></select></div>
+        <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">새 섹션명</label><input id="ruleNewSectionName" class="input" placeholder="예: 참여방법"></div>
+        <button class="btn btn-primary" type="button" onclick="addSection('rule')">섹션추가</button>
+      </div>
+      <div id="ruleEditorSections" class="editor-sections-wrap"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-muted" onclick="closeRuleModal()">취소</button><button class="btn btn-primary" onclick="saveRule()">저장</button></div>
+  </div></div>
+
+  <div id="priceModal" class="modal"><div class="modal-content">
+    <h3 id="priceModalTitle">가격표 등록</h3>
+    <input id="priceTitle" class="input" placeholder="타이틀 (예: 전설 · 신화템)">
+    <div class="color-row">
+      <label>타이틀 색상</label>
+      <select id="priceColor" class="input" style="margin-bottom:0;">
+        <option value="#f8fafc">일반 (화이트)</option>
+        <option value="#22c55e">고급 (초록)</option>
+        <option value="#3b82f6">희귀 (파란색)</option>
+        <option value="#d946ef">영웅 (보라색)</option>
+        <option value="#fbbf24">전설 (노랑)</option>
+        <option value="#f43f5e">신화 (핑크레드)</option>
+        <option value="#a3e635">기타 (연두색)</option>
+      </select>
+      <div id="priceColorSwatch" class="color-swatch"></div>
+    </div>
+    <div class="editor-toolbar">
+      <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">섹션 선택</label><select id="priceSectionSelect" class="input"></select></div>
+      <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">새 섹션명</label><input id="priceNewSectionName" class="input" placeholder="예: 전설 방어구"></div>
+      <button class="btn btn-primary" type="button" onclick="addSection('price')">섹션추가</button>
+    </div>
+    <div id="priceEditorSections" class="editor-sections-wrap"></div>
+    <div class="modal-actions"><button class="btn btn-muted" onclick="closePriceModal()">취소</button><button class="btn btn-primary" onclick="savePriceGuide()">저장</button></div>
+  </div></div>
+
+<script>
+const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+const role = localStorage.getItem('role') || sessionStorage.getItem('role');
+const isAdmin = role === 'MASTER' || role === 'ADMIN';
+if (!token) window.location.href = 'login.html';
+document.getElementById('roleChip').textContent = ({MASTER:'길드장',ADMIN:'운영진',MEMBER:'길드원'})[role] || role;
+if (isAdmin) { document.getElementById('addRuleBtn').style.display='inline-block'; document.getElementById('addPriceBtn').style.display='inline-block'; }
+
+let rules = [], priceGuides = [], bossControls = { chapters: [] };
+let users = [];
+let editingRuleId = null, editingPriceGuideId = null;
+let ruleDraft = [], priceDraft = [];
+let editingRuleSection = -1, editingPriceSection = -1;
+
+async function api(url, options={}) {
+  const res = await fetch(url, { ...options, headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}`, ...(options.headers||{}) } });
+  if (res.status === 401) { localStorage.clear(); sessionStorage.clear(); window.location.href='login.html'; throw new Error('Unauthorized'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+
+function escapeHtml(v){ return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+function fmtDate(s){ return s ? new Date(s).toLocaleString('ko-KR') : '-'; }
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.getElementById('rulesPane').classList.toggle('active', tab==='rules');
+  document.getElementById('pricesPane').classList.toggle('active', tab==='prices');
+  document.getElementById('controlsPane').classList.toggle('active', tab==='controls');
+}
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+function parseStructuredContent(content){
+  const lines = String(content||'').split('\n').map(v=>v.trim()).filter(Boolean);
+  const sections=[], m=new Map();
+  lines.forEach(line => {
+    const parts=line.split('>').map(v=>v.trim());
+    if(parts.length<3)return;
+    const sectionName=(parts.length>=4?parts[1]:parts[0]) || '기본 섹션';
+    const key=(parts.length>=4?parts[2]:parts[1]) || '';
+    const value=(parts.length>=4?parts.slice(3):parts.slice(2)).join(' > ') || '';
+    if(!m.has(sectionName)){const obj={name:sectionName,rows:[]}; sections.push(obj); m.set(sectionName,obj);} 
+    m.get(sectionName).rows.push({key,value});
+  });
+  return sections;
+}
+function buildContentFromDraft(draft){
+  const lines=[];
+  draft.forEach(section=>section.rows.forEach(row=>lines.push(`${String(section.name||'기본 섹션').trim()} > ${String(row.key??'').trim()} > ${String(row.value??'').trim()}`)));
+  return lines.join('\n');
+}
+
+function renderCardBody(content, titleColor, isPrice=false){
+  const sections = parseStructuredContent(content);
+  if(!sections.length) return '<div class="empty" style="padding:14px;">섹션 데이터가 없습니다.</div>';
+  if (isPrice) {
+    return `<div class="price-grid">${sections.map(section => `
+      <section class="price-box">
+        <h5 class="price-box-title">${escapeHtml(section.name)}</h5>
+        ${section.rows.map(row => {
+          const valClass = String(row.value).includes('무상') || String(row.value).includes('지원') ? 'price-val free' : 'price-val';
+          return `<div class="price-row"><span class="price-key">${escapeHtml(row.key)}</span><span class="${valClass}">${escapeHtml(row.value)}<span class="diamond-icon">💎</span></span></div>`;
+        }).join('')}
+      </section>
+    `).join('')}</div>`;
+  }
+  return sections.map(section=>`<section class="rule-section"><h5 class="rule-section-title">${escapeHtml(section.name)}</h5><table class="rule-table"><tbody>${section.rows.map(row=>{
+    return `<tr><td class="rule-key" style="color:${escapeHtml(titleColor)}">${escapeHtml(row.key)}</td><td class="rule-val">${escapeHtml(row.value)}</td></tr>`;
+  }).join('')}</tbody></table></section>`).join('');
+}
+
+function renderRules(){
+  const el=document.getElementById('rulesList');
+  if(!rules.length){el.innerHTML='<div class="empty">등록된 길드룰이 없습니다.</div>'; return;}
+  el.innerHTML = rules.map(r=>`<article class="card-item"><h3 class="rule-block-title" style="color:${escapeHtml(r.color||'#f8fafc')}">${escapeHtml(r.title)}</h3>${renderCardBody(r.content,r.color||'#22d3ee',false)}<div class="rule-footer"><div class="rule-meta-line">수정일: ${fmtDate(r.updated_at)}</div>${isAdmin?`<div class="actions"><button class="edit" onclick="openRuleModal(${r.id})">수정</button><button class="del" onclick="deleteRule(${r.id})">삭제</button></div>`:''}</div></article>`).join('');
+}
+
+function normalizePriceTierColor(color){
+  const c = String(color || '').toLowerCase();
+  if (c === '#a78bfa') return '#d946ef';
+  if (c === '#facc15') return '#fbbf24';
+  if (c === '#fb923c') return '#f43f5e';
+  return color || '#f8fafc';
+}
+
+function renderPrices(){
+  const el=document.getElementById('pricesList');
+  if(!priceGuides.length){el.innerHTML='<div class="empty">등록된 가격표가 없습니다.</div>'; return;}
+  el.innerHTML = priceGuides.map(p=>{ const cardColor = normalizePriceTierColor(p.color); return `<article class="card-item"><h3 class="rule-block-title" style="color:${escapeHtml(cardColor)}">${escapeHtml(p.title)}</h3>${renderCardBody(p.content,cardColor,true)}<div class="rule-footer"><div class="rule-meta-line">수정일: ${fmtDate(p.updated_at)}</div>${isAdmin?`<div class="actions"><button class="edit" onclick="openPriceModal(${p.id})">수정</button><button class="del" onclick="deletePriceGuide(${p.id})">삭제</button></div>`:''}</div></article>`; }).join('');
+}
+
+function normalizeStatus(s){ return (s==='CONTROL'||s==='ALLY_ONLY'||s==='NONE')?s:'NONE'; }
+function renderStaffSummary() {
+  const el = document.getElementById('staffSummaryList');
+  const staff = (users || []).filter(u => u && (u.role === 'MASTER' || u.role === 'ADMIN'));
+  if (!staff.length) {
+    el.innerHTML = '<span class="staff-chip">등록된 운영진이 없습니다.</span>';
+    return;
+  }
+  const chips = staff.map(u => {
+    const cls = u.role === 'MASTER' ? 'master' : 'admin';
+    const label = u.role === 'MASTER' ? '길드장' : '운영진';
+    const name = escapeHtml(u.nickname || '-');
+    return `<span class="staff-chip ${cls}">${name} · ${label}</span>`;
+  });
+  el.innerHTML = chips.join('');
+}
+function renderBossControls(){
+  const wrap=document.getElementById('bossControlWrap'); const chapters=bossControls?.chapters||[];
+  if(!chapters.length){wrap.innerHTML='<div class="empty">보스 통제 데이터가 없습니다.</div>'; return;}
+  wrap.innerHTML=`<div class="control-table-wrap"><table class="control-table"><thead><tr><th style="width:180px;">챕터</th><th>보스</th></tr></thead><tbody>${chapters.map(ch=>`<tr><td class="chapter-cell">${escapeHtml(ch.chapter)}</td><td><div class="boss-chip-wrap">${ch.bosses.map(b=>{const s=normalizeStatus(b.status);const c=s==='CONTROL'?'status-control':(s==='ALLY_ONLY'?'status-ally':'status-none');return `<button type="button" class="boss-chip ${c} ${isAdmin?'is-clickable':''}" data-chapter="${escapeHtml(ch.chapter)}" data-boss="${escapeHtml(b.name)}" data-status="${s}" ${isAdmin?'':'disabled'}>${escapeHtml(b.name)}</button>`;}).join('')}</div></td></tr>`).join('')}</tbody></table></div>`;
+  if(isAdmin){ wrap.querySelectorAll('.boss-chip').forEach(btn=>btn.addEventListener('click',()=>cycleBossControl(btn.dataset.chapter,btn.dataset.boss,btn.dataset.status))); }
+}
+async function loadBossControls(){ bossControls = await api('/api/notices/boss-controls'); renderBossControls(); }
+async function cycleBossControl(chapter,boss,current){ const order=['NONE','ALLY_ONLY','CONTROL']; const next=order[(order.indexOf(normalizeStatus(current))+1)%order.length]; await api('/api/notices/boss-controls',{method:'PUT',body:JSON.stringify({chapter,boss,status:next})}); await loadBossControls(); }
+
+function setColorSwatch(selectId, swatchId){ const c=document.getElementById(selectId).value||'#f8fafc'; document.getElementById(swatchId).style.background=c; }
+
+function renderEditor(type){
+  const draft = type==='rule' ? ruleDraft : priceDraft;
+  const sectionSelectId = type==='rule' ? 'ruleSectionSelect' : 'priceSectionSelect';
+  const wrapId = type==='rule' ? 'ruleEditorSections' : 'priceEditorSections';
+  const editingIdx = type==='rule' ? editingRuleSection : editingPriceSection;
+  const sel=document.getElementById(sectionSelectId);
+  sel.innerHTML=draft.map((s,i)=>`<option value="${i}">${escapeHtml(s.name)}</option>`).join('') + '<option value="__new__">+ 신규 섹션</option>';
+  sel.value='__new__';
+  const wrap=document.getElementById(wrapId);
+  if(!draft.length){ wrap.innerHTML='<div class="empty" style="padding:16px;">추가된 섹션이 없습니다.</div>'; return; }
+  wrap.innerHTML=draft.map((sec,sIdx)=>`<div class="editor-section-card"><div class="editor-section-head"><div class="section-head-title">${escapeHtml(sec.name)}</div><button class="tiny-btn tiny-add" type="button" onclick="toggleSectionEdit('${type}',${sIdx})">수정</button><button class="tiny-btn tiny-del" type="button" onclick="removeSection('${type}',${sIdx})">섹션삭제</button></div><div class="section-edit-body" style="display:${editingIdx===sIdx?'block':'none'};"><input class="input" style="margin:0 0 8px 0;" value="${escapeHtml(sec.name)}" placeholder="섹션명" onchange="updateSectionName('${type}',${sIdx},this.value)"><div style="display:flex; justify-content:flex-end; margin-bottom:8px;"><button class="tiny-btn tiny-add" type="button" onclick="appendRow('${type}',${sIdx})">항목추가</button></div><div class="editor-rows">${sec.rows.map((row,rIdx)=>`<div class="editor-row"><input class="input" style="margin:0;" placeholder="항목명" value="${escapeHtml(row.key)}" onchange="updateRowKey('${type}',${sIdx},${rIdx},this.value)"><input class="input" style="margin:0;" placeholder="${type==='price'?'가격/비고':'내용'}" value="${escapeHtml(row.value)}" onchange="updateRowValue('${type}',${sIdx},${rIdx},this.value)"><button class="tiny-btn tiny-del" type="button" onclick="removeRow('${type}',${sIdx},${rIdx})">삭제</button></div>`).join('')}</div></div></div>`).join('');
+}
+
+function getDraft(type){ return type==='rule' ? ruleDraft : priceDraft; }
+function setEditingIdx(type,idx){ if(type==='rule') editingRuleSection=idx; else editingPriceSection=idx; }
+function addSection(type){ const draft=getDraft(type); const secSel=document.getElementById(type==='rule'?'ruleSectionSelect':'priceSectionSelect'); const newInput=document.getElementById(type==='rule'?'ruleNewSectionName':'priceNewSectionName'); const secVal=secSel.value; const name=newInput.value.trim(); if(secVal==='__new__'){ if(!name) return alert('새 섹션명을 입력해주세요.'); let section=draft.find(s=>s.name===name); if(!section){section={name,rows:[]}; draft.push(section);} setEditingIdx(type,draft.findIndex(s=>s.name===name)); } else { const idx=Number(secVal); if(!draft[idx]) return; setEditingIdx(type,idx);} newInput.value=''; renderEditor(type); }
+function toggleSectionEdit(type,sIdx){ const curr = type==='rule' ? editingRuleSection : editingPriceSection; setEditingIdx(type, curr===sIdx?-1:sIdx); renderEditor(type); }
+function updateSectionName(type,sIdx,val){ const draft=getDraft(type); draft[sIdx].name=val.trim()||`섹션${sIdx+1}`; renderEditor(type); }
+function removeSection(type,sIdx){ const draft=getDraft(type); draft.splice(sIdx,1); const curr=type==='rule'?editingRuleSection:editingPriceSection; if(curr>=draft.length) setEditingIdx(type,-1); renderEditor(type); }
+function appendRow(type,sIdx){ const draft=getDraft(type); setEditingIdx(type,sIdx); draft[sIdx].rows.push({key:'',value:''}); renderEditor(type); }
+function removeRow(type,sIdx,rIdx){ const draft=getDraft(type); draft[sIdx].rows.splice(rIdx,1); renderEditor(type); }
+function updateRowKey(type,sIdx,rIdx,val){ getDraft(type)[sIdx].rows[rIdx].key=val; }
+function updateRowValue(type,sIdx,rIdx,val){ getDraft(type)[sIdx].rows[rIdx].value=val; }
+
+function openRuleModal(id=null){ editingRuleId=id; const sectionBox=document.getElementById('ruleSectionEditorBox'); if(id){ const r=rules.find(x=>x.id===id); if(!r) return; document.getElementById('ruleModalTitle').textContent='길드룰 수정'; document.getElementById('ruleTitle').value=r.title; document.getElementById('ruleColor').value=r.color||'#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); ruleDraft=parseStructuredContent(r.content); sectionBox.style.display='block'; } else { document.getElementById('ruleModalTitle').textContent='길드룰 등록'; document.getElementById('ruleTitle').value=''; document.getElementById('ruleColor').value='#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); ruleDraft=[]; sectionBox.style.display='none'; }
+editingRuleSection=-1; renderEditor('rule'); document.getElementById('ruleModal').style.display='flex'; }
+function closeRuleModal(){ document.getElementById('ruleModal').style.display='none'; }
+async function saveRule(){ const title=document.getElementById('ruleTitle').value.trim(); const color=document.getElementById('ruleColor').value||'#f8fafc'; const content=buildContentFromDraft(ruleDraft).trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(editingRuleId) await api(`/api/notices/rules/${editingRuleId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/notices/rules',{method:'POST',body:JSON.stringify({title,content,color})}); closeRuleModal(); await loadAll(); }
+async function deleteRule(id){ if(!confirm('이 길드룰을 삭제할까요?')) return; await api(`/api/notices/rules/${id}`,{method:'DELETE'}); await loadAll(); }
+
+function openPriceModal(id=null){ editingPriceGuideId=id; if(id){ const p=priceGuides.find(x=>x.id===id); if(!p) return; document.getElementById('priceModalTitle').textContent='가격표 수정'; document.getElementById('priceTitle').value=p.title; document.getElementById('priceColor').value=normalizePriceTierColor(p.color); setColorSwatch('priceColor','priceColorSwatch'); priceDraft=parseStructuredContent(p.content); } else { document.getElementById('priceModalTitle').textContent='가격표 등록'; document.getElementById('priceTitle').value=''; document.getElementById('priceColor').value='#f8fafc'; setColorSwatch('priceColor','priceColorSwatch'); priceDraft=[]; }
+editingPriceSection=-1; renderEditor('price'); document.getElementById('priceModal').style.display='flex'; }
+function closePriceModal(){ document.getElementById('priceModal').style.display='none'; }
+async function savePriceGuide(){ const title=document.getElementById('priceTitle').value.trim(); const color=document.getElementById('priceColor').value||'#f8fafc'; const content=buildContentFromDraft(priceDraft).trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(editingPriceGuideId) await api(`/api/notices/price-guides/${editingPriceGuideId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/notices/price-guides',{method:'POST',body:JSON.stringify({title,content,color})}); closePriceModal(); await loadAll(); }
+async function deletePriceGuide(id){ if(!confirm('이 가격표를 삭제할까요?')) return; await api(`/api/notices/price-guides/${id}`,{method:'DELETE'}); await loadAll(); }
+
+async function loadAll(){
+  try {
+    [rules, priceGuides, users] = await Promise.all([api('/api/notices/rules'), api('/api/notices/price-guides'), api('/api/users')]);
+    await loadBossControls();
+    renderRules(); renderPrices(); renderStaffSummary();
+  } catch(e) { alert('공지 데이터를 불러오지 못했습니다: ' + e.message); }
+}
+
+document.getElementById('addRuleBtn').addEventListener('click', ()=>openRuleModal());
+document.getElementById('addPriceBtn').addEventListener('click', ()=>openPriceModal());
+document.getElementById('ruleColor').addEventListener('change', ()=>setColorSwatch('ruleColor','ruleColorSwatch'));
+document.getElementById('priceColor').addEventListener('change', ()=>setColorSwatch('priceColor','priceColorSwatch'));
+
+window.openRuleModal=openRuleModal; window.closeRuleModal=closeRuleModal; window.saveRule=saveRule; window.deleteRule=deleteRule;
+window.openPriceModal=openPriceModal; window.closePriceModal=closePriceModal; window.savePriceGuide=savePriceGuide; window.deletePriceGuide=deletePriceGuide;
+window.addSection=addSection; window.toggleSectionEdit=toggleSectionEdit; window.updateSectionName=updateSectionName; window.removeSection=removeSection; window.appendRow=appendRow; window.removeRow=removeRow; window.updateRowKey=updateRowKey; window.updateRowValue=updateRowValue;
+
+setColorSwatch('ruleColor','ruleColorSwatch');
+setColorSwatch('priceColor','priceColorSwatch');
+loadAll();
+</script>
+</body>
+</html>
