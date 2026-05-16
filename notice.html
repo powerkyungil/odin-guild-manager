@@ -243,7 +243,16 @@ async function api(url, options={}) {
 }
 
 function escapeHtml(v){ return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
-function fmtDate(s){ return s ? new Date(s).toLocaleString('ko-KR') : '-'; }
+function fmtDate(s){
+  if (!s) return '-';
+  // SQLite CURRENT_TIMESTAMP is UTC (e.g. "YYYY-MM-DD HH:MM:SS"), so parse as UTC first.
+  const isoUtc = String(s).includes('T')
+    ? String(s).replace(' ', 'T')
+    : String(s).replace(' ', 'T') + 'Z';
+  const d = new Date(isoUtc);
+  if (Number.isNaN(d.getTime())) return String(s);
+  return d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+}
 function formatPriceValue(v){
   const raw = String(v ?? '').trim();
   if (!raw) return raw;
