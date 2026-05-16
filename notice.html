@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="auth.css">
   <style>
-    .auth-container { max-width: 1120px; width: 95%; margin: 20px auto; }
+    .auth-container { width: min(98vw, 1800px); max-width: none; margin: 20px auto; }
     .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
     .back-link { color: var(--text-muted); text-decoration:none; font-size:14px; font-weight:600; }
     .role-chip { background: rgba(99,102,241,.2); color:#818cf8; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
@@ -34,12 +34,13 @@
     .rule-val { color:#e2e8f0; white-space:pre-wrap; }
     .price-val { font-weight:800; color:#facc15; }
     .price-val.free { color:#4ade80; }
-    .price-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:14px; }
+    .price-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap:10px; margin-top:14px; }
     .price-box { background: rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
     .price-box-title { margin:0 0 8px 0; color:#cbd5e1; font-weight:700; font-size:14px; padding-bottom:6px; border-bottom:1px solid rgba(148,163,184,.25); }
-    .price-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:6px 0; border-bottom:1px dashed rgba(148,163,184,.25); }
+    .price-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:6px 0; border-bottom:1px dashed rgba(148,163,184,.25); }
     .price-row:last-child { border-bottom:none; }
-    .price-key { color:#e2e8f0; }
+    .price-key { color:#e2e8f0; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+    .price-val { flex: 0 0 auto; white-space: nowrap; text-align: right; }
     .diamond-icon { margin-left:4px; color:#38bdf8; font-size:12px; vertical-align:middle; }
     .rule-footer { margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid rgba(255,255,255,.08); padding-top:10px; }
     .rule-meta-line { color: var(--text-muted); font-size:12px; }
@@ -99,7 +100,7 @@
     .boss-chip.status-none { background:rgba(71,85,105,.35); border-color:#94a3b8; color:#e2e8f0; }
 
     @media (max-width: 768px) {
-      .auth-container { width:96%; margin:12px auto; }
+      .auth-container { width: 100%; margin: 12px 0; padding: 0 10px; box-sizing: border-box; }
       .tab-btn { flex:1; }
       .rule-block-title { font-size:24px; }
       .rule-table,
@@ -114,6 +115,10 @@
       .editor-toolbar, .editor-row { grid-template-columns:1fr; }
       .rule-footer { flex-direction:column; align-items:flex-start; }
       .price-grid { grid-template-columns:1fr; }
+    }
+
+    @media (min-width: 769px) and (max-width: 1400px) {
+      .auth-container { width: min(97vw, 1360px); }
     }
   </style>
 </head>
@@ -237,6 +242,13 @@ async function api(url, options={}) {
 
 function escapeHtml(v){ return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
 function fmtDate(s){ return s ? new Date(s).toLocaleString('ko-KR') : '-'; }
+function formatPriceValue(v){
+  const raw = String(v ?? '').trim();
+  if (!raw) return raw;
+  const numericOnly = raw.replaceAll(',', '');
+  if (!/^\d+$/.test(numericOnly)) return raw;
+  return Number(numericOnly).toLocaleString('ko-KR');
+}
 function switchTab(tab){
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.getElementById('rulesPane').classList.toggle('active', tab==='rules');
@@ -273,8 +285,9 @@ function renderCardBody(content, titleColor, isPrice=false){
       <section class="price-box">
         <h5 class="price-box-title">${escapeHtml(section.name)}</h5>
         ${section.rows.map(row => {
-          const valClass = String(row.value).includes('무상') || String(row.value).includes('지원') ? 'price-val free' : 'price-val';
-          return `<div class="price-row"><span class="price-key">${escapeHtml(row.key)}</span><span class="${valClass}">${escapeHtml(row.value)}<span class="diamond-icon">💎</span></span></div>`;
+          const valueText = formatPriceValue(row.value);
+          const valClass = String(valueText).includes('무상') || String(valueText).includes('지원') ? 'price-val free' : 'price-val';
+          return `<div class="price-row"><span class="price-key">${escapeHtml(row.key)}</span><span class="${valClass}">${escapeHtml(valueText)}<span class="diamond-icon">💎</span></span></div>`;
         }).join('')}
       </section>
     `).join('')}</div>`;
