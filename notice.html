@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="auth.css">
   <style>
+    body { padding: 0 20px; box-sizing: border-box; }
     .auth-container { width: min(96vw, 1800px); max-width: none; margin: 20px auto; }
     .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
     .back-link { color: var(--text-muted); text-decoration:none; font-size:14px; font-weight:600; }
@@ -100,6 +101,7 @@
     .boss-chip.status-none { background:rgba(71,85,105,.35); border-color:#94a3b8; color:#e2e8f0; }
 
     @media (max-width: 768px) {
+      body { padding: 0 8px; }
       .auth-container { width: 100%; margin: 12px 0; padding: 0 10px; box-sizing: border-box; }
       .tab-btn { flex:1; }
       .rule-block-title { font-size:24px; }
