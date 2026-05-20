@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const scheduleContainer = document.getElementById('schedule-container');
   const statsContainer = document.getElementById('stats-container');
   const currentTimeDisplay = document.getElementById('current-time-display');
+  const renderFilterCheckboxes = Array.from(document.querySelectorAll('.render-filter-chk'));
 
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
@@ -60,6 +61,37 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastScheduleHash = "";
 
   let viewMode = localStorage.getItem('viewMode') || 'normal';
+  let allSchedulesCache = [];
+  const selectedRenderTypes = new Set(['공통', '본섭', '침공', '고정']);
+
+  const applyRenderFilters = (schedules) => {
+    if (!Array.isArray(schedules)) return [];
+    return schedules.filter(item => selectedRenderTypes.has(item.type));
+  };
+
+  const syncRenderFilterCheckboxes = () => {
+    renderFilterCheckboxes.forEach(chk => {
+      chk.checked = selectedRenderTypes.has(chk.value);
+    });
+  };
+
+  const rerenderFromCache = () => {
+    renderSchedules(allSchedulesCache);
+    updateImminentHighlight();
+  };
+
+  syncRenderFilterCheckboxes();
+  renderFilterCheckboxes.forEach(chk => {
+    chk.addEventListener('change', () => {
+      if (chk.checked) {
+        selectedRenderTypes.add(chk.value);
+      } else {
+        selectedRenderTypes.delete(chk.value);
+      }
+      rerenderFromCache();
+    });
+  });
+
   const toggleViewBtn = document.getElementById('toggle-view-btn');
   const updateToggleUI = () => {
     if (!toggleViewBtn) return;
@@ -401,13 +433,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const fixedAndShared = [...data];
       injectFixedEventsInto(fixedAndShared);
       fixedAndShared.sort((a, b) => a.spawnTime - b.spawnTime);
+      allSchedulesCache = fixedAndShared;
 
       // Memory Optimization: Only render if data has changed
       // We use a simple JSON hash to detect deep changes in schedules or participation
-      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + viewMode;
+      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
       if (currentHash !== lastScheduleHash) {
         console.log('[Sync] Data changed, re-rendering schedules.');
-        renderSchedules(fixedAndShared);
+        renderSchedules(allSchedulesCache);
         lastScheduleHash = currentHash;
       }
 
@@ -1128,10 +1161,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderSchedules = (schedules) => {
+    const filteredSchedules = applyRenderFilters(schedules);
     scheduleContainer.innerHTML = '';
     scheduleContainer.className = viewMode === 'compact' ? 'list compact-view' : 'list';
     let lastDateStr = '';
-    if (!schedules || schedules.length === 0) {
+    if (!filteredSchedules || filteredSchedules.length === 0) {
       scheduleContainer.innerHTML = `
         <div class="empty-state">
           결과가 없습니다. 보스 정보를 입력하고 전체 적용하기나 엔터 키를 눌러주세요.
@@ -1143,12 +1177,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const now = getNow().getTime();
     // Logic: Future bosses + specialized past bosses
-    const futureBosses = schedules.filter(s => s.spawnTime > now);
+    const futureBosses = filteredSchedules.filter(s => s.spawnTime > now);
 
     // Regular bosses stay until cut (Including Invasion now as per request)
-    const pastRegular = schedules.filter(s => s.spawnTime <= now && s.type !== '고정');
+    const pastRegular = filteredSchedules.filter(s => s.spawnTime <= now && s.type !== '고정');
     // Fixed bosses only show 1 past (rolling window handles the rest)
-    const pastSpecial = schedules.filter(s => s.spawnTime <= now && s.type === '고정')
+    const pastSpecial = filteredSchedules.filter(s => s.spawnTime <= now && s.type === '고정')
       .sort((a, b) => b.spawnTime - a.spawnTime)
       .slice(0, 1);
 
