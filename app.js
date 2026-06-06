@@ -413,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchParticipationData = async () => {
     try {
       const [tRes, pRes] = await Promise.all([
+        fetch('/api/participation-targets', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/participants', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       if (tRes.status === 401 || pRes.status === 401) return handleAuthError();
@@ -437,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Memory Optimization: Only render if data has changed
       // We use a simple JSON hash to detect deep changes in schedules or participation
-      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
+      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + JSON.stringify(participationTargets) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
       if (currentHash !== lastScheduleHash) {
         console.log('[Sync] Data changed, re-rendering schedules.');
         renderSchedules(allSchedulesCache);

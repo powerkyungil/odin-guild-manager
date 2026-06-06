@@ -234,6 +234,25 @@ function initDB() {
             });
         });
 
+        db.run(`CREATE TABLE IF NOT EXISTS boss_vote_event_states (
+            vote_key TEXT PRIMARY KEY,
+            boss TEXT,
+            spawnTime INTEGER,
+            state TEXT DEFAULT 'ACTIVE',
+            updated_by INTEGER,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, () => {
+            db.all("PRAGMA table_info(boss_vote_event_states)", (err, columns) => {
+                if (err) return;
+                const names = columns.map(c => c.name);
+                if (!names.includes('boss')) db.run("ALTER TABLE boss_vote_event_states ADD COLUMN boss TEXT");
+                if (!names.includes('spawnTime')) db.run("ALTER TABLE boss_vote_event_states ADD COLUMN spawnTime INTEGER");
+                if (!names.includes('state')) db.run("ALTER TABLE boss_vote_event_states ADD COLUMN state TEXT DEFAULT 'ACTIVE'");
+                if (!names.includes('updated_by')) db.run("ALTER TABLE boss_vote_event_states ADD COLUMN updated_by INTEGER");
+                if (!names.includes('updated_at')) db.run("ALTER TABLE boss_vote_event_states ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+            });
+        });
+
         // Content Groups Table (New)
         db.run(`CREATE TABLE IF NOT EXISTS content_groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -740,6 +759,16 @@ const getTodayTomorrowWindow = () => {
     return { startMs: start.getTime(), endMs: end.getTime() };
 };
 
+const getYesterdayTomorrowWindow = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    start.setDate(start.getDate() - 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 3);
+    end.setMilliseconds(-1);
+    return { startMs: start.getTime(), endMs: end.getTime() };
+};
+
 const injectFixedVoteEvents = (rows, targets, startMs, endMs) => {
     const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
     const existing = new Set(rows.map(r => getVoteKey(r)));
@@ -778,22 +807,38 @@ const injectFixedVoteEvents = (rows, targets, startMs, endMs) => {
     }
 };
 
-app.get('/api/vote-bosses', verifyToken, (req, res) => {
-    const { startMs, endMs } = getTodayTomorrowWindow();
+const applyInactiveVoteStates = (rows, startMs, endMs, callback) => {
+    db.all(
+        `SELECT vote_key, state
+         FROM boss_vote_event_states
+         WHERE spawnTime >= ? AND spawnTime <= ?`,
+        [startMs, endMs],
+        (stateErr, stateRows) => {
+            if (stateErr) return callback(stateErr);
+            const inactiveKeys = new Set(
+                (stateRows || [])
+                    .filter(row => String(row.state || 'ACTIVE').toUpperCase() === 'INACTIVE')
+                    .map(row => row.vote_key)
+            );
+            callback(null, rows.filter(row => !inactiveKeys.has(getVoteKey(row))));
+        }
+    );
+};
 
+const buildVoteRowsForRange = (startMs, endMs, callback) => {
     db.all("SELECT boss FROM participation_targets", (targetErr, targetRows) => {
-        if (targetErr) return res.status(500).json({ error: targetErr.message });
-        const targetBosses = targetRows.map(r => r.boss);
+        if (targetErr) return callback(targetErr);
+        const targetBosses = (targetRows || []).map(r => r.boss);
+        const voteRows = [];
 
-        const loadManualRows = (voteRows) => {
+        const loadManualRows = () => {
             db.all(
                 `SELECT id, type, region, boss, spawnTime, is_blessed
                  FROM boss_vote_events
                  WHERE spawnTime >= ? AND spawnTime <= ?`,
                 [startMs, endMs],
                 (manualErr, manualRows) => {
-                    if (manualErr) return res.status(500).json({ error: manualErr.message });
-
+                    if (manualErr) return callback(manualErr);
                     (manualRows || []).forEach(r => {
                         voteRows.push({
                             ...r,
@@ -803,74 +848,88 @@ app.get('/api/vote-bosses', verifyToken, (req, res) => {
                         });
                     });
 
-                    voteRows.sort((a, b) => a.spawnTime - b.spawnTime);
-                    const voteKeys = voteRows.map(r => getVoteKey(r));
-                    if (voteKeys.length === 0) return res.json([]);
-
-                    const participantSql = `
-                        SELECT vote_key, user_id, nickname
-                        FROM boss_vote_participants
-                        WHERE vote_key IN (${voteKeys.map(() => '?').join(',')}) AND IFNULL(status, 'joined') = 'joined'
-                        ORDER BY created_at ASC
-                    `;
-
-                    db.all(participantSql, voteKeys, (participantErr, participantRows) => {
-                        if (participantErr) return res.status(500).json({ error: participantErr.message });
-
-                        const participantMap = {};
-                        (participantRows || []).forEach(p => {
-                            if (!participantMap[p.vote_key]) participantMap[p.vote_key] = [];
-                            participantMap[p.vote_key].push({ userId: p.user_id, nickname: p.nickname });
-                        });
-
-                        res.json(voteRows.map(row => {
-                            const voteKey = getVoteKey(row);
-                            const participants = participantMap[voteKey] || [];
-                            return {
-                                ...row,
-                                voteKey,
-                                participants,
-                                participantCount: participants.length,
-                                joined: participants.some(p => p.userId === req.userId)
-                            };
-                        }));
+                    applyInactiveVoteStates(voteRows, startMs, endMs, (stateErr, filteredRows) => {
+                        if (stateErr) return callback(stateErr);
+                        filteredRows.sort((a, b) => a.spawnTime - b.spawnTime);
+                        callback(null, filteredRows);
                     });
                 }
             );
         };
 
-        if (targetBosses.length === 0) {
-            loadManualRows([]);
-            return;
-        }
+        const loadFixedRows = () => {
+            if (targetBosses.length === 0) return loadManualRows();
+            const placeholders = targetBosses.map(() => '?').join(',');
+            db.all(
+                `SELECT type, region, boss, timeStr, days
+                 FROM boss_definitions
+                 WHERE timeStr IS NOT NULL AND boss IN (${placeholders})`,
+                targetBosses,
+                (fixedErr, fixedRows) => {
+                    if (fixedErr) return callback(fixedErr);
+                    injectFixedVoteEvents(voteRows, fixedRows || [], startMs, endMs);
+                    loadManualRows();
+                }
+            );
+        };
+
+        if (targetBosses.length === 0) return loadManualRows();
 
         const placeholders = targetBosses.map(() => '?').join(',');
-        const scheduleSql = `
-            SELECT id, type, region, boss, spawnTime, is_mung
-            FROM boss_schedules
-            WHERE spawnTime >= ? AND spawnTime <= ? AND boss IN (${placeholders})
+        db.all(
+            `SELECT id, type, region, boss, spawnTime, is_mung
+             FROM boss_schedules
+             WHERE spawnTime >= ? AND spawnTime <= ? AND boss IN (${placeholders})`,
+            [startMs, endMs, ...targetBosses],
+            (scheduleErr, scheduleRows) => {
+                if (scheduleErr) return callback(scheduleErr);
+                (scheduleRows || []).forEach(r => {
+                    voteRows.push({
+                        ...r,
+                        isFixed: false,
+                        isManual: false
+                    });
+                });
+                loadFixedRows();
+            }
+        );
+    });
+};
+
+app.get('/api/vote-bosses', verifyToken, (req, res) => {
+    const { startMs, endMs } = getYesterdayTomorrowWindow();
+    buildVoteRowsForRange(startMs, endMs, (voteErr, voteRows) => {
+        if (voteErr) return res.status(500).json({ error: voteErr.message });
+        const voteKeys = voteRows.map(r => getVoteKey(r));
+        if (voteKeys.length === 0) return res.json([]);
+
+        const participantSql = `
+            SELECT vote_key, user_id, nickname
+            FROM boss_vote_participants
+            WHERE vote_key IN (${voteKeys.map(() => '?').join(',')}) AND IFNULL(status, 'joined') = 'joined'
+            ORDER BY created_at ASC
         `;
 
-        db.all(scheduleSql, [startMs, endMs, ...targetBosses], (scheduleErr, scheduleRows) => {
-            if (scheduleErr) return res.status(500).json({ error: scheduleErr.message });
+        db.all(participantSql, voteKeys, (participantErr, participantRows) => {
+            if (participantErr) return res.status(500).json({ error: participantErr.message });
 
-            const fixedSql = `
-                SELECT type, region, boss, timeStr, days
-                FROM boss_definitions
-                WHERE timeStr IS NOT NULL AND boss IN (${placeholders})
-            `;
-
-            db.all(fixedSql, targetBosses, (fixedErr, fixedRows) => {
-                if (fixedErr) return res.status(500).json({ error: fixedErr.message });
-
-                const voteRows = (scheduleRows || []).map(r => ({
-                    ...r,
-                    isFixed: false,
-                    isManual: false
-                }));
-                injectFixedVoteEvents(voteRows, fixedRows || [], startMs, endMs);
-                loadManualRows(voteRows);
+            const participantMap = {};
+            (participantRows || []).forEach(p => {
+                if (!participantMap[p.vote_key]) participantMap[p.vote_key] = [];
+                participantMap[p.vote_key].push({ userId: p.user_id, nickname: p.nickname });
             });
+
+            res.json(voteRows.map(row => {
+                const voteKey = getVoteKey(row);
+                const participants = participantMap[voteKey] || [];
+                return {
+                    ...row,
+                    voteKey,
+                    participants,
+                    participantCount: participants.length,
+                    joined: participants.some(p => p.userId === req.userId)
+                };
+            }));
         });
     });
 });
@@ -911,6 +970,33 @@ app.delete('/api/vote-bosses/manual/:id', verifyToken, (req, res) => {
     });
 });
 
+app.delete('/api/vote-bosses/:voteKey', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+
+    const voteKey = String(req.params.voteKey || '');
+    const { boss, spawnTime } = req.body || {};
+    const parsedSpawnTime = Number(spawnTime);
+    if (!voteKey || !boss || !Number.isFinite(parsedSpawnTime)) {
+        return res.status(400).json({ error: 'voteKey, boss, and spawnTime are required.' });
+    }
+
+    db.run(
+        `INSERT INTO boss_vote_event_states (vote_key, boss, spawnTime, state, updated_by, updated_at)
+         VALUES (?, ?, ?, 'INACTIVE', ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(vote_key) DO UPDATE SET
+           boss = excluded.boss,
+           spawnTime = excluded.spawnTime,
+           state = 'INACTIVE',
+           updated_by = excluded.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+        [voteKey, String(boss).trim(), parsedSpawnTime, req.userId],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, state: 'INACTIVE' });
+        }
+    );
+});
+
 app.get('/api/vote-stats', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
 
@@ -923,114 +1009,90 @@ app.get('/api/vote-stats', verifyToken, (req, res) => {
     const startMs = start.getTime();
     const endMs = end.getTime() - 1;
 
-    db.all(
-        `SELECT vote_key, boss, spawnTime, user_id, nickname, IFNULL(status, 'joined') as status, created_at
-         FROM boss_vote_participants
-         WHERE spawnTime >= ? AND spawnTime <= ?
-         ORDER BY spawnTime ASC, created_at ASC`,
-        [startMs, endMs],
-        (participantErr, participantRows) => {
-            if (participantErr) return res.status(500).json({ error: participantErr.message });
+    buildVoteRowsForRange(startMs, endMs, (voteErr, voteRows) => {
+        if (voteErr) return res.status(500).json({ error: voteErr.message });
 
-            db.all(
-                `SELECT id, type, region, boss, spawnTime, is_blessed
-                 FROM boss_vote_events
-                 WHERE spawnTime >= ? AND spawnTime <= ?
-                 ORDER BY spawnTime ASC`,
-                [startMs, endMs],
-                (manualErr, manualRows) => {
-                    if (manualErr) return res.status(500).json({ error: manualErr.message });
+        const bossMap = new Map();
+        voteRows.forEach(row => {
+            const voteKey = getVoteKey(row);
+            const date = new Date(row.spawnTime);
+            const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            bossMap.set(voteKey, {
+                voteKey,
+                dateKey,
+                boss: row.boss,
+                spawnTime: row.spawnTime,
+                type: row.type || '',
+                region: row.region || '',
+                isManual: !!row.isManual,
+                isBlessed: !!row.isBlessed,
+                participants: [],
+                excludedParticipants: []
+            });
+        });
 
-                    const bossMap = new Map();
-
-                    const ensureBoss = ({ voteKey, boss, spawnTime, type, region, isManual, isBlessed }) => {
-                        if (!bossMap.has(voteKey)) {
-                            const date = new Date(spawnTime);
-                            const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                            bossMap.set(voteKey, {
-                                voteKey,
-                                dateKey,
-                                boss,
-                                spawnTime,
-                                type: type || '',
-                                region: region || '',
-                                isManual: !!isManual,
-                                isBlessed: !!isBlessed,
-                                participants: []
-                            });
-                        }
-                        return bossMap.get(voteKey);
-                    };
-
-                    (manualRows || []).forEach(row => {
-                        ensureBoss({
-                            voteKey: `manual|${row.id}`,
-                            boss: row.boss,
-                            spawnTime: row.spawnTime,
-                            type: row.type,
-                            region: row.region,
-                            isManual: true,
-                            isBlessed: !!row.is_blessed
-                        });
-                    });
-
-                    (participantRows || []).forEach(row => {
-                        const entry = ensureBoss({
-                            voteKey: row.vote_key,
-                            boss: row.boss,
-                            spawnTime: row.spawnTime,
-                            isManual: row.vote_key && row.vote_key.startsWith('manual|')
-                        });
-                        if (row.status === 'excluded') {
-                            if (!entry.excludedParticipants) entry.excludedParticipants = [];
-                            entry.excludedParticipants.push({
-                                userId: row.user_id,
-                                nickname: row.nickname,
-                                joinedAt: row.created_at
-                            });
-                        } else {
-                            entry.participants.push({
-                                userId: row.user_id,
-                                nickname: row.nickname,
-                                joinedAt: row.created_at
-                            });
-                        }
-                    });
-
-                    const daysMap = new Map();
-                    Array.from(bossMap.values())
-                        .sort((a, b) => a.spawnTime - b.spawnTime)
-                        .forEach(entry => {
-                            if (!daysMap.has(entry.dateKey)) {
-                                daysMap.set(entry.dateKey, {
-                                    date: entry.dateKey,
-                                    bosses: [],
-                                    totalParticipants: 0
-                                });
-                            }
-
-                            const day = daysMap.get(entry.dateKey);
-                            const bossEntry = {
-                                ...entry,
-                                participants: entry.participants || [],
-                                excludedParticipants: entry.excludedParticipants || [],
-                                participantCount: (entry.participants || []).length
-                            };
-                            day.bosses.push(bossEntry);
-                            day.totalParticipants += bossEntry.participantCount;
-                        });
-
-                    const days = Array.from(daysMap.values());
-                    res.json({
-                        month,
-                        totalBosses: Array.from(bossMap.values()).length,
-                        totalParticipants: days.reduce((sum, day) => sum + day.totalParticipants, 0),
-                        days
-                    });
-                }
-            );
+        if (bossMap.size === 0) {
+            return res.json({ month, totalBosses: 0, totalParticipants: 0, days: [] });
         }
-    );
+
+        db.all(
+            `SELECT vote_key, boss, spawnTime, user_id, nickname, IFNULL(status, 'joined') as status, created_at
+             FROM boss_vote_participants
+             WHERE spawnTime >= ? AND spawnTime <= ?
+             ORDER BY spawnTime ASC, created_at ASC`,
+            [startMs, endMs],
+            (participantErr, participantRows) => {
+                if (participantErr) return res.status(500).json({ error: participantErr.message });
+
+                (participantRows || []).forEach(row => {
+                    const entry = bossMap.get(row.vote_key);
+                    if (!entry) return;
+                    if (row.status === 'excluded') {
+                        entry.excludedParticipants.push({
+                            userId: row.user_id,
+                            nickname: row.nickname,
+                            joinedAt: row.created_at
+                        });
+                    } else {
+                        entry.participants.push({
+                            userId: row.user_id,
+                            nickname: row.nickname,
+                            joinedAt: row.created_at
+                        });
+                    }
+                });
+
+                const daysMap = new Map();
+                Array.from(bossMap.values())
+                    .sort((a, b) => a.spawnTime - b.spawnTime)
+                    .forEach(entry => {
+                        if (!daysMap.has(entry.dateKey)) {
+                            daysMap.set(entry.dateKey, {
+                                date: entry.dateKey,
+                                bosses: [],
+                                totalParticipants: 0
+                            });
+                        }
+
+                        const day = daysMap.get(entry.dateKey);
+                        const bossEntry = {
+                            ...entry,
+                            participantCount: entry.participants.length
+                        };
+                        day.bosses.push(bossEntry);
+                        day.totalParticipants += bossEntry.participantCount;
+                    });
+
+                const days = Array.from(daysMap.values());
+                res.json({
+                    month,
+                    totalBosses: bossMap.size,
+                    totalParticipants: days.reduce((sum, day) => sum + day.totalParticipants, 0),
+                    days
+                });
+            }
+        );
+    });
 });
 
 app.get('/api/vote-member-rates', verifyToken, (req, res) => {
@@ -1050,133 +1112,56 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
         return res.status(400).json({ error: 'Invalid date range.' });
     }
 
-    db.all("SELECT boss FROM participation_targets", (targetErr, targetRows) => {
-        if (targetErr) return res.status(500).json({ error: targetErr.message });
+    buildVoteRowsForRange(startMs, endMs, (voteErr, voteRows) => {
+        if (voteErr) return res.status(500).json({ error: voteErr.message });
 
-        const targetBosses = targetRows.map(r => r.boss);
-        const voteRows = [];
-        const placeholders = targetBosses.map(() => '?').join(',');
+        const voteKeySet = new Set(voteRows.map(row => getVoteKey(row)));
 
-        const loadManualRows = (next) => {
-            db.all(
-                `SELECT id, type, region, boss, spawnTime, is_blessed
-                 FROM boss_vote_events
-                 WHERE spawnTime >= ? AND spawnTime <= ?`,
-                [startMs, endMs],
-                (err, rows) => {
-                    if (err) return res.status(500).json({ error: err.message });
-                    (rows || []).forEach(row => {
-                        voteRows.push({
-                            id: row.id,
-                            type: row.type,
-                            region: row.region,
-                            boss: row.boss,
-                            spawnTime: row.spawnTime,
-                            isManual: true,
-                            isBlessed: !!row.is_blessed
-                        });
-                    });
-                    next();
-                }
-            );
-        };
+        db.all(
+            `SELECT vote_key, user_id, IFNULL(status, 'joined') as status
+             FROM boss_vote_participants
+             WHERE spawnTime >= ? AND spawnTime <= ?`,
+            [startMs, endMs],
+            (participantErr, participantRows) => {
+                if (participantErr) return res.status(500).json({ error: participantErr.message });
 
-        const loadParticipantsAndUsers = () => {
-            db.all(
-                `SELECT vote_key, boss, spawnTime, user_id, nickname, IFNULL(status, 'joined') as status
-                 FROM boss_vote_participants
-                 WHERE spawnTime >= ? AND spawnTime <= ?`,
-                [startMs, endMs],
-                (participantErr, participantRows) => {
-                    if (participantErr) return res.status(500).json({ error: participantErr.message });
-
-                    const voteMap = new Map();
-                    voteRows.forEach(row => voteMap.set(getVoteKey(row), row));
-                    (participantRows || []).forEach(row => {
-                        if (!voteMap.has(row.vote_key)) {
-                            voteMap.set(row.vote_key, {
-                                voteKey: row.vote_key,
-                                boss: row.boss,
-                                spawnTime: row.spawnTime
-                            });
-                        }
-                    });
-
-                    const participationByUser = new Map();
-                    (participantRows || []).filter(row => row.status === 'joined').forEach(row => {
+                const participationByUser = new Map();
+                (participantRows || [])
+                    .filter(row => row.status === 'joined' && voteKeySet.has(row.vote_key))
+                    .forEach(row => {
                         if (!participationByUser.has(row.user_id)) participationByUser.set(row.user_id, new Set());
                         participationByUser.get(row.user_id).add(row.vote_key);
                     });
 
-                    db.all(
-                        "SELECT id, role, username, nickname FROM users ORDER BY COALESCE(nickname, username) ASC",
-                        (userErr, users) => {
-                            if (userErr) return res.status(500).json({ error: userErr.message });
+                db.all(
+                    "SELECT id, role, username, nickname FROM users ORDER BY COALESCE(nickname, username) ASC",
+                    (userErr, users) => {
+                        if (userErr) return res.status(500).json({ error: userErr.message });
 
-                            const totalBosses = voteMap.size;
-                            const members = (users || []).map(user => {
-                                const joinedCount = participationByUser.get(user.id)?.size || 0;
-                                const rate = totalBosses > 0 ? Math.round((joinedCount / totalBosses) * 1000) / 10 : 0;
-                                return {
-                                    userId: user.id,
-                                    nickname: user.nickname || user.username,
-                                    role: user.role,
-                                    joinedCount,
-                                    totalBosses,
-                                    missedCount: Math.max(totalBosses - joinedCount, 0),
-                                    rate
-                                };
-                            });
-
-                            res.json({
-                                start: startText,
-                                end: endText,
+                        const totalBosses = voteRows.length;
+                        const members = (users || []).map(user => {
+                            const joinedCount = participationByUser.get(user.id)?.size || 0;
+                            const rate = totalBosses > 0 ? Math.round((joinedCount / totalBosses) * 1000) / 10 : 0;
+                            return {
+                                userId: user.id,
+                                nickname: user.nickname || user.username,
+                                role: user.role,
+                                joinedCount,
                                 totalBosses,
-                                memberCount: members.length,
-                                members
-                            });
-                        }
-                    );
-                }
-            );
-        };
+                                missedCount: Math.max(totalBosses - joinedCount, 0),
+                                rate
+                            };
+                        });
 
-        const loadFixedRows = () => {
-            if (targetBosses.length === 0) {
-                loadManualRows(loadParticipantsAndUsers);
-                return;
-            }
-
-            db.all(
-                `SELECT type, region, boss, timeStr, days
-                 FROM boss_definitions
-                 WHERE timeStr IS NOT NULL AND boss IN (${placeholders})`,
-                targetBosses,
-                (fixedErr, fixedRows) => {
-                    if (fixedErr) return res.status(500).json({ error: fixedErr.message });
-                    injectFixedVoteEvents(voteRows, fixedRows || [], startMs, endMs);
-                    loadManualRows(loadParticipantsAndUsers);
-                }
-            );
-        };
-
-        if (targetBosses.length === 0) {
-            loadManualRows(loadParticipantsAndUsers);
-            return;
-        }
-
-        db.all(
-            `SELECT id, type, region, boss, spawnTime, is_mung
-             FROM boss_schedules
-             WHERE spawnTime >= ? AND spawnTime <= ? AND boss IN (${placeholders})`,
-            [startMs, endMs, ...targetBosses],
-            (scheduleErr, scheduleRows) => {
-                if (scheduleErr) return res.status(500).json({ error: scheduleErr.message });
-                (scheduleRows || []).forEach(row => voteRows.push({
-                    ...row,
-                    isManual: false
-                }));
-                loadFixedRows();
+                        res.json({
+                            start: startText,
+                            end: endText,
+                            totalBosses,
+                            memberCount: members.length,
+                            members
+                        });
+                    }
+                );
             }
         );
     });
@@ -1229,6 +1214,15 @@ app.post('/api/vote-participants/:voteKey', verifyToken, (req, res) => {
     const { boss, spawnTime } = req.body || {};
     if (!boss || !spawnTime) return res.status(400).json({ error: 'boss and spawnTime are required.' });
 
+    db.get(
+        "SELECT state FROM boss_vote_event_states WHERE vote_key = ?",
+        [voteKey],
+        (stateErr, stateRow) => {
+            if (stateErr) return res.status(500).json({ error: stateErr.message });
+            if (stateRow && String(stateRow.state || '').toUpperCase() === 'INACTIVE') {
+                return res.status(400).json({ error: 'Inactive vote boss.' });
+            }
+
     db.get("SELECT nickname FROM users WHERE id = ?", [req.userId], (userErr, user) => {
         if (userErr) return res.status(500).json({ error: userErr.message });
         if (!user) return res.status(404).json({ error: 'User not found.' });
@@ -1262,6 +1256,8 @@ app.post('/api/vote-participants/:voteKey', verifyToken, (req, res) => {
             }
         });
     });
+        }
+    );
 });
 
 // --- COLLECTIONS ---

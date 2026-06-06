@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const adminPageTabs = document.getElementById('adminPageTabs');
   const voteView = document.getElementById('voteView');
   const statsView = document.getElementById('statsView');
+  const statsViewMode = document.getElementById('statsViewMode');
+  const statsDateInput = document.getElementById('statsDateInput');
+  const statsDateField = document.getElementById('statsDateField');
+  const statsMonthField = document.getElementById('statsMonthField');
+  const prevDateBtn = document.getElementById('prevDateBtn');
+  const nextDateBtn = document.getElementById('nextDateBtn');
   const statsMonthInput = document.getElementById('statsMonthInput');
   const statsBossCount = document.getElementById('statsBossCount');
   const statsJoinCount = document.getElementById('statsJoinCount');
@@ -39,12 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const manualBlessInput = document.getElementById('manualBlessInput');
 
   let votes = [];
-  let activeFilter = 'all';
+  let activeFilter = 'today';
   let activePageView = 'vote';
   let blessTouched = false;
   let bossNameOptions = [];
   let bossNameEntries = [];
   let statsLoadedMonth = '';
+  let statsCache = null;
+  let activeStatsMode = 'day';
   let ratesLoadedKey = '';
 
   const handleAuthError = () => {
@@ -75,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatDateLabel = (time) => {
     const date = new Date(time);
     const day = dayOf(time);
-    const dayLabel = day === 0 ? '오늘' : day === 1 ? '내일' : date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
+    const dayLabel = day === -1 ? '어제' : day === 0 ? '오늘' : day === 1 ? '내일' : date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
     const hh = String(date.getHours()).padStart(2, '0');
     const mm = String(date.getMinutes()).padStart(2, '0');
     const weekday = date.toLocaleDateString('ko-KR', { weekday: 'short' });
@@ -108,6 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const [year, month] = String(monthValue || getCurrentMonthValue()).split('-').map(Number);
     const date = new Date(year, month - 1 + delta, 1);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const shiftDateValue = (dateValue, delta) => {
+    const [year, month, day] = String(dateValue || formatDateInputValue(new Date())).split('-').map(Number);
+    const date = new Date(year, month - 1, day + delta, 0, 0, 0, 0);
+    return formatDateInputValue(date);
   };
 
   const formatTime = (time) => {
@@ -174,12 +188,14 @@ document.addEventListener('DOMContentLoaded', () => {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 
-  const getFilteredVotes = () => votes.filter(vote => {
-    const day = dayOf(vote.spawnTime);
-    if (activeFilter === 'today') return day === 0;
-    if (activeFilter === 'tomorrow') return day === 1;
-    return day === 0 || day === 1;
-  });
+  const getFilteredVotes = () => {
+    return votes.filter(vote => {
+      const day = dayOf(vote.spawnTime);
+      if (activeFilter === 'yesterday') return day === -1;
+      if (activeFilter === 'tomorrow') return day === 1;
+      return day === 0;
+    });
+  };
 
   const renderVoteSummary = (items) => {
     bossCountEl.textContent = String(items.length);
@@ -288,22 +304,33 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const deleteManualVote = async (vote) => {
-    if (!vote.isManual || !vote.id) return;
-    if (!confirm(`${vote.boss} 투표 보스를 삭제할까요? 참여자 목록도 함께 삭제됩니다.`)) return;
+    if (!vote || !vote.voteKey) return;
+    if (!confirm(`${vote.boss} 투표 보스를 비활성화할까요? 참여 현황과 참여율에서도 제외됩니다.`)) return;
 
-    const res = await fetch(`/api/vote-bosses/manual/${vote.id}`, {
+    const res = await fetch(`/api/vote-bosses/${encodeURIComponent(vote.voteKey)}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        boss: vote.boss,
+        spawnTime: vote.spawnTime
+      })
     });
 
     if (res.status === 401) return handleAuthError();
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || '수동 투표 보스 삭제에 실패했습니다.');
+      alert(data.error || '투표 보스 비활성화에 실패했습니다.');
       return;
     }
 
+    statsLoadedMonth = '';
+    ratesLoadedKey = '';
     await fetchVotes();
+    if (activePageView === 'stats') await fetchStats(true);
+    if (activePageView === 'rates') await fetchMemberRates(true);
   };
 
   const renderVotes = () => {
@@ -311,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderVoteSummary(items);
 
     if (items.length === 0) {
-      voteList.innerHTML = '<div class="empty-votes">표시할 투표 보스가 없습니다. 보스 스케줄에서 투표 대상을 설정해 주세요.</div>';
+      voteList.innerHTML = '<div class="empty-votes">선택한 날짜에 표시할 투표 보스가 없습니다.</div>';
       return;
     }
 
@@ -334,30 +361,21 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="vote-card-actions">
             <button class="vote-btn ${joinClass}" data-action="toggle" data-key="${escapeHtml(vote.voteKey)}">${joinLabel}</button>
             <button class="vote-btn" data-action="participants" data-key="${escapeHtml(vote.voteKey)}">참여자 보기</button>
-            ${isPrivileged && vote.isManual ? `<button class="vote-btn" data-action="delete" data-key="${escapeHtml(vote.voteKey)}">삭제</button>` : ''}
+            ${isPrivileged ? `<button class="vote-btn" data-action="delete" data-key="${escapeHtml(vote.voteKey)}">삭제</button>` : ''}
           </div>
         </article>
       `;
     }).join('');
   };
 
-  const renderParticipationStats = (stats) => {
-    statsBossCount.textContent = String(stats.totalBosses || 0);
-    statsJoinCount.textContent = String(stats.totalParticipants || 0);
-    statsDayCount.textContent = String((stats.days || []).length);
-
-    if (!stats.days || stats.days.length === 0) {
-      statsList.innerHTML = '<div class="empty-votes">해당 월의 참여 현황이 없습니다.</div>';
-      return;
-    }
-
-    statsList.innerHTML = stats.days.map(day => `
+  const renderStatsDays = (days) => {
+    return days.map(day => `
       <article class="stats-day">
         <div class="stats-day-header">
           <span>${formatFullDateLabel(day.date)}</span>
           <span>${day.bosses.length}개 보스 · ${day.totalParticipants}명</span>
         </div>
-        ${day.bosses.map(boss => `
+        ${day.bosses.length ? day.bosses.map(boss => `
           <div class="stats-boss">
             <div>
               <div class="stats-boss-title">
@@ -375,9 +393,47 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="stats-count">${boss.participantCount}명</div>
           </div>
-        `).join('')}
+        `).join('') : '<div class="stats-boss"><div class="empty-votes">참여 보스가 없습니다.</div></div>'}
       </article>
     `).join('');
+  };
+
+  const renderParticipationStats = (stats) => {
+    const allDays = stats.days || [];
+
+    if (activeStatsMode === 'month') {
+      statsBossCount.textContent = String(stats.totalBosses || 0);
+      statsJoinCount.textContent = String(stats.totalParticipants || 0);
+      statsDayCount.textContent = String(allDays.length);
+
+      if (allDays.length === 0) {
+        statsList.innerHTML = '<div class="empty-votes">해당 월의 참여 현황이 없습니다.</div>';
+        return;
+      }
+
+      statsList.innerHTML = renderStatsDays(allDays);
+      return;
+    }
+
+    const selectedDate = statsDateInput?.value || formatDateInputValue(new Date());
+    const selectedDay = allDays.find(day => day.date === selectedDate);
+    const dayBossCount = selectedDay?.bosses.length || 0;
+    const dayJoinCount = selectedDay?.totalParticipants || 0;
+
+    statsBossCount.textContent = String(dayBossCount);
+    statsJoinCount.textContent = String(dayJoinCount);
+    statsDayCount.textContent = selectedDay ? '1' : '0';
+
+    if (!selectedDay) {
+      statsList.innerHTML = renderStatsDays([{
+        date: selectedDate,
+        bosses: [],
+        totalParticipants: 0
+      }]);
+      return;
+    }
+
+    statsList.innerHTML = renderStatsDays([selectedDay]);
   };
 
   const fetchStats = async (force = false) => {
@@ -398,7 +454,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     statsLoadedMonth = month;
-    renderParticipationStats(await res.json());
+    statsCache = await res.json();
+    renderParticipationStats(statsCache);
+  };
+
+  const updateStatsModeUI = () => {
+    if (statsDateField) statsDateField.style.display = activeStatsMode === 'day' ? '' : 'none';
+    if (statsMonthField) statsMonthField.style.display = activeStatsMode === 'month' ? '' : 'none';
+  };
+
+  const refreshStatsForSelectedDate = async (force = false) => {
+    if (!statsDateInput) return;
+    const targetMonth = String(statsDateInput.value || formatDateInputValue(new Date())).slice(0, 7);
+    if (statsMonthInput && statsMonthInput.value !== targetMonth) {
+      statsMonthInput.value = targetMonth;
+      statsLoadedMonth = '';
+    }
+
+    if (!statsCache || force || statsLoadedMonth !== targetMonth) {
+      await fetchStats(true);
+      return;
+    }
+
+    renderParticipationStats(statsCache);
   };
 
   const removeParticipantFromVote = async (voteKey, userId, nickname) => {
@@ -568,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tab.addEventListener('click', () => {
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      activeFilter = tab.dataset.filter || 'all';
+      activeFilter = tab.dataset.filter || 'today';
       renderVotes();
     });
   });
@@ -584,19 +662,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (isPrivileged && statsMonthInput) {
     statsMonthInput.value = getCurrentMonthValue();
+    if (statsDateInput) statsDateInput.value = formatDateInputValue(new Date());
+    updateStatsModeUI();
+
+    if (statsViewMode) {
+      statsViewMode.addEventListener('change', async () => {
+        activeStatsMode = statsViewMode.value || 'day';
+        updateStatsModeUI();
+        if (activeStatsMode === 'day') {
+          await refreshStatsForSelectedDate(false);
+        } else {
+          if (statsCache && statsLoadedMonth === (statsMonthInput.value || getCurrentMonthValue())) {
+            renderParticipationStats(statsCache);
+          } else {
+            fetchStats(false);
+          }
+        }
+      });
+    }
+
+    if (statsDateInput) {
+      statsDateInput.addEventListener('change', () => {
+        refreshStatsForSelectedDate(false);
+      });
+    }
+
     statsMonthInput.addEventListener('change', () => {
-      fetchStats(true);
+      if (activeStatsMode === 'month') {
+        fetchStats(true);
+      } else {
+        const nextDate = `${statsMonthInput.value}-01`;
+        if (statsDateInput) statsDateInput.value = nextDate;
+        refreshStatsForSelectedDate(true);
+      }
     });
     if (prevMonthBtn) {
       prevMonthBtn.addEventListener('click', () => {
-        statsMonthInput.value = shiftMonthValue(statsMonthInput.value, -1);
-        fetchStats(true);
+        if (activeStatsMode === 'month') {
+          statsMonthInput.value = shiftMonthValue(statsMonthInput.value, -1);
+          fetchStats(true);
+        }
       });
     }
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener('click', () => {
-        statsMonthInput.value = shiftMonthValue(statsMonthInput.value, 1);
-        fetchStats(true);
+        if (activeStatsMode === 'month') {
+          statsMonthInput.value = shiftMonthValue(statsMonthInput.value, 1);
+          fetchStats(true);
+        }
+      });
+    }
+    if (prevDateBtn && statsDateInput) {
+      prevDateBtn.addEventListener('click', () => {
+        statsDateInput.value = shiftDateValue(statsDateInput.value, -1);
+        refreshStatsForSelectedDate(true);
+      });
+    }
+    if (nextDateBtn && statsDateInput) {
+      nextDateBtn.addEventListener('click', () => {
+        statsDateInput.value = shiftDateValue(statsDateInput.value, 1);
+        refreshStatsForSelectedDate(true);
       });
     }
   }
