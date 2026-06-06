@@ -4,6 +4,8 @@ node_modules/
 *.sqlite-journal
 *.xlsx
 *.json
+!package.json
+!package-lock.json
 parse_collections.js
 템_컬렉_현황_전체정리.md
 .gemini/
