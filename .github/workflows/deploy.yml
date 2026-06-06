@@ -25,4 +25,5 @@ jobs:
             git reset --hard origin/main
             npm ci --omit=dev
             npx pm2 restart odin-guild-manager || npx pm2 start server.js --name odin-guild-manager
+            npx pm2 restart all
             npx pm2 save
