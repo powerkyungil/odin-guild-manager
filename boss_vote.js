@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const role = localStorage.getItem('role') || sessionStorage.getItem('role');
+  const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username') || sessionStorage.getItem('username') || '';
   const isPrivileged = role === 'MASTER' || role === 'ADMIN';
   const voteList = document.getElementById('voteList');
   const refreshBtn = document.getElementById('refreshVotesBtn');
@@ -217,20 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
     </button>
   `;
 
-  const renderExcludedParticipantBadge = (participant) => `
-    <button
-      type="button"
-      class="participant-chip removable excluded"
-      data-action="restore-participant"
-      data-vote-key="${escapeHtml(participant.voteKey || '')}"
-      data-user-id="${participant.userId}"
-      data-nickname="${escapeHtml(participant.nickname)}"
-      title="참여 상태로 되돌리기"
-    >
-      ${escapeHtml(participant.nickname)} <span class="remove-mark">제외됨</span>
-    </button>
-  `;
-
   const openParticipantModal = (vote) => {
     const participants = vote.participants || [];
     modalTitle.textContent = `${vote.boss} 참여자`;
@@ -243,6 +230,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const closeParticipantModal = () => {
     modal.classList.remove('open');
+  };
+
+  const syncOpenModalIfNeeded = (vote) => {
+    if (!modal.classList.contains('open')) return;
+    if (modalTitle.textContent !== `${vote.boss} 참여자`) return;
+    openParticipantModal(vote);
+  };
+
+  const refreshVoteRelatedData = () => {
+    if (!isPrivileged) return;
+    statsLoadedMonth = '';
+    statsCache = null;
+    ratesLoadedKey = '';
+    fetchStats(true).catch(() => {});
+    fetchMemberRates(true).catch(() => {});
   };
 
   const toggleVote = async (vote) => {
@@ -265,7 +267,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    await fetchVotes();
+    const result = await res.json().catch(() => ({}));
+    const joined = !!result.joined;
+
+    vote.joined = joined;
+    if (!Array.isArray(vote.participants)) vote.participants = [];
+
+    if (joined) {
+      if (!vote.participants.some(p => p.nickname === myNickname)) {
+        vote.participants.push({ nickname: myNickname });
+      }
+    } else {
+      vote.participants = vote.participants.filter(p => p.nickname !== myNickname);
+    }
+    vote.participantCount = vote.participants.length;
+
+    renderVotes();
+    syncOpenModalIfNeeded(vote);
+    refreshVoteRelatedData();
   };
 
   const addManualVote = async (formData) => {
@@ -327,10 +346,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     statsLoadedMonth = '';
+    statsCache = null;
     ratesLoadedKey = '';
     await fetchVotes();
-    if (activePageView === 'stats') await fetchStats(true);
-    if (activePageView === 'rates') await fetchMemberRates(true);
+    if (isPrivileged) {
+      await fetchStats(true);
+      await fetchMemberRates(true);
+    }
   };
 
   const renderVotes = () => {
@@ -359,9 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="vote-meta">참여 ${vote.participantCount || 0}명${vote.joined ? ' · 내 참여 완료' : ''}</div>
           </div>
           <div class="vote-card-actions">
-            <button class="vote-btn ${joinClass}" data-action="toggle" data-key="${escapeHtml(vote.voteKey)}">${joinLabel}</button>
-            <button class="vote-btn" data-action="participants" data-key="${escapeHtml(vote.voteKey)}">참여자 보기</button>
-            ${isPrivileged ? `<button class="vote-btn" data-action="delete" data-key="${escapeHtml(vote.voteKey)}">삭제</button>` : ''}
+            <button type="button" class="vote-btn ${joinClass}" data-action="toggle" data-key="${escapeHtml(vote.voteKey)}">${joinLabel}</button>
+            <button type="button" class="vote-btn" data-action="participants" data-key="${escapeHtml(vote.voteKey)}">참여자 보기</button>
+            ${isPrivileged ? `<button type="button" class="vote-btn" data-action="delete" data-key="${escapeHtml(vote.voteKey)}">삭제</button>` : ''}
           </div>
         </article>
       `;
@@ -386,8 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${boss.isBlessed ? '<span class="bless-badge">축 보스</span>' : ''}
               </div>
               <div class="stats-participants">
-                ${boss.participants.length || (boss.excludedParticipants || []).length
-                  ? boss.participants.map(p => renderParticipantRemoveButton(boss.voteKey, p)).join('') + ((boss.excludedParticipants || []).map(p => renderExcludedParticipantBadge({ ...p, voteKey: boss.voteKey })).join(''))
+                ${boss.participants.length
+                  ? boss.participants.map(p => renderParticipantRemoveButton(boss.voteKey, p)).join('')
                   : '<span class="participant-chip">참여자 없음</span>'}
               </div>
             </div>
@@ -495,36 +517,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     statsLoadedMonth = '';
+    statsCache = null;
     ratesLoadedKey = '';
     await fetchStats(true);
     await fetchVotes();
-    if (activePageView === 'rates') await fetchMemberRates(true);
-  };
-
-  const restoreParticipantToVote = async (voteKey, userId, nickname) => {
-    if (!voteKey || !userId) return;
-
-    const res = await fetch(`/api/vote-participants/${encodeURIComponent(voteKey)}/users/${encodeURIComponent(userId)}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ status: 'joined' })
-    });
-
-    if (res.status === 401) return handleAuthError();
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || '참여 상태 변경에 실패했습니다.');
-      return;
-    }
-
-    statsLoadedMonth = '';
-    ratesLoadedKey = '';
-    await fetchStats(true);
-    await fetchVotes();
-    if (activePageView === 'rates') await fetchMemberRates(true);
+    if (isPrivileged) await fetchMemberRates(true);
   };
 
   const renderMemberRates = (data) => {
@@ -761,8 +758,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!button) return;
       if (button.dataset.action === 'remove-participant') {
         removeParticipantFromVote(button.dataset.voteKey, button.dataset.userId, button.dataset.nickname);
-      } else if (button.dataset.action === 'restore-participant') {
-        restoreParticipantToVote(button.dataset.voteKey, button.dataset.userId, button.dataset.nickname);
       }
     });
   }

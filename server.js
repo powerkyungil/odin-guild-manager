@@ -906,7 +906,7 @@ app.get('/api/vote-bosses', verifyToken, (req, res) => {
         const participantSql = `
             SELECT vote_key, user_id, nickname
             FROM boss_vote_participants
-            WHERE vote_key IN (${voteKeys.map(() => '?').join(',')}) AND IFNULL(status, 'joined') = 'joined'
+            WHERE vote_key IN (${voteKeys.map(() => '?').join(',')})
             ORDER BY created_at ASC
         `;
 
@@ -1026,8 +1026,7 @@ app.get('/api/vote-stats', verifyToken, (req, res) => {
                 region: row.region || '',
                 isManual: !!row.isManual,
                 isBlessed: !!row.isBlessed,
-                participants: [],
-                excludedParticipants: []
+                participants: []
             });
         });
 
@@ -1036,7 +1035,7 @@ app.get('/api/vote-stats', verifyToken, (req, res) => {
         }
 
         db.all(
-            `SELECT vote_key, boss, spawnTime, user_id, nickname, IFNULL(status, 'joined') as status, created_at
+            `SELECT vote_key, boss, spawnTime, user_id, nickname, created_at
              FROM boss_vote_participants
              WHERE spawnTime >= ? AND spawnTime <= ?
              ORDER BY spawnTime ASC, created_at ASC`,
@@ -1047,19 +1046,11 @@ app.get('/api/vote-stats', verifyToken, (req, res) => {
                 (participantRows || []).forEach(row => {
                     const entry = bossMap.get(row.vote_key);
                     if (!entry) return;
-                    if (row.status === 'excluded') {
-                        entry.excludedParticipants.push({
-                            userId: row.user_id,
-                            nickname: row.nickname,
-                            joinedAt: row.created_at
-                        });
-                    } else {
-                        entry.participants.push({
-                            userId: row.user_id,
-                            nickname: row.nickname,
-                            joinedAt: row.created_at
-                        });
-                    }
+                    entry.participants.push({
+                        userId: row.user_id,
+                        nickname: row.nickname,
+                        joinedAt: row.created_at
+                    });
                 });
 
                 const daysMap = new Map();
@@ -1118,7 +1109,7 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
         const voteKeySet = new Set(voteRows.map(row => getVoteKey(row)));
 
         db.all(
-            `SELECT vote_key, user_id, IFNULL(status, 'joined') as status
+            `SELECT vote_key, user_id
              FROM boss_vote_participants
              WHERE spawnTime >= ? AND spawnTime <= ?`,
             [startMs, endMs],
@@ -1127,7 +1118,7 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
 
                 const participationByUser = new Map();
                 (participantRows || [])
-                    .filter(row => row.status === 'joined' && voteKeySet.has(row.vote_key))
+                    .filter(row => voteKeySet.has(row.vote_key))
                     .forEach(row => {
                         if (!participationByUser.has(row.user_id)) participationByUser.set(row.user_id, new Set());
                         participationByUser.get(row.user_id).add(row.vote_key);
@@ -1174,38 +1165,10 @@ app.delete('/api/vote-participants/:voteKey/users/:userId', verifyToken, (req, r
     const userId = Number(req.params.userId);
     if (!voteKey || !Number.isFinite(userId)) return res.status(400).json({ error: 'voteKey and userId are required.' });
 
-    db.run(
-        "UPDATE boss_vote_participants SET status = 'excluded', excluded_by = ?, excluded_at = CURRENT_TIMESTAMP WHERE vote_key = ? AND user_id = ?",
-        [req.userId, voteKey, userId],
-        function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            if (this.changes === 0) return res.status(404).json({ error: 'Participant not found.' });
-            res.json({ success: true, status: 'excluded' });
-        }
-    );
-});
-
-app.put('/api/vote-participants/:voteKey/users/:userId/status', verifyToken, (req, res) => {
-    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-
-    const voteKey = req.params.voteKey;
-    const userId = Number(req.params.userId);
-    const { status } = req.body || {};
-    if (!voteKey || !Number.isFinite(userId) || !['joined', 'excluded'].includes(status)) {
-        return res.status(400).json({ error: 'valid voteKey, userId, and status are required.' });
-    }
-
-    const params = status === 'excluded'
-        ? [status, req.userId, voteKey, userId]
-        : [status, null, voteKey, userId];
-    const sql = status === 'excluded'
-        ? "UPDATE boss_vote_participants SET status = ?, excluded_by = ?, excluded_at = CURRENT_TIMESTAMP WHERE vote_key = ? AND user_id = ?"
-        : "UPDATE boss_vote_participants SET status = ?, excluded_by = ?, excluded_at = NULL WHERE vote_key = ? AND user_id = ?";
-
-    db.run(sql, params, function (err) {
+    db.run("DELETE FROM boss_vote_participants WHERE vote_key = ? AND user_id = ?", [voteKey, userId], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: 'Participant not found.' });
-        res.json({ success: true, status });
+        res.json({ success: true });
     });
 });
 
@@ -1227,23 +1190,14 @@ app.post('/api/vote-participants/:voteKey', verifyToken, (req, res) => {
         if (userErr) return res.status(500).json({ error: userErr.message });
         if (!user) return res.status(404).json({ error: 'User not found.' });
 
-        db.get("SELECT vote_key, IFNULL(status, 'joined') as status FROM boss_vote_participants WHERE vote_key = ? AND user_id = ?", [voteKey, req.userId], (findErr, existing) => {
+        db.get("SELECT vote_key FROM boss_vote_participants WHERE vote_key = ? AND user_id = ?", [voteKey, req.userId], (findErr, existing) => {
             if (findErr) return res.status(500).json({ error: findErr.message });
 
-            if (existing && existing.status === 'joined') {
+            if (existing) {
                 db.run("DELETE FROM boss_vote_participants WHERE vote_key = ? AND user_id = ?", [voteKey, req.userId], (deleteErr) => {
                     if (deleteErr) return res.status(500).json({ error: deleteErr.message });
                     res.json({ joined: false });
                 });
-            } else if (existing) {
-                db.run(
-                    "UPDATE boss_vote_participants SET status = 'joined', excluded_by = NULL, excluded_at = NULL WHERE vote_key = ? AND user_id = ?",
-                    [voteKey, req.userId],
-                    (updateErr) => {
-                        if (updateErr) return res.status(500).json({ error: updateErr.message });
-                        res.json({ joined: true });
-                    }
-                );
             } else {
                 db.run(
                     "INSERT INTO boss_vote_participants (vote_key, boss, spawnTime, user_id, nickname) VALUES (?, ?, ?, ?, ?)",
