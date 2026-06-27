@@ -6,7 +6,7 @@
     <title>오딘 보스 스케줄 - 메뉴</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
-    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
   <link rel="stylesheet" href="auth.css">
     <style>
@@ -390,7 +390,7 @@
         if (!token) handleAuthError();
 
         const themeSelect = document.getElementById('themeSelect');
-        const currentTheme = localStorage.getItem('uiTheme') || 'safety';
+        const currentTheme = localStorage.getItem('uiTheme') || 'dark';
         document.documentElement.dataset.theme = currentTheme;
         themeSelect.value = currentTheme;
         themeSelect.addEventListener('change', () => {
