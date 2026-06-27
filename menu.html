@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오딘 보스 스케줄 - 메뉴</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
     <style>
         .auth-container { max-width: 1180px; width: 96%; box-sizing: border-box; }
         .menu-grid {
@@ -43,11 +46,17 @@
         }
         .menu-sub span {
             font-size: 11px;
-            color: #cbd5e1;
-            border: 1px solid rgba(255,255,255,0.15);
-            background: rgba(255,255,255,0.05);
+            color: #7B2E18;
+            border: 1px solid rgba(201, 84, 43, 0.34);
+            background: rgba(201, 84, 43, 0.12);
             border-radius: 999px;
             padding: 3px 8px;
+            font-weight: 800;
+        }
+        :root[data-theme="dark"] .menu-sub span {
+            color: #c7d2fe;
+            border-color: rgba(129, 140, 248, 0.28);
+            background: rgba(99, 102, 241, 0.14);
         }
         .user-topbar {
             display: flex;
@@ -63,7 +72,22 @@
         }
         .user-info { display: flex; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
         .user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .role-badge { background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
+        .theme-select {
+            min-height: 31px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: rgba(247, 242, 233, 0.68);
+            color: var(--text-light);
+            padding: 6px 28px 6px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+        }
+        :root[data-theme="dark"] .theme-select {
+            background: rgba(255,255,255,0.05);
+        }
+        .role-badge { background: rgba(242, 183, 5, 0.22); color: var(--primary-color); padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
         .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
         .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
         .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
@@ -80,12 +104,12 @@
             font-size: 38px;
             font-weight: 900;
             margin: 0;
-            background: linear-gradient(135deg, #fff 0%, #818cf8 50%, #6366f1 100%);
+            background: linear-gradient(135deg, var(--text-light) 0%, var(--primary-color) 50%, var(--primary-color) 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -1px;
-            text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+            text-shadow: 0 10px 20px rgba(242, 183, 5, 0.22);
             display: none; /* Shown after fetch */
         }
         
@@ -108,7 +132,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #4b5563;
+            background-color: #8D8373;
             transition: .4s;
             border-radius: 24px;
         }
@@ -119,7 +143,7 @@
             width: 18px;
             left: 3px;
             bottom: 3px;
-            background-color: white;
+            background-color: var(--text-light);
             transition: .4s;
             border-radius: 50%;
         }
@@ -147,13 +171,13 @@
         /* Guild Settings Panel (Integrated) */
         .guild-settings-card {
             background: rgba(30, 41, 59, 0.4);
-            border: 1px solid rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(242, 183, 5, 0.16);
             border-radius: 12px;
             padding: 20px;
             margin-top: 15px;
             text-align: left;
         }
-        .guild-settings-card h4 { font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; color: #818cf8; }
+        .guild-settings-card h4 { font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; color: var(--primary-color); }
         .setting-item { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
         .setting-item label { font-size: 11px; color: var(--text-muted); font-weight: 600; display: block; }
         .setting-item input { 
@@ -161,16 +185,16 @@
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 6px; 
             padding: 8px 12px; 
-            color: white; 
+            color: var(--text-light); 
             font-size: 13px;
             outline: none;
             width: 100%;
             box-sizing: border-box;
         }
-        .setting-item input:focus { border-color: #818cf8; }
+        .setting-item input:focus { border-color: var(--primary-color); }
         .save-settings-btn {
-            background: #6366f1;
-            color: white;
+            background: var(--primary-color);
+            color: var(--text-light);
             border: none;
             padding: 10px 16px;
             border-radius: 6px;
@@ -180,7 +204,64 @@
             width: 100%;
             font-size: 13px;
         }
-        .discord-help { font-size: 10px; color: #a5b4fc; margin-top: 2px; }
+        .discord-help { font-size: 10px; color: var(--accent-rust); margin-top: 2px; }
+        :root:not([data-theme="dark"]) .user-topbar,
+        :root:not([data-theme="dark"]) .guild-settings-card,
+        :root:not([data-theme="dark"]) .invite-link {
+            background: rgba(255, 252, 246, 0.92);
+            border-color: rgba(26, 23, 20, 0.22);
+            box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
+        }
+        :root:not([data-theme="dark"]) .menu-sub span,
+        :root:not([data-theme="dark"]) .setting-item[style] {
+            background: rgba(201, 84, 43, 0.12) !important;
+            border-color: rgba(201, 84, 43, 0.34) !important;
+            color: #7B2E18;
+        }
+        :root:not([data-theme="dark"]) .role-badge,
+        :root:not([data-theme="dark"]) .guild-settings-card h4,
+        :root:not([data-theme="dark"]) a[style*="color: var(--primary-color)"] {
+            color: #7B2E18 !important;
+        }
+        :root:not([data-theme="dark"]) .setting-item input {
+            background: #fffaf1;
+            border-color: rgba(26, 23, 20, 0.26);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .save-settings-btn {
+            color: #1A1714;
+        }
+        :root[data-theme="dark"] .role-badge {
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+        }
+        :root[data-theme="dark"] .guild-name-dynamic {
+            background: linear-gradient(135deg, #fff 0%, #818cf8 50%, #6366f1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+        }
+        :root[data-theme="dark"] .guild-settings-card {
+            background: rgba(30, 41, 59, 0.4);
+            border-color: rgba(99, 102, 241, 0.1);
+        }
+        :root[data-theme="dark"] .guild-settings-card h4,
+        :root[data-theme="dark"] #inviteLink a {
+            color: #818cf8 !important;
+        }
+        :root[data-theme="dark"] .invite-link {
+            background: rgba(0,0,0,0.3);
+            border-color: var(--primary-color);
+        }
+        :root[data-theme="dark"] .setting-item input {
+            background: rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        :root[data-theme="dark"] .setting-item input:focus {
+            border-color: #818cf8;
+        }
     </style>
 </head>
 <body>
@@ -194,6 +275,10 @@
                 <span id="userRoleBadge" class="role-badge">--</span>
             </div>
             <div class="user-actions">
+                <select id="themeSelect" class="theme-select" aria-label="테마 선택">
+            <option value="safety">샌드골드</option>
+            <option value="dark">다크블루</option>
+                </select>
                 <button class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
                 <button class="logout-btn" onclick="logout()">로그아웃</button>
             </div>
@@ -254,7 +339,7 @@
             <h3 style="font-size: 16px; margin: 0 0 15px 0;">관리자 메뉴</h3>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1;" onclick="generateInvite('MEMBER')">일반 가입 링크 생성</button>
-                <button id="masterOnlyInvite" class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1; background: #6366f1; display: none;" onclick="generateInvite('ADMIN')">운영진 가입 링크 생성</button>
+                <button id="masterOnlyInvite" class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1; background: var(--primary-color); display: none;" onclick="generateInvite('ADMIN')">운영진 가입 링크 생성</button>
             </div>
             <div id="inviteLink" class="invite-link"></div>
 
@@ -285,7 +370,7 @@
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="save-settings-btn" style="flex: 2;" onclick="saveGuildSettings()">설정 저장 및 봇 가동</button>
-                    <button class="save-settings-btn" style="flex: 1; background: #6b7280;" onclick="testDiscord()">테스트 알림</button>
+                    <button class="save-settings-btn" style="flex: 1; background: #7D7468;" onclick="testDiscord()">테스트 알림</button>
                 </div>
             </div>
         </div>
@@ -303,6 +388,15 @@
         };
 
         if (!token) handleAuthError();
+
+        const themeSelect = document.getElementById('themeSelect');
+        const currentTheme = localStorage.getItem('uiTheme') || 'safety';
+        document.documentElement.dataset.theme = currentTheme;
+        themeSelect.value = currentTheme;
+        themeSelect.addEventListener('change', () => {
+            localStorage.setItem('uiTheme', themeSelect.value);
+            document.documentElement.dataset.theme = themeSelect.value;
+        });
 
         document.getElementById('userNameDisplay').textContent = localStorage.getItem('username') || sessionStorage.getItem('username');
         const role = localStorage.getItem('role') || sessionStorage.getItem('role');
@@ -427,7 +521,7 @@
                     const link = `${window.location.origin}/register.html?token=${data.inviteToken}`;
                     const inviteDiv = document.getElementById('inviteLink');
                     inviteDiv.style.display = 'block';
-                    inviteDiv.innerHTML = `생성된 가입 링크 (복사해서 전달하세요):<br><a href="${link}" target="_blank" style="color: #818cf8;">${link}</a>`;
+                    inviteDiv.innerHTML = `생성된 가입 링크 (복사해서 전달하세요):<br><a href="${link}" target="_blank" style="color: var(--primary-color);">${link}</a>`;
                 } else {
                     alert('오류: ' + data.error);
                 }

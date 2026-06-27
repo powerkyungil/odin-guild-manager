@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오딘 보스 스케줄 - 길드원 관리</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
     <style>
         .auth-container { max-width: 1800px; margin: 20px auto; width: 98%; overflow-x: hidden; }
         .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
@@ -130,13 +133,13 @@
         /* Guild Settings Panel */
         .guild-settings-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
-            border: 1px solid rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(242, 183, 5, 0.22);
             border-radius: 16px;
             padding: 24px;
             margin-bottom: 30px;
             display: none; /* Only show for MASTER */
         }
-        .guild-settings-card h2 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: #818cf8; }
+        .guild-settings-card h2 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: var(--primary-color); }
         .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
         .setting-item { display: flex; flex-direction: column; gap: 8px; }
         .setting-item label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
@@ -145,15 +148,15 @@
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 8px; 
             padding: 10px 14px; 
-            color: white; 
+            color: var(--text-light); 
             font-size: 14px;
             outline: none;
             transition: 0.2s;
         }
-        .setting-item input:focus { border-color: #818cf8; background: rgba(0, 0, 0, 0.3); }
+        .setting-item input:focus { border-color: var(--primary-color); background: rgba(0, 0, 0, 0.3); }
         .save-settings-btn {
-            background: #6366f1;
-            color: white;
+            background: var(--primary-color);
+            color: var(--text-light);
             border: none;
             padding: 10px 24px;
             border-radius: 8px;
@@ -163,12 +166,12 @@
             transition: 0.2s;
             width: fit-content;
         }
-        .save-settings-btn:hover { background: #4f46e5; transform: translateY(-1px); }
-        .discord-help { font-size: 11px; color: #a5b4fc; margin-top: 4px; line-height: 1.4; }
+        .save-settings-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .discord-help { font-size: 11px; color: var(--accent-rust); margin-top: 4px; line-height: 1.4; }
         
         /* Sorting Styles */
         .sortable { cursor: pointer; user-select: none; position: relative; transition: color 0.2s; }
-        .sortable:hover { color: #818cf8; }
+        .sortable:hover { color: var(--primary-color); }
         .sortable::after {
             content: '↕';
             margin-left: 6px;
@@ -177,7 +180,7 @@
         }
         .sortable.active::after {
             opacity: 1;
-            color: #818cf8;
+            color: var(--primary-color);
         }
         .sortable.asc::after { content: '↑'; }
         .sortable.desc::after { content: '↓'; }
@@ -199,7 +202,128 @@
             transition: 0.2s;
         }
         .sort-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--primary-color); }
-        .sort-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); font-weight: 700; }
+        .sort-btn.active { background: var(--primary-color); color: var(--text-light); border-color: var(--primary-color); font-weight: 700; }
+        .role-select {
+            font-size: 11px;
+            background: #fffaf1;
+            color: #1A1714;
+            border: 1px solid rgba(26, 23, 20, 0.26);
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            outline: none;
+        }
+        :root[data-theme="dark"] .role-select {
+            background: #1e293b;
+            color: #f8fafc;
+            border-color: #475569;
+        }
+        :root[data-theme="dark"] .role-select:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.22);
+        }
+        :root:not([data-theme="dark"]) .equip-strip,
+        :root:not([data-theme="dark"]) .equip-box,
+        :root:not([data-theme="dark"]) .skill-mini-tag,
+        :root:not([data-theme="dark"]) .guild-settings-card,
+        :root:not([data-theme="dark"]) .members-table-container {
+            background: rgba(255, 252, 246, 0.92);
+            border-color: rgba(26, 23, 20, 0.22);
+            box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
+        }
+        :root:not([data-theme="dark"]) .guild-settings-card {
+            background: linear-gradient(145deg, rgba(255, 252, 246, 0.96), rgba(242, 183, 5, 0.1));
+        }
+        :root:not([data-theme="dark"]) .guild-settings-card h2,
+        :root:not([data-theme="dark"]) .sortable:hover,
+        :root:not([data-theme="dark"]) .sortable.active::after,
+        :root:not([data-theme="dark"]) #memberCount {
+            color: #7B2E18 !important;
+        }
+        :root:not([data-theme="dark"]) .setting-item input {
+            background: #fffaf1;
+            border-color: rgba(26, 23, 20, 0.26);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .setting-item input:focus {
+            border-color: #C9542B;
+            box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
+        }
+        :root:not([data-theme="dark"]) .sort-btn {
+            background: rgba(255, 252, 246, 0.9);
+            border-color: rgba(26, 23, 20, 0.22);
+            color: rgba(26, 23, 20, 0.7);
+        }
+        :root:not([data-theme="dark"]) .sort-btn:hover {
+            background: rgba(242, 183, 5, 0.13);
+            border-color: rgba(26, 23, 20, 0.34);
+        }
+        :root:not([data-theme="dark"]) .sort-btn.active,
+        :root:not([data-theme="dark"]) .save-settings-btn {
+            background: #F2B705;
+            border-color: #C69204;
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .skill-legend,
+        :root:not([data-theme="dark"]) .enchant-high {
+            color: #7B2E18;
+            text-shadow: none;
+        }
+        :root:not([data-theme="dark"]) .skill-high {
+            color: #2E5C7D;
+        }
+        :root:not([data-theme="dark"]) .skill-hero,
+        :root:not([data-theme="dark"]) .enchant-epic {
+            color: #7D3B6E;
+            text-shadow: none;
+        }
+        :root:not([data-theme="dark"]) .skill-max {
+            color: #9F2F5D;
+            text-shadow: none;
+        }
+        @media (max-width: 768px) {
+            :root:not([data-theme="dark"]) .members-table tr {
+                background: rgba(255, 252, 246, 0.92);
+                border-color: rgba(26, 23, 20, 0.22);
+                box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
+            }
+            :root:not([data-theme="dark"]) .members-table td {
+                border-bottom-color: rgba(26, 23, 20, 0.12) !important;
+            }
+        }
+        :root[data-theme="dark"] .guild-settings-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+        :root[data-theme="dark"] .guild-settings-card h2,
+        :root[data-theme="dark"] #memberCount,
+        :root[data-theme="dark"] .sortable:hover,
+        :root[data-theme="dark"] .sortable.active::after {
+            color: #818cf8 !important;
+        }
+        :root[data-theme="dark"] .setting-item input {
+            background: rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        :root[data-theme="dark"] .setting-item input:focus {
+            border-color: #818cf8;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        :root[data-theme="dark"] .sort-btn {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.1);
+            color: var(--text-muted);
+        }
+        :root[data-theme="dark"] .sort-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--primary-color);
+        }
+        :root[data-theme="dark"] .sort-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
     </style>
 </head>
 <body>
@@ -494,23 +618,23 @@
                         <div style="display: flex; flex-direction: column; gap: 4px;">
                             ${u.role === 'MASTER' ? '👑 ' : ''}${u.nickname}
                             ${u.role === 'MASTER' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(251, 191, 36, 0.2); color: #fbbf24; border-radius: 4px; width: fit-content;">길드장</span>' : ''}
-                            ${u.role === 'ADMIN' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border-radius: 4px; width: fit-content;">운영진</span>' : ''}
+                            ${u.role === 'ADMIN' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(242, 183, 5, 0.22); color: var(--primary-color); border-radius: 4px; width: fit-content;">운영진</span>' : ''}
                             
                             ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' || (localStorage.getItem('role') || sessionStorage.getItem('role')) === 'ADMIN' ? `
                                 <div class="admin-actions">
                                     ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' && u.role !== 'MASTER' ? `
-                                        <select onchange="changeUserRole(${u.id}, this.value)" style="font-size: 11px; background: #1e293b; color: #fff; border: 1px solid #475569; padding: 4px 8px; border-radius: 6px; cursor: pointer; outline: none;">
+                                        <select class="role-select" onchange="changeUserRole(${u.id}, this.value)">
                                             <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
                                             <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
                                         </select>
                                     ` : ''}
                                     
                                     ${u.role !== 'MASTER' || (localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' ? `
-                                        <button onclick="resetUserPassword(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #334155; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">비번 초기화</button>
+                                        <button onclick="resetUserPassword(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #8D8373; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">비번 초기화</button>
                                     ` : ''}
 
                                     ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' && u.role !== 'MASTER' ? `
-                                        <button onclick="deleteUser(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #991b1b; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">강퇴</button>
+                                        <button onclick="deleteUser(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #991b1b; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">강퇴</button>
                                     ` : ''}
                                 </div>
                             ` : ''}
@@ -521,10 +645,10 @@
                         <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.main_class}</div>
                     </td>
                     <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:14px;">${u.combat_power.toLocaleString()}</td>
-                    <td data-label="치명타 / 적중" style="font-size: 11px; line-height: 1.5; color: #94a3b8;">
-                        <div>치확: <span style="color: #e2e8f0; font-weight: 700;">${u.max_crit_rate || 0}%</span></div>
-                        <div>치저: <span style="color: #e2e8f0; font-weight: 700;">${u.max_crit_resist || 0}%</span></div>
-                        <div>상적/충적: <span style="color: #e2e8f0; font-weight: 700;">${u.status_effect_acc || 0}%</span></div>
+                    <td data-label="치명타 / 적중" style="font-size: 11px; line-height: 1.5; color: var(--text-muted);">
+                        <div>치확: <span style="color: var(--text-light); font-weight: 700;">${u.max_crit_rate || 0}%</span></div>
+                        <div>치저: <span style="color: var(--text-light); font-weight: 700;">${u.max_crit_resist || 0}%</span></div>
+                        <div>상적/충적: <span style="color: var(--text-light); font-weight: 700;">${u.status_effect_acc || 0}%</span></div>
                     </td>
                     <td data-label="장비 현황">${equipHtml}</td>
                     <td data-label="스킬 현황">${skillHtml}</td>

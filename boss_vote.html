@@ -5,6 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>보스 참여 투표</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
   <link rel="stylesheet" href="styles.css">
   <script>
     if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
@@ -80,7 +83,7 @@
 
     .page-tab.active {
       border-bottom-color: var(--main);
-      color: #fff;
+      color: var(--text-light);
     }
 
     .view-panel {
@@ -112,7 +115,7 @@
 
     .vote-tab.active {
       background: var(--main);
-      color: #fff;
+      color: var(--text-light);
     }
 
     .vote-summary {
@@ -202,11 +205,11 @@
     .manual-vote-field input:focus {
       outline: none;
       border-color: var(--main);
-      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.16);
+      box-shadow: 0 0 0 3px rgba(242, 183, 5, 0.22);
     }
 
     .manual-vote-field select option {
-      background: #111827;
+      background: var(--panel-strong, #F7F2E9);
       color: var(--text);
     }
 
@@ -233,7 +236,7 @@
       overflow-y: auto;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #111827;
+      background: var(--panel-strong, #F7F2E9);
       box-shadow: 0 18px 38px rgba(0,0,0,0.42);
       padding: 5px;
     }
@@ -261,7 +264,7 @@
     .boss-suggestion:hover,
     .boss-suggestion.active {
       background: var(--main-soft);
-      color: #fff;
+      color: var(--text-light);
     }
 
     .boss-suggestion-empty {
@@ -429,11 +432,11 @@
     .month-field input:focus {
       outline: none;
       border-color: var(--main);
-      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.16);
+      box-shadow: 0 0 0 3px rgba(242, 183, 5, 0.22);
     }
 
     .range-field select option {
-      background: #111827;
+      background: var(--panel-strong, #F7F2E9);
       color: var(--text);
     }
 
@@ -670,7 +673,7 @@
     .vote-btn {
       border: 1px solid var(--line);
       border-radius: 8px;
-      color: #fff;
+      color: var(--text-light);
       background: rgba(255,255,255,0.06);
       padding: 9px 12px;
       font-weight: 900;
@@ -684,8 +687,8 @@
     }
 
     .vote-btn.joined {
-      background: #475569;
-      border-color: #475569;
+      background: #7D7468;
+      border-color: #7D7468;
     }
 
     .empty-votes {
@@ -720,7 +723,7 @@
       flex-direction: column;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #111827;
+      background: var(--panel-strong, #F7F2E9);
       box-shadow: var(--shadow);
       overflow: hidden;
     }
@@ -758,6 +761,181 @@
       border-radius: 8px;
       background: rgba(255,255,255,0.06);
       font-weight: 800;
+    }
+
+    :root:not([data-theme="dark"]) .vote-tabs,
+    :root:not([data-theme="dark"]) .vote-stat,
+    :root:not([data-theme="dark"]) .manual-vote-panel,
+    :root:not([data-theme="dark"]) .stats-toolbar,
+    :root:not([data-theme="dark"]) .rate-table,
+    :root:not([data-theme="dark"]) .stats-day,
+    :root:not([data-theme="dark"]) .vote-card,
+    :root:not([data-theme="dark"]) .vote-modal-card {
+      background: rgba(255, 252, 246, 0.94);
+      border-color: rgba(26, 23, 20, 0.22);
+      box-shadow: 0 10px 24px rgba(26, 23, 20, 0.08);
+    }
+
+    :root:not([data-theme="dark"]) .vote-card {
+      border-left-color: #C9542B;
+    }
+
+    :root:not([data-theme="dark"]) .vote-card.past {
+      border-left-color: rgba(26, 23, 20, 0.36);
+      opacity: 0.78;
+    }
+
+    :root:not([data-theme="dark"]) .rate-row,
+    :root:not([data-theme="dark"]) .stats-boss,
+    :root:not([data-theme="dark"]) .stats-day-header,
+    :root:not([data-theme="dark"]) .vote-modal-header {
+      border-color: rgba(26, 23, 20, 0.14);
+    }
+
+    :root:not([data-theme="dark"]) .rate-row.header,
+    :root:not([data-theme="dark"]) .stats-day-header,
+    :root:not([data-theme="dark"]) .empty-votes,
+    :root:not([data-theme="dark"]) .participant-row {
+      background: rgba(233, 227, 215, 0.42);
+    }
+
+    :root:not([data-theme="dark"]) .manual-vote-field input,
+    :root:not([data-theme="dark"]) .manual-vote-field select,
+    :root:not([data-theme="dark"]) .month-field input,
+    :root:not([data-theme="dark"]) .range-field input,
+    :root:not([data-theme="dark"]) .range-field select,
+    :root:not([data-theme="dark"]) .boss-combobox input {
+      background-color: #fffaf1;
+      border-color: rgba(26, 23, 20, 0.26);
+      color: #1A1714;
+    }
+
+    :root:not([data-theme="dark"]) .manual-vote-field select,
+    :root:not([data-theme="dark"]) .range-field select,
+    :root:not([data-theme="dark"]) .boss-combobox input {
+      background:
+        linear-gradient(45deg, transparent 50%, rgba(26,23,20,0.62) 50%) calc(100% - 18px) 16px / 6px 6px no-repeat,
+        linear-gradient(135deg, rgba(26,23,20,0.62) 50%, transparent 50%) calc(100% - 12px) 16px / 6px 6px no-repeat,
+        #fffaf1;
+    }
+
+    :root:not([data-theme="dark"]) .manual-vote-field input:focus,
+    :root:not([data-theme="dark"]) .manual-vote-field select:focus,
+    :root:not([data-theme="dark"]) .month-field input:focus,
+    :root:not([data-theme="dark"]) .range-field input:focus,
+    :root:not([data-theme="dark"]) .range-field select:focus {
+      border-color: #C9542B;
+      box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
+    }
+
+    :root:not([data-theme="dark"]) .vote-tab.active,
+    :root:not([data-theme="dark"]) .vote-btn.primary {
+      background: #F2B705;
+      border-color: #C69204;
+      color: #1A1714;
+    }
+
+    :root:not([data-theme="dark"]) .page-tab.active,
+    :root:not([data-theme="dark"]) .back-link,
+    :root:not([data-theme="dark"]) .vote-date,
+    :root:not([data-theme="dark"]) .stats-count {
+      color: #7B2E18;
+    }
+
+    :root:not([data-theme="dark"]) .vote-btn,
+    :root:not([data-theme="dark"]) .month-nav-btn,
+    :root:not([data-theme="dark"]) .participant-chip,
+    :root:not([data-theme="dark"]) .role-mini,
+    :root:not([data-theme="dark"]) .vote-pill {
+      background: rgba(255, 252, 246, 0.88);
+      border-color: rgba(26, 23, 20, 0.22);
+      color: #1A1714;
+    }
+
+    :root:not([data-theme="dark"]) .vote-btn:hover,
+    :root:not([data-theme="dark"]) .month-nav-btn:hover,
+    :root:not([data-theme="dark"]) .participant-chip:hover {
+      background: rgba(242, 183, 5, 0.13);
+      border-color: rgba(26, 23, 20, 0.34);
+    }
+
+    :root:not([data-theme="dark"]) .vote-btn.joined {
+      background: #7D7468;
+      border-color: #7D7468;
+      color: #fffaf1;
+    }
+
+    :root:not([data-theme="dark"]) .manual-bless-toggle,
+    :root:not([data-theme="dark"]) .bless-badge,
+    :root:not([data-theme="dark"]) .participant-chip.excluded {
+      background: rgba(242, 183, 5, 0.18);
+      border-color: rgba(198, 146, 4, 0.42);
+      color: #6B3F00;
+    }
+
+    :root:not([data-theme="dark"]) .participant-chip.removable:hover {
+      background: rgba(159, 47, 36, 0.12);
+      border-color: rgba(159, 47, 36, 0.34);
+      color: #7F1D1D;
+    }
+
+    :root:not([data-theme="dark"]) .participant-chip .remove-mark {
+      color: #7F1D1D;
+    }
+
+    :root:not([data-theme="dark"]) .rate-bar {
+      background: rgba(26, 23, 20, 0.12);
+    }
+
+    :root:not([data-theme="dark"]) .rate-bar span {
+      background: linear-gradient(90deg, #C9542B, #3F7D50);
+    }
+
+    :root:not([data-theme="dark"]) .boss-suggestion-list {
+      background: #fffaf1;
+      border-color: rgba(26, 23, 20, 0.22);
+      box-shadow: 0 18px 38px rgba(26, 23, 20, 0.16);
+    }
+
+    :root:not([data-theme="dark"]) .boss-suggestion:hover,
+    :root:not([data-theme="dark"]) .boss-suggestion.active {
+      background: rgba(242, 183, 5, 0.18);
+      color: #1A1714;
+    }
+
+    :root:not([data-theme="dark"]) .vote-modal {
+      background: rgba(26, 23, 20, 0.42);
+    }
+
+    :root[data-theme="dark"] .manual-vote-field input:focus,
+    :root[data-theme="dark"] .manual-vote-field select:focus,
+    :root[data-theme="dark"] .range-field select:focus,
+    :root[data-theme="dark"] .range-field input:focus,
+    :root[data-theme="dark"] .month-field input:focus {
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.16);
+    }
+
+    :root[data-theme="dark"] .manual-vote-field select option,
+    :root[data-theme="dark"] .range-field select option,
+    :root[data-theme="dark"] .boss-suggestion-list,
+    :root[data-theme="dark"] .vote-modal-card {
+      background: #111827;
+    }
+
+    :root[data-theme="dark"] .boss-suggestion:hover,
+    :root[data-theme="dark"] .boss-suggestion.active {
+      color: #fff;
+    }
+
+    :root[data-theme="dark"] .vote-btn,
+    :root[data-theme="dark"] .page-tab.active,
+    :root[data-theme="dark"] .vote-tab.active {
+      color: #fff;
+    }
+
+    :root[data-theme="dark"] .vote-btn.joined {
+      background: #475569;
+      border-color: #475569;
     }
 
     @media (max-width: 720px) {

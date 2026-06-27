@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오딘 보스 스케줄 - 손지원</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
     <style>
         body { align-items: flex-start; }
         .auth-container { max-width: 1180px; width: 96%; box-sizing: border-box; }
@@ -51,7 +54,7 @@
         textarea:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 3px rgba(242, 183, 5, 0.22);
         }
         .request-list {
             display: flex;
@@ -100,10 +103,10 @@
             bottom: 12px;
             width: 3px;
             border-radius: 0 999px 999px 0;
-            background: #818cf8;
+            background: var(--primary-color);
         }
         .info-label {
-            color: #94a3b8;
+            color: var(--text-muted);
             font-size: 11px;
             font-weight: 900;
             margin-bottom: 7px;
@@ -126,7 +129,7 @@
         }
         .info-tile.power::before { background: #f59e0b; }
         .info-tile.power .info-value {
-            color: #f8fafc;
+            color: var(--text-light);
             font-variant-numeric: tabular-nums;
         }
         .info-tile.time .info-value { color: #ecfdf5; }
@@ -141,8 +144,8 @@
             white-space: nowrap;
         }
         .status-open { background: rgba(16,185,129,0.16); color: #34d399; }
-        .status-matched { background: rgba(99,102,241,0.18); color: #a5b4fc; }
-        .status-done { background: rgba(148,163,184,0.18); color: #cbd5e1; }
+        .status-matched { background: rgba(242,183,5,0.22); color: var(--accent-rust); }
+        .status-done { background: rgba(148,163,184,0.18); color: rgba(26, 23, 20, 0.72); }
         .status-canceled { background: rgba(239,68,68,0.16); color: #fca5a5; }
         .memo-box {
             color: #dbe4f0;
@@ -175,10 +178,10 @@
             gap: 7px;
             max-width: 100%;
             padding: 7px 10px;
-            border: 1px solid rgba(129,140,248,0.26);
+            border: 1px solid rgba(242,183,5,0.28);
             border-radius: 999px;
-            background: rgba(99,102,241,0.13);
-            color: #e0e7ff;
+            background: rgba(242,183,5,0.18);
+            color: var(--text-light);
             font-size: 13px;
             font-weight: 900;
             line-height: 1;
@@ -187,8 +190,8 @@
             cursor: pointer;
         }
         .app-badge.selectable:hover {
-            border-color: rgba(129,140,248,0.65);
-            background: rgba(99,102,241,0.22);
+            border-color: rgba(242,183,5,0.6);
+            background: rgba(242,183,5,0.26);
         }
         .app-badge.selected {
             border-color: rgba(16,185,129,0.55);
@@ -213,7 +216,7 @@
             border: none;
             border-radius: 50%;
             background: rgba(15,23,42,0.45);
-            color: #cbd5e1;
+            color: rgba(26, 23, 20, 0.72);
             cursor: pointer;
             font-size: 14px;
             font-weight: 900;
@@ -290,7 +293,7 @@
             align-items: center;
             gap: 8px;
             margin-top: 12px;
-            color: #cbd5e1;
+            color: rgba(26, 23, 20, 0.72);
             font-size: 13px;
             font-weight: 800;
         }
@@ -331,7 +334,7 @@
             border-radius: 6px;
             border: 1px solid rgba(255,255,255,0.14);
             background: rgba(255,255,255,0.06);
-            color: #cbd5e1;
+            color: rgba(26, 23, 20, 0.72);
             font-size: 14px;
             font-weight: 800;
             cursor: pointer;
@@ -397,6 +400,147 @@
             line-height: 1;
         }
         .icon-btn:hover { border-color: var(--primary-color); }
+        :root:not([data-theme="dark"]) .panel {
+            background: rgba(255, 252, 246, 0.94);
+            border-color: rgba(26, 23, 20, 0.24);
+            box-shadow: 0 10px 24px rgba(26, 23, 20, 0.08);
+        }
+        :root:not([data-theme="dark"]) .request-card,
+        :root:not([data-theme="dark"]) .info-tile,
+        :root:not([data-theme="dark"]) .modal-panel {
+            background: rgba(255, 252, 246, 0.94);
+            border-color: rgba(26, 23, 20, 0.22);
+            box-shadow: 0 8px 20px rgba(26, 23, 20, 0.07);
+        }
+        :root:not([data-theme="dark"]) textarea,
+        :root:not([data-theme="dark"]) .date-grid select,
+        :root:not([data-theme="dark"]) .time-pair select {
+            background: #fffaf1;
+            border-color: rgba(26, 23, 20, 0.26);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) textarea:focus,
+        :root:not([data-theme="dark"]) .date-grid select:focus,
+        :root:not([data-theme="dark"]) .time-pair select:focus {
+            border-color: #C9542B;
+            box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
+        }
+        :root:not([data-theme="dark"]) .info-tile.time {
+            background: rgba(63, 125, 80, 0.12);
+            border-color: rgba(63, 125, 80, 0.26);
+        }
+        :root:not([data-theme="dark"]) .info-tile.time::before { background: #3F7D50; }
+        :root:not([data-theme="dark"]) .info-tile.time .info-value { color: #235533; }
+        :root:not([data-theme="dark"]) .info-tile.power {
+            background: rgba(201, 84, 43, 0.12);
+            border-color: rgba(201, 84, 43, 0.28);
+        }
+        :root:not([data-theme="dark"]) .info-tile.power::before { background: #C9542B; }
+        :root:not([data-theme="dark"]) .info-value,
+        :root:not([data-theme="dark"]) .memo-box,
+        :root:not([data-theme="dark"]) .all-day-row,
+        :root:not([data-theme="dark"]) .modal-cancel-btn {
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .status-open {
+            background: rgba(63, 125, 80, 0.16);
+            border: 1px solid rgba(63, 125, 80, 0.32);
+            color: #235533;
+        }
+        :root:not([data-theme="dark"]) .status-matched {
+            background: rgba(201, 84, 43, 0.14);
+            border: 1px solid rgba(201, 84, 43, 0.34);
+            color: #7B2E18;
+        }
+        :root:not([data-theme="dark"]) .status-done {
+            background: rgba(26, 23, 20, 0.1);
+            border: 1px solid rgba(26, 23, 20, 0.22);
+            color: rgba(26, 23, 20, 0.72);
+        }
+        :root:not([data-theme="dark"]) .status-canceled,
+        :root:not([data-theme="dark"]) .mini-btn.danger {
+            background: rgba(159, 47, 36, 0.12);
+            border: 1px solid rgba(159, 47, 36, 0.3);
+            color: #7F1D1D;
+        }
+        :root:not([data-theme="dark"]) .app-badge {
+            background: rgba(242, 183, 5, 0.18);
+            border-color: rgba(198, 146, 4, 0.42);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .app-badge.selectable:hover {
+            background: rgba(242, 183, 5, 0.28);
+            border-color: rgba(198, 146, 4, 0.62);
+        }
+        :root:not([data-theme="dark"]) .app-badge.selected {
+            background: rgba(63, 125, 80, 0.16);
+            border-color: rgba(63, 125, 80, 0.42);
+            color: #235533;
+        }
+        :root:not([data-theme="dark"]) .app-badge-mark { color: #235533; }
+        :root:not([data-theme="dark"]) .app-cancel-btn {
+            background: rgba(26, 23, 20, 0.1);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .mini-btn,
+        :root:not([data-theme="dark"]) .modal-cancel-btn,
+        :root:not([data-theme="dark"]) .icon-btn {
+            background: rgba(255, 252, 246, 0.88);
+            border-color: rgba(26, 23, 20, 0.22);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .mini-btn:hover,
+        :root:not([data-theme="dark"]) .modal-cancel-btn:hover,
+        :root:not([data-theme="dark"]) .icon-btn:hover {
+            background: rgba(242, 183, 5, 0.13);
+            border-color: rgba(26, 23, 20, 0.34);
+        }
+        :root:not([data-theme="dark"]) .mini-btn.primary {
+            background: #F2B705;
+            border-color: #C69204;
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .applications,
+        :root:not([data-theme="dark"]) .request-submit-row {
+            border-color: rgba(26, 23, 20, 0.14);
+        }
+        :root:not([data-theme="dark"]) .empty {
+            border-color: rgba(26, 23, 20, 0.22);
+            background: rgba(233, 227, 215, 0.32);
+        }
+        :root:not([data-theme="dark"]) .modal-backdrop {
+            background: rgba(26, 23, 20, 0.42);
+        }
+        :root[data-theme="dark"] textarea:focus {
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        :root[data-theme="dark"] .info-tile::before {
+            background: #818cf8;
+        }
+        :root[data-theme="dark"] .status-matched {
+            background: rgba(99,102,241,0.18);
+            color: #a5b4fc;
+        }
+        :root[data-theme="dark"] .status-done {
+            color: #cbd5e1;
+        }
+        :root[data-theme="dark"] .app-badge {
+            border-color: rgba(129,140,248,0.26);
+            background: rgba(99,102,241,0.13);
+            color: #e0e7ff;
+        }
+        :root[data-theme="dark"] .app-badge.selectable:hover {
+            border-color: rgba(129,140,248,0.65);
+            background: rgba(99,102,241,0.22);
+        }
+        :root[data-theme="dark"] .app-cancel-btn,
+        :root[data-theme="dark"] .all-day-row,
+        :root[data-theme="dark"] .modal-cancel-btn {
+            color: #cbd5e1;
+        }
+        :root[data-theme="dark"] .modal-panel {
+            background: rgba(30, 41, 59, 0.96);
+        }
         @media (max-width: 760px) {
             .request-form-grid { grid-template-columns: 1fr; }
             .date-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

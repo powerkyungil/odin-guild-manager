@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>컨텐츠 참여 - 그룹 빌더</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         :root {
@@ -16,8 +19,8 @@
             display: flex;
             height: 100vh;
             margin: 0;
-            background: #0f172a;
-            color: #f8fafc;
+            background: var(--bg-dark);
+            color: var(--text-light);
             overflow: hidden;
             flex-direction: row;
             align-items: stretch; /* Full height for children */
@@ -39,7 +42,7 @@
         /* Sidebar Styles */
         .sidebar {
             width: var(--sidebar-width);
-            background: #1e293b;
+            background: var(--panel-strong, #F7F2E9);
             border-right: 1px solid rgba(255,255,255,0.1);
             display: flex;
             flex-direction: column;
@@ -94,7 +97,7 @@
         }
         .btn-create {
             background: var(--primary-color);
-            color: white;
+            color: var(--text-light);
             border: none;
             padding: 10px 20px;
             border-radius: 8px;
@@ -102,7 +105,7 @@
             cursor: pointer;
             transition: 0.2s;
         }
-        .btn-create:hover { background: #4f46e5; transform: translateY(-1px); }
+        .btn-create:hover { background: var(--primary-hover); transform: translateY(-1px); }
 
         .groups-container {
             display: grid;
@@ -123,7 +126,7 @@
             transition: 0.3s;
         }
         .group-card.drag-over {
-            background: rgba(99, 102, 241, 0.1);
+            background: rgba(242, 183, 5, 0.16);
             border-color: var(--primary-color);
             transform: scale(1.02);
         }
@@ -132,7 +135,7 @@
             justify-content: space-between;
             align-items: center;
         }
-        .group-name { font-weight: 700; font-size: 16px; color: #818cf8; }
+        .group-name { font-weight: 700; font-size: 16px; color: var(--primary-color); }
         .btn-delete { background: none; border: none; color: #f87171; cursor: pointer; font-size: 12px; }
 
         .group-members {
@@ -142,7 +145,7 @@
             flex: 1;
         }
         .placed-member {
-            background: #1e293b;
+            background: var(--panel-strong, #F7F2E9);
             padding: 8px 12px;
             border-radius: 6px;
             font-size: 13px;
@@ -151,7 +154,7 @@
             align-items: center;
             border: 1px solid rgba(255,255,255,0.1);
         }
-        .remove-member { cursor: pointer; color: #94a3b8; font-size: 14px; }
+        .remove-member { cursor: pointer; color: var(--text-muted); font-size: 14px; }
         .remove-member:hover { color: #f87171; }
 
         .empty-hint {
@@ -175,7 +178,7 @@
             border: 1px solid var(--border-color);
             padding: 8px 12px;
             border-radius: 6px;
-            color: white;
+            color: var(--text-light);
             font-size: 13px;
             display: block; /* Ensure full width */
         }
@@ -205,6 +208,89 @@
         }
         .sortable-drag {
             opacity: 0.9;
+        }
+        :root:not([data-theme="dark"]) .sidebar {
+            background: rgba(255, 252, 246, 0.96);
+            border-right-color: rgba(26, 23, 20, 0.22);
+            box-shadow: 4px 0 18px rgba(26, 23, 20, 0.1);
+        }
+        :root:not([data-theme="dark"]) .sidebar-header {
+            border-bottom-color: rgba(26, 23, 20, 0.14);
+        }
+        :root:not([data-theme="dark"]) .sidebar-header h2,
+        :root:not([data-theme="dark"]) .group-name {
+            color: #7B2E18;
+        }
+        :root:not([data-theme="dark"]) .filter-row {
+            background: rgba(233, 227, 215, 0.42);
+        }
+        :root:not([data-theme="dark"]) .filter-row input {
+            background: #fffaf1;
+            border-color: rgba(26, 23, 20, 0.26);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .filter-row input:focus {
+            border-color: #C9542B;
+            box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
+            outline: none;
+        }
+        :root:not([data-theme="dark"]) .member-item,
+        :root:not([data-theme="dark"]) .group-card,
+        :root:not([data-theme="dark"]) .placed-member,
+        :root:not([data-theme="dark"]) .empty-hint {
+            background: rgba(255, 252, 246, 0.9);
+            border-color: rgba(26, 23, 20, 0.22);
+            box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
+        }
+        :root:not([data-theme="dark"]) .member-item:hover,
+        :root:not([data-theme="dark"]) .group-card.drag-over {
+            background: rgba(242, 183, 5, 0.13);
+            border-color: rgba(201, 84, 43, 0.4);
+        }
+        :root:not([data-theme="dark"]) .btn-create {
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .btn-create:hover {
+            background: #DCA300;
+        }
+        :root[data-theme="dark"] .sidebar {
+            background: #1e293b;
+            border-right-color: rgba(255,255,255,0.1);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+        }
+        :root[data-theme="dark"] .sidebar-header {
+            border-bottom-color: rgba(255,255,255,0.05);
+        }
+        :root[data-theme="dark"] .sidebar-header h2,
+        :root[data-theme="dark"] .group-name {
+            color: #818cf8;
+        }
+        :root[data-theme="dark"] .filter-row {
+            background: rgba(0,0,0,0.1);
+        }
+        :root[data-theme="dark"] .filter-row input {
+            background: rgba(255,255,255,0.05);
+            border-color: var(--border-color);
+            color: var(--text-light);
+        }
+        :root[data-theme="dark"] .member-item {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.05);
+        }
+        :root[data-theme="dark"] .member-item:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: var(--primary-color);
+        }
+        :root[data-theme="dark"] .group-card {
+            background: rgba(30, 41, 59, 0.5);
+            border-color: rgba(255,255,255,0.1);
+        }
+        :root[data-theme="dark"] .placed-member {
+            background: #1e293b;
+            border-color: rgba(255,255,255,0.1);
+        }
+        :root[data-theme="dark"] .empty-hint {
+            border-color: rgba(255,255,255,0.05);
         }
     </style>
 </head>

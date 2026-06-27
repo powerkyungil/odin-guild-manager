@@ -668,7 +668,7 @@ document.addEventListener('DOMContentLoaded', () => {
       adminHeader.className = 'accordion-header 본섭';
       adminHeader.innerHTML = `
           <span>
-            <span class="tag" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">[관리]</span> 참여 보스 설정
+            <span class="tag" style="background: rgba(242, 183, 5, 0.22); color: var(--primary-color);">[관리]</span> 참여 보스 설정
           </span>
           <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
             <path d="M6 9l6 6 6-6" />
@@ -762,10 +762,10 @@ document.addEventListener('DOMContentLoaded', () => {
         addContent.innerHTML = `
             <div class="accordion-body">
               <div style="padding-top:5px;">
-                  <h4 style="margin:0 0 8px 0; font-size:13px; color:#e2e8f0;">새 보스 추가</h4>
+                  <h4 style="margin:0 0 8px 0; font-size:13px; color:var(--text-light);">새 보스 추가</h4>
                   <div class="form-group">
                       <label>타입 선택</label>
-                      <select id="cb-type-sel" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      <select id="cb-type-sel" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                           <option value="챕터">챕터 (본섭/침공/공통)</option>
                           <option value="고정">고정 (특정 시간/요일)</option>
                       </select>
@@ -773,34 +773,34 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div id="cb-chapter-fields">
                       <div class="form-group">
                           <label>분류 (본섭, 침공, 공통 등)</label>
-                          <input type="text" id="cb-cat-input" placeholder="예: 본섭" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                          <input type="text" id="cb-cat-input" placeholder="예: 본섭" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                       </div>
                       <div class="form-group">
                           <label>태그 색상 (선택)</label>
-                          <input type="color" id="cb-color-input" value="#94a3b8" style="width:100%; height:40px; padding:2px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">
+                          <input type="color" id="cb-color-input" value="#7D7468" style="width:100%; height:40px; padding:2px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); cursor:pointer;">
                       </div>
                       <div class="form-group">
                           <label>지역</label>
-                          <input type="text" id="cb-region-input" placeholder="예: 요툰하임" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                          <input type="text" id="cb-region-input" placeholder="예: 요툰하임" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                       </div>
                       <div class="form-group">
                           <label>쿨타임 (시간)</label>
-                          <input type="number" id="cb-cd-input" placeholder="예: 12" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                          <input type="number" id="cb-cd-input" placeholder="예: 12" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                       </div>
                   </div>
                   <div id="cb-fixed-fields" style="display:none;">
                       <div class="form-group">
                           <label>등장 시간 (HH:MM:SS)</label>
-                          <input type="text" id="cb-time-input" placeholder="예: 21:30:00" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                          <input type="text" id="cb-time-input" placeholder="예: 21:30:00" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                       </div>
                       <div class="form-group">
                           <label>등장 요일 (쉼표 구분)</label>
-                          <input type="text" id="cb-days-input" placeholder="예: 월,화,수,목,금,토,일" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                          <input type="text" id="cb-days-input" placeholder="예: 월,화,수,목,금,토,일" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                       </div>
                   </div>
                   <div class="form-group">
                       <label>보스 이름</label>
-                      <input type="text" id="cb-boss-input" placeholder="예: 신규보스" style="width:100%; padding:8px; border-radius:6px; background:#1e293b; border:1px solid rgba(255,255,255,0.1); color:white;">
+                      <input type="text" id="cb-boss-input" placeholder="예: 신규보스" style="width:100%; padding:8px; border-radius:6px; background:var(--panel-strong, #F7F2E9); border:1px solid rgba(255,255,255,0.1); color:var(--text);">
                   </div>
                   <button id="add-cb-btn" class="primary-btn" style="width:100%; margin-top:10px;">보스 추가</button>
               </div>
@@ -910,7 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="accordion-body">
               <button id="reset-bosses-btn" class="secondary-btn" style="width:100%; margin-bottom:15px; border-color:#fb7185; color:#fb7185;">기본 보스 목록으로 복구/초기화</button>
               <div style="margin-bottom:15px;">
-                <h4 style="margin:0 0 8px 0; font-size:13px; color:#e2e8f0;">등록된 보스 목록 (삭제 시 스케줄도 지워집니다)</h4>
+                <h4 style="margin:0 0 8px 0; font-size:13px; color:var(--text-light);">등록된 보스 목록 (삭제 시 스케줄도 지워집니다)</h4>
                 <div id="cb-list-container" style="max-height: 400px; overflow-y: auto;">
                     ${renderCustomBossesList()}
                 </div>
@@ -1255,13 +1255,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (IJoined) {
           // Show list (Grey unified UI)
-          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #7D7468; border:none; padding: 2px 8px; border-radius: 6px; color: var(--text-light); font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
         } else if (isSoon && !isLate) {
           // Within join window, not yet joined (Keep green for action)
           participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
         } else if (isLate) {
           // After window, allow viewing the list even if not joined (Grey unified UI)
-          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #475569; border:none; padding: 2px 8px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #7D7468; border:none; padding: 2px 8px; border-radius: 6px; color: var(--text-light); font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
         }
       }
 
@@ -1279,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="boss-area">
           <div class="boss-name" style="display:flex; align-items:center; flex-wrap: wrap;">
             ${formatBossNameWithBreak(item.boss)}
-            ${item.is_mung ? '<span style="background: #a855f7; color: white; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">멍</span>' : ''}
+            ${item.is_mung ? '<span style="background: #a855f7; color: var(--text-light); padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">멍</span>' : ''}
             ${participationHtml}
           </div>
           <div class="meta">${item.region}</div>
@@ -1287,8 +1287,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="time-action-group" style="grid-column: 3 / 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
           ${!isPast ? `<div class="row-remaining" data-spawn-time="${item.spawnTime}">${remainingStr}</div>` : ''}
           ${!item.isFixed ? `
-            <button class="cut-btn" style="background: #0ea5e9; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
-            ${isPast && item.type !== '침공' ? `<button class="mung-btn" style="background: #a855f7; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">멍</button>` : ''}
+            <button class="cut-btn" style="background: #0ea5e9; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
+            ${isPast && item.type !== '침공' ? `<button class="mung-btn" style="background: #a855f7; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">멍</button>` : ''}
           ` : ''}
           <div class="spawn-time" style="white-space: nowrap;">${timeLabel}</div>
           <button class="delete-row-btn" aria-label="삭제" style="flex-shrink: 0; margin-left: 0;">
@@ -1423,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('participantCount').innerText = `총 ${list.length}명`;
     const c = document.getElementById('participantListContainer');
     c.innerHTML = list.map(n => `<div style="padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">${n}</div>`).join('');
-    if (list.length === 0) c.innerHTML = `<div style="text-align:center; color:#94a3b8; padding: 20px;">참여자가 없습니다.</div>`;
+    if (list.length === 0) c.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding: 20px;">참여자가 없습니다.</div>`;
     document.getElementById('participantModal').style.display = 'flex';
   };
 

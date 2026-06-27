@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>길드원 아이템 현황</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
     <script src="collections_data.js"></script>
     <style>
         .auth-container { max-width: 98%; margin: 20px auto; padding: 0; }
@@ -30,13 +33,13 @@
         
         /* Sticky Headers and Columns */
         th, td { padding: 8px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; white-space: nowrap; }
-        th { background: #1e293b; position: sticky; top: 0; z-index: 100; font-weight: 700; color: var(--text-light); border-bottom: 2px solid var(--primary-color); }
+        th { background: var(--panel-strong, #F7F2E9); position: sticky; top: 0; z-index: 100; font-weight: 700; color: var(--text-light); border-bottom: 2px solid var(--primary-color); }
         
         .col-part { 
             position: sticky; 
             left: 0; 
             z-index: 50; 
-            background: #0f172a; 
+            background: var(--bg-dark); 
             text-align: left; 
             min-width: 250px; 
             border-right: 1px solid rgba(255,255,255,0.1);
@@ -45,17 +48,17 @@
             position: sticky; 
             left: 250px; 
             z-index: 50; 
-            background: #0f172a; 
+            background: var(--bg-dark); 
             text-align: center; 
             min-width: 70px;
-            color: #94a3b8;
+            color: var(--text-muted);
             font-weight: 600;
         }
         .col-priority {
             position: sticky;
             left: 320px;
             z-index: 50;
-            background: #0f172a;
+            background: var(--bg-dark);
             text-align: center;
             min-width: 120px;
             border-right: 2px solid var(--primary-color);
@@ -69,7 +72,7 @@
         
         /* Row Hierarchy Styles */
         .row-coll { background: rgba(59, 130, 246, 0.1); font-weight: 700; color: #60a5fa; }
-        .row-item { color: #e2e8f0; }
+        .row-item { color: var(--text-light); }
 
         input[type="checkbox"] {
             width: 24px;
@@ -92,12 +95,12 @@
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            color: white; width: 350px; font-size: 16px;
+            color: var(--text-light); width: 350px; font-size: 16px;
         }
 
         .btn-add {
             background: var(--primary-color);
-            color: white;
+            color: var(--text-light);
             border: none;
             padding: 10px 20px;
             border-radius: 6px;
@@ -118,7 +121,7 @@
             align-items: center;
         }
         .modal-content {
-            background: #1e293b;
+            background: var(--panel-strong, #F7F2E9);
             padding: 30px;
             border-radius: 12px;
             width: 500px;
@@ -136,7 +139,7 @@
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            color: white;
+            color: var(--text-light);
             box-sizing: border-box;
         }
         .item-input-row { display: flex; gap: 10px; margin-bottom: 15px; }
@@ -146,12 +149,104 @@
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            color: white;
+            color: var(--text-light);
             box-sizing: border-box;
         }
         .item-input-row input:focus { border-color: var(--primary-color); outline: none; }
         .btn-small { padding: 5px 10px; font-size: 12px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        :root:not([data-theme="dark"]) .table-wrapper {
+            background: rgba(255, 252, 246, 0.94);
+            border-color: rgba(26, 23, 20, 0.24);
+            box-shadow: 0 10px 24px rgba(26, 23, 20, 0.08);
+        }
+        :root:not([data-theme="dark"]) th {
+            background: #E9E3D7;
+            color: #1A1714;
+            border-bottom-color: #C9542B;
+        }
+        :root:not([data-theme="dark"]) td {
+            border-color: rgba(26, 23, 20, 0.12);
+        }
+        :root:not([data-theme="dark"]) .col-part,
+        :root:not([data-theme="dark"]) .col-ench,
+        :root:not([data-theme="dark"]) .col-priority {
+            background: #F7F2E9;
+            border-color: rgba(26, 23, 20, 0.18);
+        }
+        :root:not([data-theme="dark"]) .col-priority,
+        :root:not([data-theme="dark"]) .row-coll {
+            color: #7B2E18;
+        }
+        :root:not([data-theme="dark"]) .row-coll {
+            background: rgba(201, 84, 43, 0.08);
+        }
+        :root:not([data-theme="dark"]) .search-box input,
+        :root:not([data-theme="dark"]) .input-group input,
+        :root:not([data-theme="dark"]) .item-input-row input {
+            background: #fffaf1;
+            border-color: rgba(26, 23, 20, 0.26);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .search-box input:focus,
+        :root:not([data-theme="dark"]) .input-group input:focus,
+        :root:not([data-theme="dark"]) .item-input-row input:focus {
+            border-color: #C9542B;
+            box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
+            outline: none;
+        }
+        :root:not([data-theme="dark"]) .btn-add {
+            background: #F2B705;
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .btn-add:hover {
+            background: #DCA300;
+        }
+        :root:not([data-theme="dark"]) .modal {
+            background: rgba(26, 23, 20, 0.42);
+        }
+        :root:not([data-theme="dark"]) .modal-content {
+            background: rgba(255, 252, 246, 0.98);
+            border-color: rgba(26, 23, 20, 0.24);
+            box-shadow: 0 24px 70px rgba(26, 23, 20, 0.2);
+        }
+        :root[data-theme="dark"] .table-wrapper {
+            background: rgba(0,0,0,0.2);
+        }
+        :root[data-theme="dark"] th {
+            background: #1e293b;
+            color: var(--text-light);
+            border-bottom-color: var(--primary-color);
+        }
+        :root[data-theme="dark"] .col-part,
+        :root[data-theme="dark"] .col-ench,
+        :root[data-theme="dark"] .col-priority {
+            background: var(--bg-dark);
+        }
+        :root[data-theme="dark"] .col-priority {
+            color: #fbbf24;
+        }
+        :root[data-theme="dark"] .row-coll {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+        }
+        :root[data-theme="dark"] .search-box input,
+        :root[data-theme="dark"] .input-group input,
+        :root[data-theme="dark"] .item-input-row input {
+            background: rgba(255,255,255,0.05);
+            border-color: var(--border-color);
+            color: var(--text-light);
+        }
+        :root[data-theme="dark"] .btn-add:hover {
+            background: #2563eb;
+        }
+        :root[data-theme="dark"] .modal {
+            background: rgba(0,0,0,0.8);
+        }
+        :root[data-theme="dark"] .modal-content {
+            background: #1e293b;
+        }
 
         /* Mobile specific styling for the huge table */
         @media (max-width: 768px) {
@@ -201,7 +296,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <a href="menu.html" style="color: var(--text-muted); text-decoration: none; margin: 20px; display: inline-block; font-size: 16px; font-weight: 600;">← 메뉴로 돌아가기</a>
             <div style="display: flex; gap: 10px; margin-right: 20px;">
-                <button id="excludeBtn" class="btn-add" onclick="openExcludedModal()" style="background: #475569; padding: 10px 15px; display: none;">미달 인원 설정</button>
+                <button id="excludeBtn" class="btn-add" onclick="openExcludedModal()" style="background: #7D7468; padding: 10px 15px; display: none;">미달 인원 설정</button>
                 <button id="addCollBtn" class="btn-add" onclick="openModal()" style="display: none;">+ 컬렉션 추가</button>
             </div>
         </div>
@@ -254,9 +349,9 @@
                     <input type="number" placeholder="강화" style="max-width: 80px;">
                 </div>
             </div>
-            <button class="btn-add btn-small" onclick="addItemInput()" style="display: block; width: 100%; margin-top: 10px; background: #334155;">+ 아이템 추가</button>
+            <button class="btn-add btn-small" onclick="addItemInput()" style="display: block; width: 100%; margin-top: 10px; background: #8D8373;">+ 아이템 추가</button>
             <div class="modal-actions">
-                <button class="btn-add" style="background: #334155; display: block;" onclick="closeModal()">취소</button>
+                <button class="btn-add" style="background: #8D8373; display: block;" onclick="closeModal()">취소</button>
                 <button class="btn-add" style="display: block;" onclick="saveNewCollection()">저장하기</button>
             </div>
         </div>
@@ -429,7 +524,7 @@
             const priorityMember = calculatePriority(uniqueKey);
             if (priorityMember) {
                 priorityTd.textContent = priorityMember.isExcluded ? `${priorityMember.nickname} (미달)` : priorityMember.nickname;
-                if (priorityMember.isExcluded) priorityTd.style.color = '#94a3b8';
+                if (priorityMember.isExcluded) priorityTd.style.color = 'var(--text-muted)';
                 priorityTd.title = `투력: ${priorityMember.combat_power.toLocaleString()}`;
             } else {
                 priorityTd.textContent = '-';
@@ -697,10 +792,10 @@
 
                 div.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-weight: 700; color: ${isExcluded ? '#ef4444' : '#fff'}">${m.nickname}</span>
+                        <span style="font-weight: 700; color: ${isExcluded ? '#ef4444' : 'var(--text-light)'}">${m.nickname}</span>
                         <span style="font-size: 12px; color: var(--text-muted)">투력: ${m.combat_power.toLocaleString()}</span>
                     </div>
-                    <button class="btn-add btn-small" onclick="event.stopPropagation(); window.toggleExclusion(${m.id})" style="background: ${isExcluded ? '#ef4444' : '#334155'}; padding: 6px 12px; display: block;">
+                    <button class="btn-add btn-small" onclick="event.stopPropagation(); window.toggleExclusion(${m.id})" style="background: ${isExcluded ? '#ef4444' : '#8D8373'}; padding: 6px 12px; display: block;">
                         ${isExcluded ? '제외됨' : '지급대상'}
                     </button>
                 `;

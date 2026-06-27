@@ -5,68 +5,101 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>공지 - 길드룰 / 가격표 / 보스통제</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
   <link rel="stylesheet" href="auth.css">
   <style>
     body { padding: 0 20px; box-sizing: border-box; }
     .auth-container { width: min(96vw, 1800px); max-width: none; margin: 20px auto; }
     .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
     .back-link { color: var(--text-muted); text-decoration:none; font-size:14px; font-weight:600; }
-    .role-chip { background: rgba(99,102,241,.2); color:#818cf8; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .role-chip { background: rgba(201,84,43,.14); color:#7B2E18; border:1px solid rgba(201,84,43,.42); padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    :root[data-theme="dark"] .role-chip { background: rgba(242,183,5,.22); color:var(--primary-color); border-color: transparent; }
     .tabs { display:flex; gap:10px; margin:14px 0 20px; flex-wrap:wrap; }
     .tab-btn { border:1px solid var(--border-color); background:rgba(255,255,255,.04); color:var(--text-light); padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:700; }
-    .tab-btn.active { background:rgba(99,102,241,.2); border-color:#6366f1; }
+    .tab-btn.active { background:rgba(242,183,5,.22); border-color:var(--primary-color); }
     .pane { display:none; }
     .pane.active { display:block; }
     .section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px; }
     .section-head h2 { margin:0; font-size:18px; }
     .btn { border:none; border-radius:8px; padding:9px 12px; cursor:pointer; font-weight:700; }
-    .btn-primary { background:#6366f1; color:#fff; }
-    .btn-muted { background:#334155; color:#fff; }
+    .btn-primary { background:var(--primary-color); color:var(--text-light); }
+    .btn-muted { background:#8D8373; color:var(--text-light); }
 
     .list { display:grid; gap:12px; }
     .card-item { border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); border-radius:12px; padding:14px; overflow:hidden; }
     .rule-block-title { margin:0; width:100%; box-sizing:border-box; text-align:center; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.08); font-size:24px; font-weight:800; letter-spacing:-0.02em; }
     .rule-section { margin-top:12px; }
-    .rule-section-title { color:#cbd5e1; font-weight:700; font-size:14px; margin:0 0 8px 0; }
+    .rule-section-title { color:rgba(26, 23, 20, 0.72); font-weight:700; font-size:14px; margin:0 0 8px 0; }
     .rule-table { width:100%; border-collapse:collapse; background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.06); border-radius:10px; overflow:hidden; }
     .rule-table td { padding:8px 10px; border-bottom:1px dashed rgba(255,255,255,.08); vertical-align:top; }
     .rule-table tr:last-child td { border-bottom:none; }
     .rule-key { width:160px; font-weight:800; white-space:nowrap; text-align:center; }
-    .rule-val { color:#e2e8f0; white-space:pre-wrap; }
+    .rule-val { color:var(--text-light); white-space:pre-wrap; }
     .price-val { font-weight:800; color:#facc15; }
     .price-val.free { color:#4ade80; }
     .price-grid { display:grid; grid-template-columns: repeat(auto-fit, 380px); justify-content:start; gap:10px; margin-top:14px; }
     .price-box { background: rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
-    .price-box-title { margin:0 0 8px 0; color:#cbd5e1; font-weight:700; font-size:14px; padding-bottom:6px; border-bottom:1px solid rgba(148,163,184,.25); }
+    .price-box-title { margin:0 0 8px 0; color:rgba(26, 23, 20, 0.72); font-weight:700; font-size:14px; padding-bottom:6px; border-bottom:1px solid rgba(148,163,184,.25); }
     .price-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:6px 0; border-bottom:1px dashed rgba(148,163,184,.25); }
     .price-row:last-child { border-bottom:none; }
-    .price-key { color:#e2e8f0; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+    .price-key { color:var(--text-light); flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
     .price-val { flex: 0 0 auto; white-space: nowrap; text-align: right; }
     .diamond-icon { margin-left:4px; color:#38bdf8; font-size:12px; vertical-align:middle; }
     .rule-footer { margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid rgba(255,255,255,.08); padding-top:10px; }
     .rule-meta-line { color: var(--text-muted); font-size:12px; }
     .actions { display:flex; gap:6px; }
     .actions button { font-size:12px; padding:6px 9px; border:none; border-radius:7px; cursor:pointer; }
-    .actions .edit { background:#334155; color:#fff; }
-    .actions .del { background:#991b1b; color:#fff; }
+    .actions .edit { background:#8D8373; color:var(--text-light); }
+    .actions .del { background:#991b1b; color:var(--text-light); }
 
     .empty { text-align:center; color:var(--text-muted); border:1px dashed rgba(255,255,255,.08); border-radius:12px; padding:24px; }
-    .staff-summary { margin: 12px 0 6px; padding: 12px; border-radius: 12px; border: 1px solid rgba(129, 140, 248, .3); background: rgba(99, 102, 241, .08); }
-    .staff-summary-title { margin: 0 0 8px 0; color: #c7d2fe; font-size: 13px; font-weight: 800; }
+    .staff-summary { margin: 12px 0 6px; padding: 12px; border-radius: 12px; border: 1px solid rgba(242, 183, 5, .3); background: rgba(242, 183, 5, .12); }
+    .staff-summary-title { margin: 0 0 8px 0; color: var(--text-light); font-size: 13px; font-weight: 800; }
     .staff-summary-list { display: flex; flex-wrap: wrap; gap: 8px; }
-    .staff-chip { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,.15); background: rgba(51,65,85,.5); color:#e2e8f0; }
+    .staff-chip { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,.15); background: rgba(51,65,85,.5); color:var(--text-light); }
     .staff-chip.master { border-color: rgba(251, 191, 36, .5); color: #fbbf24; background: rgba(120, 53, 15, .25); }
-    .staff-chip.admin { border-color: rgba(129, 140, 248, .45); color: #a5b4fc; background: rgba(49, 46, 129, .25); }
+    .staff-chip.admin { border-color: rgba(201, 84, 43, .48); color: #7B2E18; background: rgba(201, 84, 43, .14); }
+    :root[data-theme="dark"] .staff-summary-title { color: #c7d2fe; }
+    :root[data-theme="dark"] .staff-chip.admin { border-color: rgba(129, 140, 248, .45); color: var(--accent-rust); background: rgba(49, 46, 129, .25); }
+    :root[data-theme="dark"] .role-chip {
+      background: rgba(99,102,241,.2);
+      color: #818cf8;
+      border-color: transparent;
+    }
+    :root[data-theme="dark"] .tab-btn.active {
+      background: rgba(99,102,241,.2);
+      border-color: #6366f1;
+    }
+    :root[data-theme="dark"] .btn-muted,
+    :root[data-theme="dark"] .actions .edit,
+    :root[data-theme="dark"] .tiny-add {
+      background: #334155;
+      color: #fff;
+    }
+    :root[data-theme="dark"] .rule-section-title,
+    :root[data-theme="dark"] .price-box-title,
+    :root[data-theme="dark"] .chapter-cell {
+      color: #cbd5e1;
+    }
+    :root[data-theme="dark"] .staff-summary {
+      border-color: rgba(129, 140, 248, .3);
+      background: rgba(99, 102, 241, .08);
+    }
+    :root[data-theme="dark"] .modal-content {
+      background: #1e293b;
+    }
 
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:9999; align-items:center; justify-content:center; padding:14px; }
-    .modal-content { width:100%; max-width:860px; background:#1e293b; border-radius:12px; padding:18px; border:1px solid var(--border-color); }
+    .modal-content { width:100%; max-width:860px; background:var(--panel-strong, #F7F2E9); border-radius:12px; padding:18px; border:1px solid var(--border-color); }
     .modal-content h3 { margin:0 0 12px 0; }
-    .input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid var(--border-color); border-radius:8px; color:#fff; padding:10px; margin-bottom:10px; }
+    .input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid var(--border-color); border-radius:8px; color:var(--text-light); padding:10px; margin-bottom:10px; }
     .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
 
     .color-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-    .color-row label { font-size:12px; color:#94a3b8; min-width:70px; }
-    .color-swatch { width:28px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,.2); background:#f8fafc; flex-shrink:0; }
+    .color-row label { font-size:12px; color:var(--text-muted); min-width:70px; }
+    .color-swatch { width:28px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,.2); background:var(--text-light); flex-shrink:0; }
 
     .editor-toolbar { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-bottom:10px; }
     .editor-toolbar .input { margin-bottom:0; }
@@ -74,15 +107,15 @@
     .editor-sections-wrap { display:grid; gap:10px; max-height:52vh; overflow-y:auto; padding-right:4px; }
     .editor-section-card { border:1px dashed rgba(255,255,255,.12); border-radius:8px; padding:8px; }
     .editor-section-head { display:flex; gap:8px; align-items:center; }
-    .section-head-title { flex:1; padding:10px 12px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-weight:700; color:#e2e8f0; }
+    .section-head-title { flex:1; padding:10px 12px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-weight:700; color:var(--text-light); }
     .section-edit-body { margin-top:8px; }
     .editor-rows { margin-top:8px; display:grid; gap:6px; }
     .editor-row { display:grid; grid-template-columns:180px 1fr auto; gap:6px; }
     .tiny-btn { padding:6px 9px; border-radius:8px; border:none; cursor:pointer; font-weight:700; }
-    .tiny-add { background:#334155; color:#fff; }
-    .tiny-del { background:#7f1d1d; color:#fff; }
+    .tiny-add { background:#8D8373; color:var(--text-light); }
+    .tiny-del { background:#7f1d1d; color:var(--text-light); }
 
-    .control-legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px; color:#94a3b8; font-size:12px; }
+    .control-legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px; color:var(--text-muted); font-size:12px; }
     .legend-item { display:inline-flex; align-items:center; gap:6px; }
     .legend-dot { width:10px; height:10px; border-radius:3px; border:1px solid rgba(255,255,255,.2); }
     .legend-dot.control { background:rgba(239,68,68,.9); }
@@ -92,13 +125,64 @@
     .control-table { width:100%; border-collapse:collapse; }
     .control-table th, .control-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
     .control-table tr:last-child td { border-bottom:none; }
-    .chapter-cell { width:180px; color:#cbd5e1; font-weight:700; white-space:nowrap; vertical-align:top; }
+    .chapter-cell { width:180px; color:rgba(26, 23, 20, 0.72); font-weight:700; white-space:nowrap; vertical-align:top; }
     .boss-chip-wrap { display:flex; flex-wrap:wrap; gap:6px; }
-    .boss-chip { border:1px solid rgba(255,255,255,.25); background:rgba(51,65,85,.4); color:#e2e8f0; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; cursor:default; }
+    .boss-chip { border:1px solid rgba(255,255,255,.25); background:rgba(51,65,85,.4); color:var(--text-light); border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; cursor:default; }
     .boss-chip.is-clickable { cursor:pointer; }
     .boss-chip.status-control { background:rgba(127,29,29,.45); border-color:#ef4444; color:#fca5a5; }
     .boss-chip.status-ally { background:rgba(30,58,138,.45); border-color:#60a5fa; color:#bfdbfe; }
-    .boss-chip.status-none { background:rgba(71,85,105,.35); border-color:#94a3b8; color:#e2e8f0; }
+    .boss-chip.status-none { background:rgba(71,85,105,.35); border-color:var(--text-muted); color:var(--text-light); }
+    :root:not([data-theme="dark"]) .card-item,
+    :root:not([data-theme="dark"]) .price-box,
+    :root:not([data-theme="dark"]) .control-table-wrap,
+    :root:not([data-theme="dark"]) .editor-section-card {
+      background: rgba(255, 252, 246, 0.94);
+      border-color: rgba(26, 23, 20, 0.22);
+      box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
+    }
+    :root:not([data-theme="dark"]) .rule-block-title,
+    :root:not([data-theme="dark"]) .section-head-title {
+      background: rgba(233, 227, 215, 0.42);
+      border-color: rgba(26, 23, 20, 0.16);
+    }
+    :root:not([data-theme="dark"]) .rule-table {
+      background: rgba(255, 252, 246, 0.88);
+      border-color: rgba(26, 23, 20, 0.18);
+    }
+    :root:not([data-theme="dark"]) .rule-table td,
+    :root:not([data-theme="dark"]) .control-table th,
+    :root:not([data-theme="dark"]) .control-table td,
+    :root:not([data-theme="dark"]) .rule-footer,
+    :root:not([data-theme="dark"]) .price-row {
+      border-color: rgba(26, 23, 20, 0.12);
+    }
+    :root:not([data-theme="dark"]) .price-val,
+    :root:not([data-theme="dark"]) .staff-chip.master {
+      color: #7B2E18;
+    }
+    :root:not([data-theme="dark"]) .price-val.free {
+      color: #235533;
+    }
+    :root:not([data-theme="dark"]) .boss-chip {
+      background: rgba(255, 252, 246, 0.88);
+      border-color: rgba(26, 23, 20, 0.22);
+      color: #1A1714;
+    }
+    :root:not([data-theme="dark"]) .boss-chip.status-control {
+      background: rgba(159, 47, 36, 0.12);
+      border-color: rgba(159, 47, 36, 0.34);
+      color: #7F1D1D;
+    }
+    :root:not([data-theme="dark"]) .boss-chip.status-ally {
+      background: rgba(46, 92, 125, 0.12);
+      border-color: rgba(46, 92, 125, 0.34);
+      color: #2E5C7D;
+    }
+    :root:not([data-theme="dark"]) .boss-chip.status-none {
+      background: rgba(26, 23, 20, 0.08);
+      border-color: rgba(26, 23, 20, 0.2);
+      color: rgba(26, 23, 20, 0.72);
+    }
 
     @media (max-width: 768px) {
       body { padding: 0 8px; }
@@ -113,7 +197,7 @@
       .rule-table tr:last-child { border-bottom:none; }
       .rule-table td { padding:0; border-bottom:none; }
       .rule-key { width:auto; margin-bottom:4px; }
-      .rule-val { color:#e2e8f0; }
+      .rule-val { color:var(--text-light); }
       .editor-toolbar, .editor-row { grid-template-columns:1fr; }
       .rule-footer { flex-direction:column; align-items:flex-start; }
       .price-grid { grid-template-columns:1fr; }
@@ -186,8 +270,8 @@
     </div>
     <div id="ruleSectionEditorBox">
       <div class="editor-toolbar">
-        <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">섹션 선택</label><select id="ruleSectionSelect" class="input"></select></div>
-        <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">새 섹션명</label><input id="ruleNewSectionName" class="input" placeholder="예: 참여방법"></div>
+        <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">섹션 선택</label><select id="ruleSectionSelect" class="input"></select></div>
+        <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">새 섹션명</label><input id="ruleNewSectionName" class="input" placeholder="예: 참여방법"></div>
         <button class="btn btn-primary" type="button" onclick="addSection('rule')">섹션추가</button>
       </div>
       <div id="ruleEditorSections" class="editor-sections-wrap"></div>
@@ -212,8 +296,8 @@
       <div id="priceColorSwatch" class="color-swatch"></div>
     </div>
     <div class="editor-toolbar">
-      <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">섹션 선택</label><select id="priceSectionSelect" class="input"></select></div>
-      <div><label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;">새 섹션명</label><input id="priceNewSectionName" class="input" placeholder="예: 전설 방어구"></div>
+      <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">섹션 선택</label><select id="priceSectionSelect" class="input"></select></div>
+      <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">새 섹션명</label><input id="priceNewSectionName" class="input" placeholder="예: 전설 방어구"></div>
       <button class="btn btn-primary" type="button" onclick="addSection('price')">섹션추가</button>
     </div>
     <div id="priceEditorSections" class="editor-sections-wrap"></div>

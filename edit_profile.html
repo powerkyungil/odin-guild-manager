@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오딘 보스 스케줄 - 정보 수정</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
 </head>
 <body>
     <div class="auth-container expanded">
         <div class="auth-header">
-            <h1>정보 수정 <span id="userRoleBadge" style="font-size: 12px; vertical-align: middle; margin-left:10px; padding: 2px 8px; background: rgba(99,102,241,0.2); color: #818cf8; border-radius: 4px; font-weight: 600;">--</span></h1>
+            <h1>정보 수정 <span id="userRoleBadge" style="font-size: 12px; vertical-align: middle; margin-left:10px; padding: 2px 8px; background: rgba(242, 183, 5, 0.22); color: var(--primary-color); border-radius: 4px; font-weight: 600;">--</span></h1>
             <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">변경할 캐릭터 정보를 입력하세요</p>
         </div>
         

@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>오딘 보스 스케줄 - 공성전 참여</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="auth.css">
+    <script>
+    document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "safety";
+  </script>
+  <link rel="stylesheet" href="auth.css">
     <style>
         .auth-container { max-width: 1000px; margin: 40px auto; width: 95%; }
         .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
@@ -21,8 +24,8 @@
         }
         
         .my-status-card {
-            background: linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(30, 41, 59, 0.4));
-            border: 1px solid rgba(99, 102, 241, 0.2);
+            background: linear-gradient(145deg, rgba(242, 183, 5, 0.16), rgba(30, 41, 59, 0.4));
+            border: 1px solid rgba(242, 183, 5, 0.22);
             border-radius: 16px;
             padding: 24px;
             margin-bottom: 30px;
@@ -41,7 +44,7 @@
         .status-input-group label {
             font-size: 13px;
             font-weight: 600;
-            color: #818cf8;
+            color: var(--primary-color);
         }
         
         .status-input-group input {
@@ -49,7 +52,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             padding: 12px 16px;
-            color: white;
+            color: var(--text-light);
             font-size: 16px;
             outline: none;
             width: 100%;
@@ -57,8 +60,8 @@
         }
         
         .save-btn {
-            background: #6366f1;
-            color: white;
+            background: var(--primary-color);
+            color: var(--text-light);
             border: none;
             padding: 12px 24px;
             border-radius: 8px;
@@ -68,7 +71,7 @@
             height: 46px;
         }
         
-        .save-btn:hover { background: #4f46e5; transform: translateY(-2px); }
+        .save-btn:hover { background: var(--primary-hover); transform: translateY(-2px); }
         
         .summary-bar {
             background: rgba(255, 255, 255, 0.05);
@@ -101,17 +104,17 @@
             background: rgba(0,0,0,0.3);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 4px;
-            color: white;
+            color: var(--text-light);
             padding: 4px 8px;
             font-size: 13px;
             outline: none;
             text-align: right;
         }
-        .admin-input:focus { border-color: #6366f1; }
+        .admin-input:focus { border-color: var(--primary-color); }
         
         .mini-save-btn {
-            background: #6366f1;
-            color: white;
+            background: var(--primary-color);
+            color: var(--text-light);
             border: none;
             padding: 4px 8px;
             border-radius: 4px;
@@ -120,10 +123,83 @@
             cursor: pointer;
             transition: 0.2s;
         }
-        .mini-save-btn:hover { background: #4f46e5; }
+        .mini-save-btn:hover { background: var(--primary-hover); }
         
         .dia-val { font-family: 'Inter', monospace; font-weight: 700; color: #fbbf24; }
         .update-time { font-size: 11px; color: var(--text-muted); }
+
+        :root:not([data-theme="dark"]) .my-status-card,
+        :root:not([data-theme="dark"]) .summary-bar,
+        :root:not([data-theme="dark"]) .siege-table-container {
+            background: rgba(255, 252, 246, 0.94);
+            border: 1px solid rgba(26, 23, 20, 0.22);
+            box-shadow: 0 10px 24px rgba(26, 23, 20, 0.08);
+        }
+        :root:not([data-theme="dark"]) .my-status-card {
+            background: linear-gradient(145deg, rgba(255, 252, 246, 0.96), rgba(242, 183, 5, 0.12));
+        }
+        :root:not([data-theme="dark"]) .status-input-group label,
+        :root:not([data-theme="dark"]) .siege-header h1 {
+            color: #7B2E18 !important;
+            -webkit-text-fill-color: initial !important;
+            background: none !important;
+        }
+        :root:not([data-theme="dark"]) .status-input-group input,
+        :root:not([data-theme="dark"]) .admin-input {
+            background: #fffaf1;
+            border-color: rgba(26, 23, 20, 0.26);
+            color: #1A1714;
+        }
+        :root:not([data-theme="dark"]) .status-input-group input:focus,
+        :root:not([data-theme="dark"]) .admin-input:focus {
+            border-color: #C9542B;
+            box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
+        }
+        :root:not([data-theme="dark"]) .siege-table th {
+            background: rgba(233, 227, 215, 0.58);
+            color: rgba(26, 23, 20, 0.72);
+        }
+        :root:not([data-theme="dark"]) .siege-table td {
+            border-color: rgba(26, 23, 20, 0.12);
+        }
+        :root:not([data-theme="dark"]) .summary-item .val,
+        :root:not([data-theme="dark"]) .dia-val,
+        :root:not([data-theme="dark"]) [style*="color: #60a5fa"],
+        :root:not([data-theme="dark"]) [style*="color: #f43f5e"] {
+            color: #7B2E18 !important;
+        }
+        :root:not([data-theme="dark"]) .save-btn,
+        :root:not([data-theme="dark"]) .mini-save-btn {
+            color: #1A1714;
+        }
+        :root[data-theme="dark"] .my-status-card {
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(30, 41, 59, 0.4));
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+        :root[data-theme="dark"] .status-input-group label,
+        :root[data-theme="dark"] .back-link:hover {
+            color: #818cf8;
+        }
+        :root[data-theme="dark"] .status-input-group input {
+            background: rgba(15, 23, 42, 0.6);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        :root[data-theme="dark"] .summary-bar {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        :root[data-theme="dark"] .siege-table-container {
+            background: rgba(30, 41, 59, 0.4);
+        }
+        :root[data-theme="dark"] .siege-table th {
+            background: rgba(0,0,0,0.2);
+            color: var(--text-muted);
+        }
+        :root[data-theme="dark"] .admin-input {
+            background: rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.1);
+            color: white;
+        }
         
         @media (max-width: 768px) {
             .my-status-card { grid-template-columns: 1fr; }
@@ -145,7 +221,7 @@
 
         <div class="siege-header">
             <div>
-                <h1 style="margin: 0; font-size: 28px; font-weight: 900; background: linear-gradient(to right, #fff, #818cf8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">공성전 참여 현황</h1>
+                <h1 style="margin: 0; font-size: 28px; font-weight: 900; background: linear-gradient(to right, var(--text-light), var(--primary-color)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">공성전 참여 현황</h1>
                 <p style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">길드원들의 시작 전/종료 후 다이아 정보를 관리합니다.</p>
             </div>
             <div id="adminSiegeActions" style="display: none;">
@@ -262,7 +338,7 @@
                 }) : '-';
 
                 const row = document.createElement('tr');
-                if (u.id === userId) row.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+                if (u.id === userId) row.style.backgroundColor = 'rgba(242, 183, 5, 0.16)';
 
                 let startCell = `<td data-label="시작 전" class="dia-val">${startBalance.toLocaleString()}</td>`;
                 let endCell = `<td data-label="종료 후" class="dia-val" style="color: #60a5fa;">${endBalance.toLocaleString()}</td>`;
@@ -280,7 +356,7 @@
                     <td data-label="전투력">${u.combat_power.toLocaleString()}</td>
                     ${startCell}
                     ${endCell}
-                    <td data-label="사용(차액)" class="dia-val" style="color: ${difference < 0 ? '#f43f5e' : (difference > 0 ? '#10b981' : '#94a3b8')};">
+                    <td data-label="사용(차액)" class="dia-val" style="color: ${difference < 0 ? '#f43f5e' : (difference > 0 ? '#10b981' : 'var(--text-muted)')};">
                         ${difference > 0 ? '+' : ''}${difference.toLocaleString()}
                     </td>
                     <td data-label="업데이트" class="update-time">${updatedStr}</td>
@@ -292,7 +368,7 @@
             document.getElementById('totalCurrent').textContent = totalCurrent.toLocaleString();
             document.getElementById('totalRemaining').textContent = totalRemaining.toLocaleString();
             document.getElementById('totalUsed').textContent = (totalUsed > 0 ? '+' : '') + totalUsed.toLocaleString();
-            document.getElementById('totalUsed').style.color = totalUsed < 0 ? '#f43f5e' : (totalUsed > 0 ? '#10b981' : '#94a3b8');
+            document.getElementById('totalUsed').style.color = totalUsed < 0 ? '#f43f5e' : (totalUsed > 0 ? '#10b981' : 'var(--text-muted)');
         }
 
         async function saveAdminEdit(targetId) {
