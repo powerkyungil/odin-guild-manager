@@ -283,6 +283,32 @@ function initDB() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )`);
 
+        // Hand Support Requests: matchmaking only, no login credentials stored.
+        db.run(`CREATE TABLE IF NOT EXISTS support_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            requester_id INTEGER NOT NULL,
+            requested_time TEXT,
+            memo TEXT,
+            status TEXT DEFAULT 'OPEN',
+            selected_application_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS support_applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_id INTEGER NOT NULL,
+            applicant_id INTEGER NOT NULL,
+            memo TEXT,
+            status TEXT DEFAULT 'APPLIED',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(request_id, applicant_id),
+            FOREIGN KEY (request_id) REFERENCES support_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (applicant_id) REFERENCES users(id) ON DELETE CASCADE
+        )`);
+
         // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
         db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -513,6 +539,18 @@ function checkAndSeedDefaultBosses() {
     });
 }
 
+function cleanupSupportRequests() {
+    db.run(`
+        DELETE FROM support_requests
+        WHERE
+            (status IN ('DONE', 'CANCELED') AND datetime(updated_at) <= datetime('now', '-2 days'))
+            OR substr(requested_time, 1, 10) <= date('now', '-7 days')
+    `);
+}
+
+setInterval(cleanupSupportRequests, 24 * 60 * 60 * 1000);
+setTimeout(cleanupSupportRequests, 2000);
+
 // --- Middleware ---
 const verifyToken = (req, res, next) => {
     const header = req.headers['authorization'];
@@ -590,6 +628,211 @@ app.put('/api/users/me', verifyToken, (req, res) => {
 
 app.get('/api/users', verifyToken, (req, res) => {
     db.all("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users", (err, rows) => res.json(rows));
+});
+
+// --- HAND SUPPORT API ---
+const isAdminRole = (role) => role === 'MASTER' || role === 'ADMIN';
+
+const supportRequestSelect = `
+    SELECT
+        sr.id,
+        sr.requester_id AS requesterId,
+        sr.requested_time AS requestedTime,
+        sr.memo,
+        sr.status,
+        sr.selected_application_id AS selectedApplicationId,
+        sr.created_at AS createdAt,
+        sr.updated_at AS updatedAt,
+        u.nickname,
+        u.occupation,
+        u.main_class AS mainClass,
+        u.combat_power AS combatPower
+    FROM support_requests sr
+    JOIN users u ON u.id = sr.requester_id
+`;
+
+app.get('/api/support-requests', verifyToken, (req, res) => {
+    db.all(`${supportRequestSelect} ORDER BY CASE sr.status WHEN 'OPEN' THEN 0 WHEN 'MATCHED' THEN 1 ELSE 2 END, sr.created_at DESC`, (err, requests) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        db.all(`
+            SELECT
+                sa.id,
+                sa.request_id AS requestId,
+                sa.applicant_id AS applicantId,
+                sa.memo,
+                sa.status,
+                sa.created_at AS createdAt,
+                u.nickname,
+                u.occupation,
+                u.main_class AS mainClass,
+                u.combat_power AS combatPower
+            FROM support_applications sa
+            JOIN users u ON u.id = sa.applicant_id
+            ORDER BY sa.created_at ASC
+        `, (appErr, applications) => {
+            if (appErr) return res.status(500).json({ error: appErr.message });
+            const applicationsByRequest = {};
+            (applications || []).forEach(appRow => {
+                if (!applicationsByRequest[appRow.requestId]) applicationsByRequest[appRow.requestId] = [];
+                applicationsByRequest[appRow.requestId].push(appRow);
+            });
+
+            res.json((requests || []).map(row => ({
+                ...row,
+                applications: applicationsByRequest[row.id] || []
+            })));
+        });
+    });
+});
+
+app.post('/api/support-requests', verifyToken, (req, res) => {
+    const requestedTime = String(req.body?.requestedTime || '').trim();
+    const memo = String(req.body?.memo || '').trim();
+    if (!requestedTime) return res.status(400).json({ error: '요청시간을 입력해주세요.' });
+
+    db.run(
+        "INSERT INTO support_requests (requester_id, requested_time, memo) VALUES (?, ?, ?)",
+        [req.userId, requestedTime.slice(0, 80), memo.slice(0, 500)],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/support-requests/:id/status', verifyToken, (req, res) => {
+    const requestId = Number(req.params.id);
+    const status = String(req.body?.status || '').trim();
+    const allowedStatuses = new Set(['OPEN', 'DONE', 'CANCELED']);
+    if (!Number.isFinite(requestId) || !allowedStatuses.has(status)) {
+        return res.status(400).json({ error: 'Invalid request.' });
+    }
+
+    db.get("SELECT requester_id FROM support_requests WHERE id = ?", [requestId], (err, requestRow) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!requestRow) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+        if (requestRow.requester_id !== req.userId && !isAdminRole(req.userRole)) {
+            return res.status(403).json({ error: '요청자 또는 운영진만 변경할 수 있습니다.' });
+        }
+
+        db.run(
+            "UPDATE support_requests SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            [status, requestId],
+            (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+                res.json({ success: true });
+            }
+        );
+    });
+});
+
+app.delete('/api/support-requests/:id', verifyToken, (req, res) => {
+    const requestId = Number(req.params.id);
+    if (!Number.isFinite(requestId)) return res.status(400).json({ error: 'Invalid request.' });
+
+    db.get("SELECT requester_id FROM support_requests WHERE id = ?", [requestId], (err, requestRow) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!requestRow) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+        if (requestRow.requester_id !== req.userId && !isAdminRole(req.userRole)) {
+            return res.status(403).json({ error: '요청자 또는 운영진만 삭제할 수 있습니다.' });
+        }
+
+        db.run("DELETE FROM support_requests WHERE id = ?", [requestId], (deleteErr) => {
+            if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+            res.json({ success: true });
+        });
+    });
+});
+
+app.post('/api/support-requests/:id/applications', verifyToken, (req, res) => {
+    const requestId = Number(req.params.id);
+    const memo = String(req.body?.memo || '').trim();
+    if (!Number.isFinite(requestId)) return res.status(400).json({ error: 'Invalid request.' });
+
+    db.get("SELECT requester_id, status FROM support_requests WHERE id = ?", [requestId], (err, requestRow) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!requestRow) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+        if (requestRow.status !== 'OPEN') return res.status(400).json({ error: '신청 가능한 요청이 아닙니다.' });
+        if (requestRow.requester_id === req.userId) return res.status(400).json({ error: '본인 요청에는 신청할 수 없습니다.' });
+
+        db.run(
+            "INSERT INTO support_applications (request_id, applicant_id, memo) VALUES (?, ?, ?)",
+            [requestId, req.userId, memo.slice(0, 300)],
+            function (insertErr) {
+                if (insertErr) {
+                    const isDuplicate = insertErr.message && insertErr.message.includes('UNIQUE');
+                    return res.status(isDuplicate ? 400 : 500).json({ error: isDuplicate ? '이미 신청한 요청입니다.' : insertErr.message });
+                }
+                res.json({ success: true, id: this.lastID });
+            }
+        );
+    });
+});
+
+app.delete('/api/support-requests/:requestId/applications/:applicationId', verifyToken, (req, res) => {
+    const requestId = Number(req.params.requestId);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isFinite(requestId) || !Number.isFinite(applicationId)) return res.status(400).json({ error: 'Invalid request.' });
+
+    db.get(
+        "SELECT applicant_id, status FROM support_applications WHERE id = ? AND request_id = ?",
+        [applicationId, requestId],
+        (err, appRow) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!appRow) return res.status(404).json({ error: '신청을 찾을 수 없습니다.' });
+            if (appRow.applicant_id !== req.userId) return res.status(403).json({ error: '본인 신청만 취소할 수 있습니다.' });
+
+            db.run("DELETE FROM support_applications WHERE id = ?", [applicationId], (deleteErr) => {
+                if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+
+                if (appRow.status === 'SELECTED') {
+                    db.run(
+                        "UPDATE support_requests SET status = 'OPEN', selected_application_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                        [requestId],
+                        (updateErr) => {
+                            if (updateErr) return res.status(500).json({ error: updateErr.message });
+                            res.json({ success: true });
+                        }
+                    );
+                } else {
+                    res.json({ success: true });
+                }
+            });
+        }
+    );
+});
+
+app.post('/api/support-requests/:requestId/select/:applicationId', verifyToken, (req, res) => {
+    const requestId = Number(req.params.requestId);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isFinite(requestId) || !Number.isFinite(applicationId)) return res.status(400).json({ error: 'Invalid request.' });
+
+    db.get("SELECT requester_id, status FROM support_requests WHERE id = ?", [requestId], (err, requestRow) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!requestRow) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+        if (requestRow.requester_id !== req.userId && !isAdminRole(req.userRole)) {
+            return res.status(403).json({ error: '요청자 또는 운영진만 선택할 수 있습니다.' });
+        }
+
+        db.get("SELECT id FROM support_applications WHERE id = ? AND request_id = ?", [applicationId, requestId], (appErr, appRow) => {
+            if (appErr) return res.status(500).json({ error: appErr.message });
+            if (!appRow) return res.status(404).json({ error: '신청을 찾을 수 없습니다.' });
+
+            db.serialize(() => {
+                db.run("UPDATE support_applications SET status = 'APPLIED', updated_at = CURRENT_TIMESTAMP WHERE request_id = ?", [requestId]);
+                db.run("UPDATE support_applications SET status = 'SELECTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [applicationId]);
+                db.run(
+                    "UPDATE support_requests SET status = 'MATCHED', selected_application_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    [applicationId, requestId],
+                    (updateErr) => {
+                        if (updateErr) return res.status(500).json({ error: updateErr.message });
+                        res.json({ success: true });
+                    }
+                );
+            });
+        });
+    });
 });
 
 // --- BOSS API ---

@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오딘 보스 스케줄 - 손지원</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        body { align-items: flex-start; }
+        .auth-container { max-width: 1180px; width: 96%; box-sizing: border-box; }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 18px;
+        }
+        .back-link:hover { color: var(--text-light); }
+        .support-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .panel {
+            background: rgba(15, 23, 42, 0.38);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 18px;
+        }
+        .panel-title {
+            margin: 0 0 14px;
+            font-size: 16px;
+            font-weight: 800;
+        }
+        textarea {
+            width: 100%;
+            min-height: 110px;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-size: 15px;
+            resize: vertical;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .request-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .request-card {
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .request-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .request-name {
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0 0 4px;
+        }
+        .request-meta {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+        }
+        .info-tile {
+            position: relative;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 8px;
+            padding: 13px 14px 13px 16px;
+            background: rgba(15, 23, 42, 0.46);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            min-width: 0;
+            overflow: hidden;
+        }
+        .info-tile::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 12px;
+            bottom: 12px;
+            width: 3px;
+            border-radius: 0 999px 999px 0;
+            background: #818cf8;
+        }
+        .info-label {
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 900;
+            margin-bottom: 7px;
+            letter-spacing: 0;
+        }
+        .info-value {
+            color: var(--text-light);
+            font-size: 16px;
+            font-weight: 900;
+            line-height: 1.25;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+        }
+        .info-tile.time {
+            background: rgba(6, 78, 59, 0.14);
+        }
+        .info-tile.time::before { background: #34d399; }
+        .info-tile.power {
+            background: rgba(120, 53, 15, 0.14);
+        }
+        .info-tile.power::before { background: #f59e0b; }
+        .info-tile.power .info-value {
+            color: #f8fafc;
+            font-variant-numeric: tabular-nums;
+        }
+        .info-tile.time .info-value { color: #ecfdf5; }
+        @media (max-width: 820px) {
+            .request-meta { grid-template-columns: 1fr; }
+        }
+        .status-badge {
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .status-open { background: rgba(16,185,129,0.16); color: #34d399; }
+        .status-matched { background: rgba(99,102,241,0.18); color: #a5b4fc; }
+        .status-done { background: rgba(148,163,184,0.18); color: #cbd5e1; }
+        .status-canceled { background: rgba(239,68,68,0.16); color: #fca5a5; }
+        .memo-box {
+            color: #dbe4f0;
+            line-height: 1.55;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 12px 0;
+        }
+        .applications {
+            margin-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 12px;
+        }
+        .applications-title {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        .application-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .app-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            max-width: 100%;
+            padding: 7px 10px;
+            border: 1px solid rgba(129,140,248,0.26);
+            border-radius: 999px;
+            background: rgba(99,102,241,0.13);
+            color: #e0e7ff;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .app-badge.selectable {
+            cursor: pointer;
+        }
+        .app-badge.selectable:hover {
+            border-color: rgba(129,140,248,0.65);
+            background: rgba(99,102,241,0.22);
+        }
+        .app-badge.selected {
+            border-color: rgba(16,185,129,0.55);
+            background: rgba(16,185,129,0.15);
+            color: #bbf7d0;
+        }
+        .app-badge-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .app-badge-mark {
+            color: #34d399;
+            font-size: 11px;
+        }
+        .app-cancel-btn {
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 50%;
+            background: rgba(15,23,42,0.45);
+            color: #cbd5e1;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 900;
+            line-height: 1;
+            padding: 0;
+        }
+        .app-cancel-btn:hover {
+            background: rgba(248,113,113,0.2);
+            color: #fecaca;
+        }
+        .mini-btn {
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.08);
+            color: var(--text-light);
+            border-radius: 6px;
+            padding: 7px 10px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .mini-btn:hover { border-color: var(--primary-color); }
+        .mini-btn.primary { background: var(--primary-color); border-color: var(--primary-color); }
+        .mini-btn.danger { color: #fca5a5; border-color: rgba(248,113,113,0.35); }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .empty {
+            color: var(--text-muted);
+            text-align: center;
+            padding: 28px 10px;
+            border: 1px dashed rgba(255,255,255,0.14);
+            border-radius: 8px;
+        }
+        .message {
+            min-height: 22px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .request-form-grid {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+        .date-grid {
+            display: grid;
+            grid-template-columns: 1fr 0.8fr 0.8fr;
+            gap: 8px;
+        }
+        .time-range-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .time-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .time-label {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            margin: 10px 0 6px;
+        }
+        .all-day-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            color: #cbd5e1;
+            font-size: 13px;
+            font-weight: 800;
+        }
+        .all-day-row input {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            accent-color: var(--primary-color);
+        }
+        .date-grid select,
+        .time-pair select {
+            min-width: 0;
+            padding: 12px 10px;
+            font-size: 14px;
+        }
+        .time-range-grid.disabled {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+        .request-submit-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .request-submit-row .auth-btn {
+            width: 180px;
+            padding: 11px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .modal-cancel-btn {
+            min-width: 96px;
+            padding: 11px 16px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.06);
+            color: #cbd5e1;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .modal-cancel-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.24);
+        }
+        .top-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 14px;
+        }
+        .top-actions .auth-btn {
+            width: 180px;
+        }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(2, 6, 23, 0.72);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1000;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal-panel {
+            width: min(820px, 100%);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            background: rgba(30, 41, 59, 0.96);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 10px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+            padding: 20px;
+        }
+        .modal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .modal-head h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+        }
+        .icon-btn:hover { border-color: var(--primary-color); }
+        @media (max-width: 760px) {
+            .request-form-grid { grid-template-columns: 1fr; }
+            .date-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .time-range-grid { grid-template-columns: 1fr; }
+            .request-submit-row { flex-direction: column-reverse; }
+            .request-submit-row .auth-btn,
+            .modal-cancel-btn { width: 100%; }
+            .top-actions .auth-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <a href="menu.html" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            메뉴로 돌아가기
+        </a>
+
+        <div class="auth-header" style="text-align:left; margin-bottom:20px;">
+            <h1>손지원 매칭</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">접속 정보는 개인 카톡으로 주고받고, 여기서는 요청자와 지원자만 매칭합니다.</p>
+        </div>
+
+        <div class="support-layout">
+            <section class="panel">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:14px;">
+                    <h2 class="panel-title" style="margin:0;">요청목록</h2>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                        <button class="mini-btn primary" onclick="openRequestModal()">요청 등록</button>
+                        <button class="mini-btn" onclick="loadRequests()">새로고침</button>
+                    </div>
+                </div>
+                <div id="requestList" class="request-list">
+                    <div class="empty">불러오는 중입니다.</div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="requestModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
+        <div class="modal-panel">
+            <div class="modal-head">
+                <h2 id="requestModalTitle">손지원 요청 등록</h2>
+                <button type="button" class="icon-btn" onclick="closeRequestModal()" aria-label="닫기">&times;</button>
+            </div>
+            <form id="requestForm">
+                <div class="request-form-grid">
+                    <div class="form-group">
+                        <label>요청 년/월/일</label>
+                        <div class="date-grid">
+                            <select id="requestYear" required aria-label="요청 년"></select>
+                            <select id="requestMonth" required aria-label="요청 월"></select>
+                            <select id="requestDay" required aria-label="요청 일"></select>
+                        </div>
+                        <label class="all-day-row">
+                            <input type="checkbox" id="allDayToggle">
+                            종일
+                        </label>
+                        <div class="time-label">손지원 시간</div>
+                        <div class="time-range-grid">
+                            <div>
+                                <div class="time-label" style="margin-top:0;">시작</div>
+                                <div class="time-pair">
+                                    <select id="startHour" required aria-label="시작 시"></select>
+                                    <select id="startMinute" required aria-label="시작 분"></select>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="time-label" style="margin-top:0;">종료</div>
+                                <div class="time-pair">
+                                    <select id="endHour" aria-label="종료 시"></select>
+                                    <select id="endMinute" aria-label="종료 분"></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestMemo">메모</label>
+                        <textarea id="requestMemo" placeholder="필요한 작업, 주의사항, 가능한 연락 시간 등을 적어주세요."></textarea>
+                    </div>
+                </div>
+                <div class="request-submit-row">
+                    <button type="button" class="modal-cancel-btn" onclick="closeRequestModal()">취소</button>
+                    <button type="submit" class="auth-btn">요청 등록</button>
+                </div>
+                <div id="formMessage" class="message"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const myUserId = Number(localStorage.getItem('userId') || sessionStorage.getItem('userId'));
+        const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
+        const isAdmin = myRole === 'MASTER' || myRole === 'ADMIN';
+
+        const handleAuthError = () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('nickname');
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        };
+
+        if (!token) handleAuthError();
+
+        const statusLabels = {
+            OPEN: '모집중',
+            MATCHED: '매칭완료',
+            DONE: '완료',
+            CANCELED: '취소'
+        };
+
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[ch]));
+
+        const formatPower = (value) => Number(value || 0).toLocaleString();
+
+        const pad2 = (value) => String(value).padStart(2, '0');
+
+        function fillSelect(id, values, selectedValue) {
+            const select = document.getElementById(id);
+            select.innerHTML = values.map(item => {
+                const value = typeof item === 'object' ? item.value : item;
+                const label = typeof item === 'object' ? item.label : item;
+                return `<option value="${escapeHtml(value)}" ${String(value) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            }).join('');
+        }
+
+        function getDaysInMonth(year, month) {
+            return new Date(Number(year), Number(month), 0).getDate();
+        }
+
+        function refreshDayOptions() {
+            const year = document.getElementById('requestYear').value;
+            const month = document.getElementById('requestMonth').value;
+            const daySelect = document.getElementById('requestDay');
+            const currentDay = Number(daySelect.value || 1);
+            const lastDay = getDaysInMonth(year, month);
+            const selectedDay = Math.min(currentDay, lastDay);
+            fillSelect('requestDay', Array.from({ length: lastDay }, (_, idx) => ({
+                value: pad2(idx + 1),
+                label: `${idx + 1}일`
+            })), pad2(selectedDay));
+        }
+
+        function initDateTimeDropdowns() {
+            const now = new Date();
+            const years = Array.from({ length: 3 }, (_, idx) => {
+                const year = now.getFullYear() + idx;
+                return { value: year, label: `${year}년` };
+            });
+            fillSelect('requestYear', years, now.getFullYear());
+            fillSelect('requestMonth', Array.from({ length: 12 }, (_, idx) => ({
+                value: pad2(idx + 1),
+                label: `${idx + 1}월`
+            })), pad2(now.getMonth() + 1));
+            refreshDayOptions();
+            fillSelect('requestDay', Array.from({ length: getDaysInMonth(now.getFullYear(), now.getMonth() + 1) }, (_, idx) => ({
+                value: pad2(idx + 1),
+                label: `${idx + 1}일`
+            })), pad2(now.getDate()));
+            const hourOptions = Array.from({ length: 24 }, (_, idx) => ({
+                value: pad2(idx),
+                label: `${pad2(idx)}시`
+            }));
+            const minuteOptions = Array.from({ length: 12 }, (_, idx) => {
+                const minute = idx * 5;
+                return { value: pad2(minute), label: `${pad2(minute)}분` };
+            });
+            const startMinute = Math.ceil(now.getMinutes() / 5) * 5 % 60;
+            const startHour = startMinute === 0 && now.getMinutes() > 55 ? (now.getHours() + 1) % 24 : now.getHours();
+            const emptyEndOption = [{ value: '', label: '선택 안함' }];
+
+            fillSelect('startHour', hourOptions, pad2(startHour));
+            fillSelect('startMinute', minuteOptions, pad2(startMinute));
+            fillSelect('endHour', emptyEndOption.concat(hourOptions), '');
+            fillSelect('endMinute', emptyEndOption.concat(minuteOptions), '');
+            document.getElementById('allDayToggle').checked = false;
+            toggleAllDay(false);
+
+            document.getElementById('requestYear').onchange = refreshDayOptions;
+            document.getElementById('requestMonth').onchange = refreshDayOptions;
+        }
+
+        function toggleAllDay(isAllDay) {
+            const timeGrid = document.querySelector('.time-range-grid');
+            ['startHour', 'startMinute', 'endHour', 'endMinute'].forEach(id => {
+                document.getElementById(id).disabled = isAllDay;
+            });
+            timeGrid.classList.toggle('disabled', isAllDay);
+        }
+
+        function getRequestedDateTimeValue() {
+            const year = document.getElementById('requestYear').value;
+            const month = document.getElementById('requestMonth').value;
+            const day = document.getElementById('requestDay').value;
+            const dateText = `${year}-${month}-${day}`;
+            if (document.getElementById('allDayToggle').checked) {
+                return `${dateText} 종일`;
+            }
+            const startHour = document.getElementById('startHour').value;
+            const startMinute = document.getElementById('startMinute').value;
+            const endHour = document.getElementById('endHour').value;
+            const endMinute = document.getElementById('endMinute').value;
+            const startText = `${startHour}:${startMinute}`;
+            const endText = endHour && endMinute ? `${endHour}:${endMinute}` : '';
+            return `${dateText} ${startText}${endText ? `~${endText}` : ''}`;
+        }
+
+        const formatRequestedTime = (value) => {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value.replace('T', ' ');
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const hh = String(date.getHours()).padStart(2, '0');
+            const mi = String(date.getMinutes()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+        };
+
+        const apiFetch = async (url, options = {}) => {
+            const res = await fetch(url, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (res.status === 401) handleAuthError();
+            return res;
+        };
+
+        function openRequestModal() {
+            document.getElementById('formMessage').textContent = '';
+            document.getElementById('requestModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('requestMemo').focus();
+        }
+
+        function closeRequestModal() {
+            document.getElementById('requestModal').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('requestModal').addEventListener('click', (event) => {
+            if (event.target.id === 'requestModal') closeRequestModal();
+        });
+
+        document.getElementById('allDayToggle').addEventListener('change', (event) => {
+            toggleAllDay(event.target.checked);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.getElementById('requestModal').classList.contains('open')) {
+                closeRequestModal();
+            }
+        });
+
+        document.getElementById('requestForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const message = document.getElementById('formMessage');
+            message.textContent = '';
+
+            const requestedTime = getRequestedDateTimeValue();
+            const memo = document.getElementById('requestMemo').value.trim();
+
+            try {
+                const res = await apiFetch('/api/support-requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requestedTime, memo })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '요청 등록에 실패했습니다.');
+                event.target.reset();
+                initDateTimeDropdowns();
+                closeRequestModal();
+                await loadRequests();
+            } catch (err) {
+                message.textContent = err.message;
+            }
+        });
+
+        async function loadRequests() {
+            const list = document.getElementById('requestList');
+            list.innerHTML = '<div class="empty">불러오는 중입니다.</div>';
+            try {
+                const res = await apiFetch('/api/support-requests');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '목록을 불러오지 못했습니다.');
+                renderRequests(data);
+            } catch (err) {
+                list.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        function renderRequests(requests) {
+            const list = document.getElementById('requestList');
+            if (!requests.length) {
+                list.innerHTML = '<div class="empty">등록된 손지원 요청이 없습니다.</div>';
+                return;
+            }
+
+            list.innerHTML = requests.map(req => {
+                const canManage = req.requesterId === myUserId || isAdmin;
+                const hasApplied = req.applications.some(app => app.applicantId === myUserId);
+                const canApply = req.status === 'OPEN' && req.requesterId !== myUserId && !hasApplied;
+                const statusClass = `status-${String(req.status || 'OPEN').toLowerCase()}`;
+
+                const applicationsHtml = req.applications.length
+                    ? `<div class="application-badges">${req.applications.map(app => {
+                        const selected = app.status === 'SELECTED';
+                        const isMine = app.applicantId === myUserId;
+                        const selectableClass = canManage ? 'selectable' : '';
+                        const selectAttr = canManage ? `onclick="selectApplication(${req.id}, ${app.id})" title="이 지원자 선택"` : '';
+                        return `
+                            <span class="app-badge ${selected ? 'selected' : ''} ${selectableClass}" ${selectAttr}>
+                                <span class="app-badge-name">${escapeHtml(app.nickname)}</span>
+                                ${selected ? '<span class="app-badge-mark">선택</span>' : ''}
+                                ${isMine ? `<button type="button" class="app-cancel-btn" onclick="cancelApplication(event, ${req.id}, ${app.id})" aria-label="신청 취소">&times;</button>` : ''}
+                            </span>
+                        `;
+                    }).join('')}</div>`
+                    : '<div class="empty" style="padding:16px 10px;">아직 손지원 신청이 없습니다.</div>';
+
+                return `
+                    <article class="request-card">
+                        <div class="request-head">
+                            <div>
+                                <h3 class="request-name">${escapeHtml(req.nickname)}</h3>
+                                <div class="request-meta">
+                                    <div class="info-tile power">
+                                        <div class="info-label">투력</div>
+                                        <div class="info-value">${formatPower(req.combatPower)}</div>
+                                    </div>
+                                    <div class="info-tile">
+                                        <div class="info-label">클래스</div>
+                                        <div class="info-value">${escapeHtml(req.occupation || '-')} / ${escapeHtml(req.mainClass || '-')}</div>
+                                    </div>
+                                    <div class="info-tile time">
+                                        <div class="info-label">요청시간</div>
+                                        <div class="info-value">${escapeHtml(formatRequestedTime(req.requestedTime))}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="status-badge ${statusClass}">${statusLabels[req.status] || req.status}</span>
+                        </div>
+                        ${req.memo ? `<div class="memo-box">${escapeHtml(req.memo)}</div>` : ''}
+                        <div class="actions">
+                            ${canApply ? `<button class="mini-btn primary" onclick="applySupport(${req.id})">손지원 신청</button>` : ''}
+                            ${canManage && req.status !== 'DONE' ? `<button class="mini-btn" onclick="changeStatus(${req.id}, 'DONE')">완료</button>` : ''}
+                            ${canManage && req.status !== 'CANCELED' ? `<button class="mini-btn danger" onclick="changeStatus(${req.id}, 'CANCELED')">취소</button>` : ''}
+                            ${canManage && req.status !== 'OPEN' ? `<button class="mini-btn" onclick="changeStatus(${req.id}, 'OPEN')">다시 모집</button>` : ''}
+                            ${canManage ? `<button class="mini-btn danger" onclick="deleteRequest(${req.id})">삭제</button>` : ''}
+                        </div>
+                        <div class="applications">
+                            <div class="applications-title">손지원 신청목록</div>
+                            ${applicationsHtml}
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        async function applySupport(requestId) {
+            try {
+                const res = await apiFetch(`/api/support-requests/${requestId}/applications`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ memo: '' })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '신청에 실패했습니다.');
+                await loadRequests();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function cancelApplication(event, requestId, applicationId) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!confirm('손지원 신청을 취소하시겠습니까?')) return;
+            try {
+                const res = await apiFetch(`/api/support-requests/${requestId}/applications/${applicationId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '신청 취소에 실패했습니다.');
+                await loadRequests();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function selectApplication(requestId, applicationId) {
+            if (!confirm('이 신청자를 손지원 담당자로 선택하시겠습니까?')) return;
+            try {
+                const res = await apiFetch(`/api/support-requests/${requestId}/select/${applicationId}`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '선택에 실패했습니다.');
+                await loadRequests();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function changeStatus(requestId, status) {
+            const label = statusLabels[status] || status;
+            if (!confirm(`요청 상태를 '${label}'(으)로 변경하시겠습니까?`)) return;
+            try {
+                const res = await apiFetch(`/api/support-requests/${requestId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '상태 변경에 실패했습니다.');
+                await loadRequests();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function deleteRequest(requestId) {
+            if (!confirm('이 손지원 요청을 삭제하시겠습니까? 신청목록도 함께 삭제됩니다.')) return;
+            try {
+                const res = await apiFetch(`/api/support-requests/${requestId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '삭제에 실패했습니다.');
+                await loadRequests();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        initDateTimeDropdowns();
+        loadRequests();
+    </script>
+</body>
+</html>
