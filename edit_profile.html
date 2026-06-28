@@ -187,7 +187,7 @@
 
         function selectColor(btn, color) {
             const selector = btn.parentElement;
-            selector.querySelectorAll('.color-btn').forEach(el => el.classList.remove('active'));
+            selector.querySelector('.color-btn.active')?.classList.remove('active');
             btn.classList.add('active');
             selector.dataset.color = color;
         }
