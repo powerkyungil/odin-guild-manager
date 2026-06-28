@@ -338,11 +338,13 @@ function initDB() {
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             color TEXT DEFAULT '#f8fafc',
+            sort_order INTEGER DEFAULT 0,
             created_by INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
         db.run("ALTER TABLE guild_rules ADD COLUMN color TEXT DEFAULT '#f8fafc'", () => {});
+        db.run("ALTER TABLE guild_rules ADD COLUMN sort_order INTEGER DEFAULT 0", () => {});
 
         // Notice: Boss Control Matrix
         db.run(`CREATE TABLE IF NOT EXISTS boss_control_states (
@@ -1751,7 +1753,7 @@ app.put('/api/admin/siege/:id', verifyToken, (req, res) => {
 
 // --- NOTICE (Guild Rules / Price List) ---
 app.get('/api/notices/rules', verifyToken, (req, res) => {
-    db.all("SELECT id, title, content, color, created_by, created_at, updated_at FROM guild_rules ORDER BY updated_at DESC, id DESC", (err, rows) => {
+    db.all("SELECT id, title, content, color, sort_order, created_by, created_at, updated_at FROM guild_rules ORDER BY sort_order ASC, id ASC", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows || []);
     });
@@ -1761,14 +1763,39 @@ app.post('/api/notices/rules', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
     const { title, content, color } = req.body;
     if (!title) return res.status(400).json({ error: 'title is required.' });
-    db.run(
-        "INSERT INTO guild_rules (title, content, color, created_by, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-        [String(title).trim(), String(content || '').trim(), String(color || '#f8fafc').trim(), req.userId],
-        function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, id: this.lastID });
-        }
-    );
+    db.get("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM guild_rules", (orderErr, row) => {
+        if (orderErr) return res.status(500).json({ error: orderErr.message });
+        db.run(
+            "INSERT INTO guild_rules (title, content, color, sort_order, created_by, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            [String(title).trim(), String(content || '').trim(), String(color || '#f8fafc').trim(), row.next_order || 0, req.userId],
+            function (err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ success: true, id: this.lastID });
+            }
+        );
+    });
+});
+
+app.put('/api/notices/rule-order', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(id => parseInt(id, 10)).filter(Boolean) : [];
+    if (!ids.length) return res.status(400).json({ error: 'ids are required.' });
+
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        const stmt = db.prepare("UPDATE guild_rules SET sort_order = ? WHERE id = ?");
+        ids.forEach((id, index) => stmt.run(index, id));
+        stmt.finalize((stmtErr) => {
+            if (stmtErr) {
+                db.run("ROLLBACK");
+                return res.status(500).json({ error: stmtErr.message });
+            }
+            db.run("COMMIT", (commitErr) => {
+                if (commitErr) return res.status(500).json({ error: commitErr.message });
+                res.json({ success: true });
+            });
+        });
+    });
 });
 
 app.put('/api/notices/rules/:id', verifyToken, (req, res) => {

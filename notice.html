@@ -92,7 +92,7 @@
     }
 
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:9999; align-items:center; justify-content:center; padding:14px; }
-    .modal-content { width:100%; max-width:860px; background:var(--panel-strong, #F7F2E9); border-radius:12px; padding:18px; border:1px solid var(--border-color); }
+    .modal-content { width:100%; max-width:860px; max-height:92vh; overflow-y:auto; background:var(--panel-strong, #F7F2E9); border-radius:12px; padding:18px; border:1px solid var(--border-color); }
     .modal-content h3 { margin:0 0 12px 0; }
     .input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid var(--border-color); border-radius:8px; color:var(--text-light); padding:10px; margin-bottom:10px; }
     .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
@@ -114,6 +114,13 @@
     .tiny-btn { padding:6px 9px; border-radius:8px; border:none; cursor:pointer; font-weight:700; }
     .tiny-add { background:#8D8373; color:var(--text-light); }
     .tiny-del { background:#7f1d1d; color:var(--text-light); }
+    .rule-simple-editor { display:grid; gap:12px; }
+    .rule-simple-editor label { display:block; font-size:12px; color:var(--text-muted); font-weight:800; margin-bottom:5px; }
+    .rule-simple-editor textarea { min-height:92px; resize:vertical; line-height:1.45; }
+    .rule-simple-section { border:1px dashed rgba(255,255,255,.12); border-radius:10px; padding:10px; background:rgba(255,255,255,.025); }
+    .rule-simple-section-head { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:start; }
+    .rule-simple-section textarea { min-height:150px; margin-bottom:0; }
+    .editor-help { margin:-4px 0 0; color:var(--text-muted); font-size:12px; line-height:1.45; }
 
     .control-legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px; color:var(--text-muted); font-size:12px; }
     .legend-item { display:inline-flex; align-items:center; gap:6px; }
@@ -135,7 +142,8 @@
     :root:not([data-theme="dark"]) .card-item,
     :root:not([data-theme="dark"]) .price-box,
     :root:not([data-theme="dark"]) .control-table-wrap,
-    :root:not([data-theme="dark"]) .editor-section-card {
+    :root:not([data-theme="dark"]) .editor-section-card,
+    :root:not([data-theme="dark"]) .rule-simple-section {
       background: rgba(255, 252, 246, 0.94);
       border-color: rgba(26, 23, 20, 0.22);
       box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
@@ -199,6 +207,7 @@
       .rule-key { width:auto; margin-bottom:4px; }
       .rule-val { color:var(--text-light); }
       .editor-toolbar, .editor-row { grid-template-columns:1fr; }
+      .rule-simple-section-head { grid-template-columns:1fr; }
       .rule-footer { flex-direction:column; align-items:flex-start; }
       .price-grid { grid-template-columns:1fr; }
     }
@@ -264,17 +273,44 @@
     <div class="color-row">
       <label>타이틀 색상</label>
       <select id="ruleColor" class="input" style="margin-bottom:0;">
-        <option value="#f8fafc">기본(화이트)</option><option value="#22d3ee">하늘</option><option value="#4ade80">초록</option><option value="#f59e0b">주황</option><option value="#f472b6">핑크</option><option value="#a78bfa">보라</option><option value="#f87171">레드</option>
+        <option value="#f8fafc">화이트</option>
+        <option value="#d1d5db">라이트 그레이</option>
+        <option value="#94a3b8">그레이</option>
+        <option value="#1A1714">블랙</option>
+        <option value="#F2B705">골드</option>
+        <option value="#fbbf24">옐로우</option>
+        <option value="#f59e0b">오렌지</option>
+        <option value="#C9542B">러스트</option>
+        <option value="#ef4444">레드</option>
+        <option value="#f43f5e">로즈</option>
+        <option value="#f472b6">핑크</option>
+        <option value="#d946ef">마젠타</option>
+        <option value="#a78bfa">라벤더</option>
+        <option value="#8b5cf6">퍼플</option>
+        <option value="#6366f1">인디고</option>
+        <option value="#3b82f6">블루</option>
+        <option value="#38bdf8">스카이</option>
+        <option value="#22d3ee">시안</option>
+        <option value="#14b8a6">틸</option>
+        <option value="#22c55e">그린</option>
+        <option value="#84cc16">라임</option>
       </select>
       <div id="ruleColorSwatch" class="color-swatch"></div>
     </div>
     <div id="ruleSectionEditorBox">
-      <div class="editor-toolbar">
-        <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">섹션 선택</label><select id="ruleSectionSelect" class="input"></select></div>
-        <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">새 섹션명</label><input id="ruleNewSectionName" class="input" placeholder="예: 참여방법"></div>
-        <button class="btn btn-primary" type="button" onclick="addSection('rule')">섹션추가</button>
+      <div class="rule-simple-editor">
+        <div>
+          <label for="ruleIntro">상단 안내</label>
+          <textarea id="ruleIntro" class="input" placeholder="가입 동의, 운영진 판단 우선, 비상 상황 권한 등 핵심 안내를 입력하세요."></textarea>
+        </div>
+        <p class="editor-help">섹션은 제목과 본문만 입력하면 됩니다. 번호, 카드, 구분선은 화면에서 자동으로 정리됩니다.</p>
+        <div id="ruleSimpleSections" class="editor-sections-wrap"></div>
+        <button class="btn btn-muted" type="button" onclick="addRuleSimpleSection()">+ 섹션 추가</button>
+        <div>
+          <label for="ruleFooter">마무리 문구 / 적용일</label>
+          <textarea id="ruleFooter" class="input" placeholder="예: 참여한 만큼 보상받고, 함께 성장하는 길드를 지향합니다.&#10;&#10;적용일: 공지 즉시"></textarea>
+        </div>
       </div>
-      <div id="ruleEditorSections" class="editor-sections-wrap"></div>
     </div>
     <div class="modal-actions"><button class="btn btn-muted" onclick="closeRuleModal()">취소</button><button class="btn btn-primary" onclick="saveRule()">저장</button></div>
   </div></div>
@@ -327,6 +363,8 @@ async function api(url, options={}) {
 }
 
 function escapeHtml(v){ return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+function encodeStructuredValue(v){ return String(v ?? '').replaceAll('\\','\\\\').replaceAll('\n','\\n'); }
+function decodeStructuredValue(v){ return String(v ?? '').replace(/\\\\/g,'\u0000').replace(/\\n/g,'\n').replace(/\u0000/g,'\\'); }
 function fmtDate(s){
   if (!s) return '-';
   // SQLite CURRENT_TIMESTAMP is UTC (e.g. "YYYY-MM-DD HH:MM:SS"), so parse as UTC first.
@@ -360,7 +398,7 @@ function parseStructuredContent(content){
     if(parts.length<3)return;
     const sectionName=(parts.length>=4?parts[1]:parts[0]) || '기본 섹션';
     const key=(parts.length>=4?parts[2]:parts[1]) || '';
-    const value=(parts.length>=4?parts.slice(3):parts.slice(2)).join(' > ') || '';
+    const value=decodeStructuredValue((parts.length>=4?parts.slice(3):parts.slice(2)).join(' > ') || '');
     if(!m.has(sectionName)){const obj={name:sectionName,rows:[]}; sections.push(obj); m.set(sectionName,obj);} 
     m.get(sectionName).rows.push({key,value});
   });
@@ -368,7 +406,47 @@ function parseStructuredContent(content){
 }
 function buildContentFromDraft(draft){
   const lines=[];
-  draft.forEach(section=>section.rows.forEach(row=>lines.push(`${String(section.name||'기본 섹션').trim()} > ${String(row.key??'').trim()} > ${String(row.value??'').trim()}`)));
+  draft.forEach(section=>section.rows.forEach(row=>lines.push(`${String(section.name||'기본 섹션').trim()} > ${String(row.key??'').trim()} > ${encodeStructuredValue(String(row.value??'').trim())}`)));
+  return lines.join('\n');
+}
+
+function splitRuleDraft(content) {
+  const parsed = parseStructuredContent(content);
+  const draft = { intro: '', sections: [], footer: '' };
+  parsed.forEach(section => {
+    const name = section.name || '';
+    if (name === '길드 내규') {
+      section.rows.forEach(row => {
+        const title = String(row.key || '').trim();
+        const body = String(row.value || '').trim();
+        if (title || body) draft.sections.push({ title, body });
+      });
+      return;
+    }
+    const body = section.rows.map(row => {
+      const key = String(row.key || '').trim();
+      const value = String(row.value || '').trim();
+      if (!key || key === '본문' || key === '안내' || key === '문구' || key === '상단 안내' || key === '마무리') return value;
+      return value ? `${key}\n${value}` : key;
+    }).filter(Boolean).join('\n\n');
+    if (name === '상단 안내') draft.intro = body;
+    else if (name === '마무리') draft.footer = body;
+    else draft.sections.push({ title: name, body });
+  });
+  return draft;
+}
+
+function buildRuleContentFromForm() {
+  const lines = [];
+  const intro = document.getElementById('ruleIntro').value.trim();
+  if (intro) lines.push(`상단 안내 >  > ${encodeStructuredValue(intro)}`);
+  getRuleSimpleSections().forEach(section => {
+    const title = section.title.trim();
+    const body = section.body.trim();
+    if (title && body) lines.push(`길드 내규 > ${title} > ${encodeStructuredValue(body)}`);
+  });
+  const footer = document.getElementById('ruleFooter').value.trim();
+  if (footer) lines.push(`마무리 >  > ${encodeStructuredValue(footer)}`);
   return lines.join('\n');
 }
 
@@ -387,15 +465,40 @@ function renderCardBody(content, titleColor, isPrice=false){
       </section>
     `).join('')}</div>`;
   }
-  return sections.map(section=>`<section class="rule-section"><h5 class="rule-section-title">${escapeHtml(section.name)}</h5><table class="rule-table"><tbody>${section.rows.map(row=>{
+  return sections.map(section=>{
+    const isPlainSection = (section.name === '상단 안내' || section.name === '마무리') && section.rows.length === 1;
+    if (isPlainSection) {
+      return `<section class="rule-section"><table class="rule-table"><tbody><tr><td class="rule-val" colspan="2">${escapeHtml(section.rows[0].value)}</td></tr></tbody></table></section>`;
+    }
+    const sectionTitle = section.name === '길드 내규' ? '' : `<h5 class="rule-section-title">${escapeHtml(section.name)}</h5>`;
+    return `<section class="rule-section">${sectionTitle}<table class="rule-table"><tbody>${section.rows.map(row=>{
     return `<tr><td class="rule-key" style="color:${escapeHtml(titleColor)}">${escapeHtml(row.key)}</td><td class="rule-val">${escapeHtml(row.value)}</td></tr>`;
-  }).join('')}</tbody></table></section>`).join('');
+  }).join('')}</tbody></table></section>`;
+  }).join('');
 }
 
 function renderRules(){
   const el=document.getElementById('rulesList');
   if(!rules.length){el.innerHTML='<div class="empty">등록된 길드룰이 없습니다.</div>'; return;}
-  el.innerHTML = rules.map(r=>`<article class="card-item"><h3 class="rule-block-title" style="color:${escapeHtml(r.color||'#f8fafc')}">${escapeHtml(r.title)}</h3>${renderCardBody(r.content,r.color||'#22d3ee',false)}<div class="rule-footer"><div class="rule-meta-line">수정일: ${fmtDate(r.updated_at)}</div>${isAdmin?`<div class="actions"><button class="edit" onclick="openRuleModal(${r.id})">수정</button><button class="del" onclick="deleteRule(${r.id})">삭제</button></div>`:''}</div></article>`).join('');
+  el.innerHTML = rules.map((r, idx)=>`<article class="card-item"><h3 class="rule-block-title" style="color:${escapeHtml(r.color||'#f8fafc')}">${escapeHtml(r.title)}</h3>${renderCardBody(r.content,r.color||'#22d3ee',false)}<div class="rule-footer"><div class="rule-meta-line">수정일: ${fmtDate(r.updated_at)}</div>${isAdmin?`<div class="actions"><button class="edit" onclick="moveRule(${idx}, -1)" ${idx===0?'disabled':''}>위</button><button class="edit" onclick="moveRule(${idx}, 1)" ${idx===rules.length-1?'disabled':''}>아래</button><button class="edit" onclick="openRuleModal(${r.id})">수정</button><button class="del" onclick="deleteRule(${r.id})">삭제</button></div>`:''}</div></article>`).join('');
+}
+
+async function saveRuleOrder(){
+  await api('/api/notices/rule-order',{method:'PUT',body:JSON.stringify({ids: rules.map(r => r.id)})});
+}
+
+async function moveRule(index, dir){
+  const target = index + dir;
+  if (target < 0 || target >= rules.length) return;
+  [rules[index], rules[target]] = [rules[target], rules[index]];
+  renderRules();
+  try {
+    await saveRuleOrder();
+  } catch (e) {
+    [rules[index], rules[target]] = [rules[target], rules[index]];
+    renderRules();
+    alert('순서 변경에 실패했습니다: ' + e.message);
+  }
 }
 
 function normalizePriceTierColor(color){
@@ -452,6 +555,53 @@ function renderEditor(type){
   wrap.innerHTML=draft.map((sec,sIdx)=>`<div class="editor-section-card"><div class="editor-section-head"><div class="section-head-title">${escapeHtml(sec.name)}</div><button class="tiny-btn tiny-add" type="button" onclick="toggleSectionEdit('${type}',${sIdx})">수정</button><button class="tiny-btn tiny-del" type="button" onclick="removeSection('${type}',${sIdx})">섹션삭제</button></div><div class="section-edit-body" style="display:${editingIdx===sIdx?'block':'none'};"><input class="input" style="margin:0 0 8px 0;" value="${escapeHtml(sec.name)}" placeholder="섹션명" onchange="updateSectionName('${type}',${sIdx},this.value)"><div style="display:flex; justify-content:flex-end; margin-bottom:8px;"><button class="tiny-btn tiny-add" type="button" onclick="appendRow('${type}',${sIdx})">항목추가</button></div><div class="editor-rows">${sec.rows.map((row,rIdx)=>`<div class="editor-row"><input class="input" style="margin:0;" placeholder="항목명" value="${escapeHtml(row.key)}" onchange="updateRowKey('${type}',${sIdx},${rIdx},this.value)"><input class="input" style="margin:0;" placeholder="${type==='price'?'가격/비고':'내용'}" value="${escapeHtml(row.value)}" onchange="updateRowValue('${type}',${sIdx},${rIdx},this.value)"><button class="tiny-btn tiny-del" type="button" onclick="removeRow('${type}',${sIdx},${rIdx})">삭제</button></div>`).join('')}</div></div></div>`).join('');
 }
 
+function getRuleSimpleSections() {
+  return Array.from(document.querySelectorAll('#ruleSimpleSections .rule-simple-section')).map(section => ({
+    title: section.querySelector('.rule-section-title-input')?.value || '',
+    body: section.querySelector('.rule-section-body-input')?.value || ''
+  }));
+}
+
+function renderRuleSimpleEditor(draft = { intro: '', sections: [], footer: '' }) {
+  document.getElementById('ruleIntro').value = draft.intro || '';
+  document.getElementById('ruleFooter').value = draft.footer || '';
+  const wrap = document.getElementById('ruleSimpleSections');
+  const sections = draft.sections && draft.sections.length ? draft.sections : [{ title: '', body: '' }];
+  wrap.innerHTML = sections.map((section, idx) => `
+    <div class="rule-simple-section">
+      <div class="rule-simple-section-head">
+        <div>
+          <label>섹션 ${idx + 1} 제목</label>
+          <input class="input rule-section-title-input" value="${escapeHtml(section.title || '')}" placeholder="예: 참여율 규정">
+        </div>
+        <button class="tiny-btn tiny-del" type="button" onclick="removeRuleSimpleSection(${idx})">삭제</button>
+      </div>
+      <label>섹션 ${idx + 1} 내용</label>
+      <textarea class="input rule-section-body-input" placeholder="내용을 자유롭게 입력하세요. 목록은 - 또는 * 로 적으면 됩니다.">${escapeHtml(section.body || '')}</textarea>
+    </div>
+  `).join('');
+}
+
+function addRuleSimpleSection() {
+  const sections = getRuleSimpleSections();
+  sections.push({ title: '', body: '' });
+  renderRuleSimpleEditor({
+    intro: document.getElementById('ruleIntro').value,
+    sections,
+    footer: document.getElementById('ruleFooter').value
+  });
+}
+
+function removeRuleSimpleSection(idx) {
+  const sections = getRuleSimpleSections();
+  sections.splice(idx, 1);
+  renderRuleSimpleEditor({
+    intro: document.getElementById('ruleIntro').value,
+    sections,
+    footer: document.getElementById('ruleFooter').value
+  });
+}
+
 function getDraft(type){ return type==='rule' ? ruleDraft : priceDraft; }
 function setEditingIdx(type,idx){ if(type==='rule') editingRuleSection=idx; else editingPriceSection=idx; }
 function addSection(type){ const draft=getDraft(type); const secSel=document.getElementById(type==='rule'?'ruleSectionSelect':'priceSectionSelect'); const newInput=document.getElementById(type==='rule'?'ruleNewSectionName':'priceNewSectionName'); const secVal=secSel.value; const name=newInput.value.trim(); if(secVal==='__new__'){ if(!name) return alert('새 섹션명을 입력해주세요.'); let section=draft.find(s=>s.name===name); if(!section){section={name,rows:[]}; draft.push(section);} setEditingIdx(type,draft.findIndex(s=>s.name===name)); } else { const idx=Number(secVal); if(!draft[idx]) return; setEditingIdx(type,idx);} newInput.value=''; renderEditor(type); }
@@ -463,10 +613,10 @@ function removeRow(type,sIdx,rIdx){ const draft=getDraft(type); draft[sIdx].rows
 function updateRowKey(type,sIdx,rIdx,val){ getDraft(type)[sIdx].rows[rIdx].key=val; }
 function updateRowValue(type,sIdx,rIdx,val){ getDraft(type)[sIdx].rows[rIdx].value=val; }
 
-function openRuleModal(id=null){ editingRuleId=id; const sectionBox=document.getElementById('ruleSectionEditorBox'); if(id){ const r=rules.find(x=>x.id===id); if(!r) return; document.getElementById('ruleModalTitle').textContent='길드룰 수정'; document.getElementById('ruleTitle').value=r.title; document.getElementById('ruleColor').value=r.color||'#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); ruleDraft=parseStructuredContent(r.content); sectionBox.style.display='block'; } else { document.getElementById('ruleModalTitle').textContent='길드룰 등록'; document.getElementById('ruleTitle').value=''; document.getElementById('ruleColor').value='#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); ruleDraft=[]; sectionBox.style.display='none'; }
-editingRuleSection=-1; renderEditor('rule'); document.getElementById('ruleModal').style.display='flex'; }
+function openRuleModal(id=null){ editingRuleId=id; if(id){ const r=rules.find(x=>x.id===id); if(!r) return; document.getElementById('ruleModalTitle').textContent='길드룰 수정'; document.getElementById('ruleTitle').value=r.title; document.getElementById('ruleColor').value=r.color||'#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); renderRuleSimpleEditor(splitRuleDraft(r.content)); } else { document.getElementById('ruleModalTitle').textContent='길드룰 등록'; document.getElementById('ruleTitle').value='길드 운영 내규'; document.getElementById('ruleColor').value='#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); renderRuleSimpleEditor({ intro: '', sections: [{ title: '', body: '' }], footer: '' }); }
+editingRuleSection=-1; document.getElementById('ruleModal').style.display='flex'; }
 function closeRuleModal(){ document.getElementById('ruleModal').style.display='none'; }
-async function saveRule(){ const title=document.getElementById('ruleTitle').value.trim(); const color=document.getElementById('ruleColor').value||'#f8fafc'; const content=buildContentFromDraft(ruleDraft).trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(editingRuleId) await api(`/api/notices/rules/${editingRuleId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/notices/rules',{method:'POST',body:JSON.stringify({title,content,color})}); closeRuleModal(); await loadAll(); }
+async function saveRule(){ const title=document.getElementById('ruleTitle').value.trim(); const color=document.getElementById('ruleColor').value||'#f8fafc'; const content=buildRuleContentFromForm().trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(!content) return alert('상단 안내나 섹션 내용을 입력해주세요.'); if(editingRuleId) await api(`/api/notices/rules/${editingRuleId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/notices/rules',{method:'POST',body:JSON.stringify({title,content,color})}); closeRuleModal(); await loadAll(); }
 async function deleteRule(id){ if(!confirm('이 길드룰을 삭제할까요?')) return; await api(`/api/notices/rules/${id}`,{method:'DELETE'}); await loadAll(); }
 
 function openPriceModal(id=null){ editingPriceGuideId=id; if(id){ const p=priceGuides.find(x=>x.id===id); if(!p) return; document.getElementById('priceModalTitle').textContent='가격표 수정'; document.getElementById('priceTitle').value=p.title; document.getElementById('priceColor').value=normalizePriceTierColor(p.color); setColorSwatch('priceColor','priceColorSwatch'); priceDraft=parseStructuredContent(p.content); } else { document.getElementById('priceModalTitle').textContent='가격표 등록'; document.getElementById('priceTitle').value=''; document.getElementById('priceColor').value='#f8fafc'; setColorSwatch('priceColor','priceColorSwatch'); priceDraft=[]; }
@@ -488,9 +638,10 @@ document.getElementById('addPriceBtn').addEventListener('click', ()=>openPriceMo
 document.getElementById('ruleColor').addEventListener('change', ()=>setColorSwatch('ruleColor','ruleColorSwatch'));
 document.getElementById('priceColor').addEventListener('change', ()=>setColorSwatch('priceColor','priceColorSwatch'));
 
-window.openRuleModal=openRuleModal; window.closeRuleModal=closeRuleModal; window.saveRule=saveRule; window.deleteRule=deleteRule;
+window.openRuleModal=openRuleModal; window.closeRuleModal=closeRuleModal; window.saveRule=saveRule; window.deleteRule=deleteRule; window.moveRule=moveRule;
 window.openPriceModal=openPriceModal; window.closePriceModal=closePriceModal; window.savePriceGuide=savePriceGuide; window.deletePriceGuide=deletePriceGuide;
 window.addSection=addSection; window.toggleSectionEdit=toggleSectionEdit; window.updateSectionName=updateSectionName; window.removeSection=removeSection; window.appendRow=appendRow; window.removeRow=removeRow; window.updateRowKey=updateRowKey; window.updateRowValue=updateRowValue;
+window.addRuleSimpleSection=addRuleSimpleSection; window.removeRuleSimpleSection=removeRuleSimpleSection;
 
 setColorSwatch('ruleColor','ruleColorSwatch');
 setColorSwatch('priceColor','priceColorSwatch');
