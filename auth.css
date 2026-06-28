@@ -543,8 +543,6 @@ body {
 
 :root:not([data-theme="dark"]) [style*="color: var(--primary-color)"],
 :root:not([data-theme="dark"]) [style*="color:var(--primary-color)"],
-:root:not([data-theme="dark"]) [style*="color: #fbbf24"],
-:root:not([data-theme="dark"]) [style*="color:#fbbf24"],
 :root:not([data-theme="dark"]) [style*="color: #facc15"],
 :root:not([data-theme="dark"]) [style*="color:#facc15"],
 :root:not([data-theme="dark"]) .skill-title,
@@ -560,8 +558,7 @@ body {
 :root:not([data-theme="dark"]) .summary-item .val,
 :root:not([data-theme="dark"]) .dia-val,
 :root:not([data-theme="dark"]) .enchant-high,
-:root:not([data-theme="dark"]) .skill-legend,
-:root:not([data-theme="dark"]) .equip-legend {
+:root:not([data-theme="dark"]) .skill-legend {
   color: #7B2E18 !important;
   text-shadow: none !important;
 }
