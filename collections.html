@@ -382,9 +382,12 @@
 
         let members = [];
         let statusData = [];
+        let statusSet = new Set();
         let collectionsData = [];
         let excludedUserIds = []; // NEW
         let editingCollId = null; // To track if we are editing or adding
+
+        const makeStatusKey = (userId, collectionName) => `${userId}||${collectionName}`;
 
         async function init() {
             if (isAdmin) {
@@ -418,6 +421,7 @@
                 const sRes = await fetch('/api/user-collections', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (sRes.status === 401) return handleAuthError();
                 statusData = await sRes.json();
+                statusSet = new Set(statusData.map(s => makeStatusKey(s.user_id, s.collection_name)));
 
                 // Excluded Members
                 const eRes = await fetch('/api/excluded-members', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -521,25 +525,22 @@
 
             const priorityTd = document.createElement('td');
             priorityTd.className = 'col-priority';
+            priorityTd.dataset.priorityKey = uniqueKey;
             const priorityMember = calculatePriority(uniqueKey);
-            if (priorityMember) {
-                priorityTd.textContent = priorityMember.isExcluded ? `${priorityMember.nickname} (미달)` : priorityMember.nickname;
-                if (priorityMember.isExcluded) priorityTd.style.color = 'var(--text-muted)';
-                priorityTd.title = `투력: ${priorityMember.combat_power.toLocaleString()}`;
-            } else {
-                priorityTd.textContent = '-';
-            }
+            updatePriorityCell(priorityTd, priorityMember);
             tr.appendChild(priorityTd);
 
             members.forEach(m => {
                 const td = document.createElement('td');
-                const isCompleted = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
+                const isCompleted = statusSet.has(makeStatusKey(m.id, uniqueKey));
                 const canEdit = isAdmin || (m.id === myUserId);
                 
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.checked = isCompleted;
                 cb.disabled = !canEdit;
+                cb.dataset.userId = m.id;
+                cb.dataset.collectionName = uniqueKey;
                 cb.onclick = () => toggleCollection(m.id, uniqueKey, cb);
                 
                 td.appendChild(cb);
@@ -548,18 +549,37 @@
             return tr;
         }
 
+        function updatePriorityCell(cell, priorityMember) {
+            cell.style.color = '';
+            if (priorityMember) {
+                cell.textContent = priorityMember.isExcluded ? `${priorityMember.nickname} (미달)` : priorityMember.nickname;
+                if (priorityMember.isExcluded) cell.style.color = 'var(--text-muted)';
+                cell.title = `투력: ${priorityMember.combat_power.toLocaleString()}`;
+            } else {
+                cell.textContent = '-';
+                cell.title = '';
+            }
+        }
+
+        function refreshPriorityForKey(key) {
+            const priorityMember = calculatePriority(key);
+            document.querySelectorAll(`[data-priority-key="${CSS.escape(key)}"]`).forEach(cell => {
+                updatePriorityCell(cell, priorityMember);
+            });
+        }
+
         function calculatePriority(uniqueKey) {
             // First pass: Normal members who are not excluded
             for (const m of members) {
                 if (excludedUserIds.includes(m.id)) continue;
-                const hasItem = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
+                const hasItem = statusSet.has(makeStatusKey(m.id, uniqueKey));
                 if (!hasItem) return { ...m, isExcluded: false };
             }
             
             // Second pass: Fallback to excluded members if everyone else is done
             for (const m of members) {
                 if (!excludedUserIds.includes(m.id)) continue;
-                const hasItem = statusData.some(s => s.user_id === m.id && s.collection_name === uniqueKey);
+                const hasItem = statusSet.has(makeStatusKey(m.id, uniqueKey));
                 if (!hasItem) return { ...m, isExcluded: true };
             }
             
@@ -605,26 +625,35 @@
         }
 
         async function toggleCollection(userId, key, cb) {
+            const completed = cb.checked;
+            const statusKey = makeStatusKey(userId, key);
+            cb.disabled = true;
             try {
                 const res = await fetch('/api/user-collections/toggle', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ userId, collectionName: key })
+                    body: JSON.stringify({ userId, collectionName: key, completed })
                 });
                 if (!res.ok) throw new Error('Failed');
                 
                 const data = await res.json();
                 if (data.status === 'added') {
-                    statusData.push({ user_id: userId, collection_name: key });
+                    statusSet.add(statusKey);
+                    if (!statusData.some(s => s.user_id === userId && s.collection_name === key)) {
+                        statusData.push({ user_id: userId, collection_name: key });
+                    }
                 } else {
+                    statusSet.delete(statusKey);
                     statusData = statusData.filter(s => !(s.user_id === userId && s.collection_name === key));
                 }
                 
-                // Re-render only the rows is complex, so let's just refresh the body
-                renderTable(); 
+                refreshPriorityForKey(key);
             } catch (err) {
                 cb.checked = !cb.checked;
                 alert('권한이 없거나 저장에 실패했습니다.');
+            } finally {
+                const canEdit = isAdmin || (userId === myUserId);
+                cb.disabled = !canEdit;
             }
         }
 

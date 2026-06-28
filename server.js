@@ -1478,15 +1478,53 @@ app.post('/api/excluded-members/toggle', verifyToken, (req, res) => {
 });
 
 app.get('/api/user-collections', verifyToken, (req, res) => {
-    db.all("SELECT user_id, collection_name FROM user_collections", (err, rows) => res.json(rows));
+    db.all("SELECT user_id, collection_name FROM user_collections", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
 });
 
 app.post('/api/user-collections/toggle', verifyToken, (req, res) => {
-    const { userId, collectionName } = req.body;
-    if (req.userId !== parseInt(userId) && req.userRole === 'MEMBER') return res.status(403).json({ error: 'Denied.' });
-    db.get("SELECT * FROM user_collections WHERE user_id = ? AND collection_name = ?", [userId, collectionName], (err, row) => {
-        if (row) db.run("DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?", [userId, collectionName], () => res.json({ status: 'removed' }));
-        else db.run("INSERT INTO user_collections (user_id, collection_name) VALUES (?, ?)", [userId, collectionName], () => res.json({ status: 'added' }));
+    const { userId, collectionName, completed } = req.body;
+    const targetUserId = parseInt(userId, 10);
+    if (!targetUserId || !collectionName) return res.status(400).json({ error: 'Invalid request.' });
+    if (req.userId !== targetUserId && req.userRole === 'MEMBER') return res.status(403).json({ error: 'Denied.' });
+
+    if (typeof completed === 'boolean') {
+        if (completed) {
+            return db.run(
+                "INSERT OR IGNORE INTO user_collections (user_id, collection_name) VALUES (?, ?)",
+                [targetUserId, collectionName],
+                (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ status: 'added' });
+                }
+            );
+        }
+
+        return db.run(
+            "DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?",
+            [targetUserId, collectionName],
+            (err) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ status: 'removed' });
+            }
+        );
+    }
+
+    db.get("SELECT id FROM user_collections WHERE user_id = ? AND collection_name = ?", [targetUserId, collectionName], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (row) {
+            db.run("DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?", [targetUserId, collectionName], (deleteErr) => {
+                if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+                res.json({ status: 'removed' });
+            });
+        } else {
+            db.run("INSERT INTO user_collections (user_id, collection_name) VALUES (?, ?)", [targetUserId, collectionName], (insertErr) => {
+                if (insertErr) return res.status(500).json({ error: insertErr.message });
+                res.json({ status: 'added' });
+            });
+        }
     });
 });
 
