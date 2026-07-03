@@ -368,6 +368,13 @@
                         <span class="slider round"></span>
                     </label>
                 </div>
+                <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+                    <label style="margin-bottom: 0;">길드원 전투력 수정 가능</label>
+                    <label class="switch">
+                        <input type="checkbox" id="allowCombatPowerEditInput" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="save-settings-btn" style="flex: 2;" onclick="saveGuildSettings()">설정 저장 및 봇 가동</button>
                     <button class="save-settings-btn" style="flex: 1; background: #7D7468;" onclick="testDiscord()">테스트 알림</button>
@@ -426,6 +433,7 @@
                         document.getElementById('discordTokenInput').value = settings.discord_token || '';
                         document.getElementById('discordChannelIdInput').value = settings.discord_channel_id || '';
                         document.getElementById('discordEnabledInput').checked = settings.discord_enabled !== 0;
+                        document.getElementById('allowCombatPowerEditInput').checked = settings.allow_member_combat_power_edit !== 0;
                         if (role === 'MASTER' || role === 'ADMIN') {
                             document.getElementById('masterSettingsPanel').style.display = 'block';
                         }
@@ -440,6 +448,7 @@
             const discord_token = document.getElementById('discordTokenInput').value;
             const discord_channel_id = document.getElementById('discordChannelIdInput').value;
             const discord_enabled = document.getElementById('discordEnabledInput').checked ? 1 : 0;
+            const allow_member_combat_power_edit = document.getElementById('allowCombatPowerEditInput').checked ? 1 : 0;
 
             try {
                 const res = await fetch('/api/settings', {
@@ -452,7 +461,8 @@
                         guild_name, 
                         discord_token, 
                         discord_channel_id,
-                        discord_enabled
+                        discord_enabled,
+                        allow_member_combat_power_edit
                     })
                 });
                 if (res.status === 401) return logout();

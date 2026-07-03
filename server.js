@@ -315,18 +315,22 @@ function initDB() {
             guild_name TEXT DEFAULT '오딘 길드',
             discord_token TEXT,
             discord_channel_id TEXT,
-            discord_enabled INTEGER DEFAULT 1
+            discord_enabled INTEGER DEFAULT 1,
+            allow_member_combat_power_edit INTEGER DEFAULT 1
         )`, () => {
             // Migration: Add discord_enabled to existing odin_settings table if it doesn't exist
             db.all("PRAGMA table_info(odin_settings)", (err, rows) => {
                 if (rows && !rows.find(r => r.name === 'discord_enabled')) {
                     db.run("ALTER TABLE odin_settings ADD COLUMN discord_enabled INTEGER DEFAULT 1");
                 }
+                if (rows && !rows.find(r => r.name === 'allow_member_combat_power_edit')) {
+                    db.run("ALTER TABLE odin_settings ADD COLUMN allow_member_combat_power_edit INTEGER DEFAULT 1");
+                }
 
                 // CRITICAL: Ensure at least one row exists
                 db.get("SELECT count(*) as cnt FROM odin_settings", (err, row) => {
                     if (row && row.cnt === 0) {
-                        db.run("INSERT INTO odin_settings (guild_name, discord_enabled) VALUES ('오딘 길드', 1)");
+                        db.run("INSERT INTO odin_settings (guild_name, discord_enabled, allow_member_combat_power_edit) VALUES ('오딘 길드', 1, 1)");
                     }
                 });
             });
@@ -617,15 +621,25 @@ app.get('/api/users/me', verifyToken, (req, res) => {
 
 app.put('/api/users/me', verifyToken, (req, res) => {
     const { password, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc } = req.body;
-    let sql = `UPDATE users SET nickname = ?, occupation = ?, main_class = ?, combat_power = ?, equipment = ?, skills = ?, max_crit_rate = ?, max_crit_resist = ?, status_effect_acc = ?`;
-    let params = [nickname, occupation, main_class, combat_power, JSON.stringify(equipment), JSON.stringify(skills), max_crit_rate || 0, max_crit_resist || 0, status_effect_acc || 0];
-    if (password && password.trim() !== "") {
-        params.push(bcrypt.hashSync(password, 10));
-        sql += `, password_hash = ?`;
-    }
-    sql += ` WHERE id = ?`;
-    params.push(req.userId);
-    db.run(sql, params, () => res.json({ success: true }));
+    db.get("SELECT combat_power FROM users WHERE id = ?", [req.userId], (userErr, user) => {
+        if (userErr || !user) return res.status(404).json({ error: 'User not found.' });
+
+        db.get("SELECT allow_member_combat_power_edit FROM odin_settings LIMIT 1", (settingsErr, settings) => {
+            if (settingsErr) return res.status(500).json({ error: settingsErr.message });
+
+            const allowCombatPowerEdit = !settings || settings.allow_member_combat_power_edit !== 0;
+            const nextCombatPower = allowCombatPowerEdit ? combat_power : user.combat_power;
+            let sql = `UPDATE users SET nickname = ?, occupation = ?, main_class = ?, combat_power = ?, equipment = ?, skills = ?, max_crit_rate = ?, max_crit_resist = ?, status_effect_acc = ?`;
+            let params = [nickname, occupation, main_class, nextCombatPower, JSON.stringify(equipment), JSON.stringify(skills), max_crit_rate || 0, max_crit_resist || 0, status_effect_acc || 0];
+            if (password && password.trim() !== "") {
+                params.push(bcrypt.hashSync(password, 10));
+                sql += `, password_hash = ?`;
+            }
+            sql += ` WHERE id = ?`;
+            params.push(req.userId);
+            db.run(sql, params, () => res.json({ success: true }));
+        });
+    });
 });
 
 app.get('/api/users', verifyToken, (req, res) => {
@@ -1973,14 +1987,15 @@ app.put('/api/notices/boss-controls', verifyToken, (req, res) => {
 
 // --- SETTINGS ---
 app.get('/api/settings', (req, res) => {
-    db.get("SELECT guild_name, discord_token, discord_channel_id, discord_enabled FROM odin_settings LIMIT 1", (err, row) => {
-        res.json(row || { guild_name: '오딘 길드', discord_token: '', discord_channel_id: '', discord_enabled: 1 });
+    db.get("SELECT guild_name, discord_token, discord_channel_id, discord_enabled, allow_member_combat_power_edit FROM odin_settings LIMIT 1", (err, row) => {
+        res.json(row || { guild_name: '오딘 길드', discord_token: '', discord_channel_id: '', discord_enabled: 1, allow_member_combat_power_edit: 1 });
     });
 });
 
 app.post('/api/settings', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    const { guild_name, discord_token, discord_channel_id, discord_enabled } = req.body;
+    const { guild_name, discord_token, discord_channel_id, discord_enabled, allow_member_combat_power_edit } = req.body;
+    const allowCombatPowerEdit = parseInt(allow_member_combat_power_edit) === 0 ? 0 : 1;
 
     // UPSERT style: Try to update first available row first.
     db.get("SELECT rowid as id FROM odin_settings LIMIT 1", (err, row) => {
@@ -1990,8 +2005,8 @@ app.post('/api/settings', verifyToken, (req, res) => {
 
         if (row) {
             // Update existing row
-            db.run("UPDATE odin_settings SET guild_name = ?, discord_token = ?, discord_channel_id = ?, discord_enabled = ? WHERE rowid = ?",
-                [guild_name, discord_token, discord_channel_id, discord_enabled, row.id], (err) => {
+            db.run("UPDATE odin_settings SET guild_name = ?, discord_token = ?, discord_channel_id = ?, discord_enabled = ?, allow_member_combat_power_edit = ? WHERE rowid = ?",
+                [guild_name, discord_token, discord_channel_id, discord_enabled, allowCombatPowerEdit, row.id], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Failed to update settings: ' + err.message });
                     }
@@ -2001,8 +2016,8 @@ app.post('/api/settings', verifyToken, (req, res) => {
                 });
         } else {
             // Insert new row
-            db.run("INSERT INTO odin_settings (guild_name, discord_token, discord_channel_id, discord_enabled) VALUES (?, ?, ?, ?)",
-                [guild_name, discord_token, discord_channel_id, discord_enabled], (err) => {
+            db.run("INSERT INTO odin_settings (guild_name, discord_token, discord_channel_id, discord_enabled, allow_member_combat_power_edit) VALUES (?, ?, ?, ?, ?)",
+                [guild_name, discord_token, discord_channel_id, discord_enabled, allowCombatPowerEdit], (err) => {
                     if (err) {
                         console.error('❌ Settings Insert Error:', err.message);
                         return res.status(500).json({ error: 'Failed to insert settings: ' + err.message });
