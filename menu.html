@@ -90,8 +90,7 @@
         .role-badge { background: rgba(242, 183, 5, 0.22); color: var(--primary-color); padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
         .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
         .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
-        .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
-        .invite-link { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border: 1px dashed var(--primary-color); border-radius: 6px; font-family: monospace; word-break: break-all; font-size: 13px; display: none; }
+        .settings-btn { display: none; background: rgba(242, 183, 5, 0.12); border-color: rgba(242, 183, 5, 0.34); color: var(--primary-color); font-weight: 800; }
         
         /* New Styled Guild Title */
         .guild-header {
@@ -113,47 +112,6 @@
             display: none; /* Shown after fetch */
         }
         
-        /* Toggle Switch Styling */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #8D8373;
-            transition: .4s;
-            border-radius: 24px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: var(--text-light);
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #10b981;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
         @media (max-width: 900px) {
             .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -168,68 +126,14 @@
             .logout-btn { padding: 6px 10px; font-size: 12px; }
         }
 
-        /* Guild Settings Panel (Integrated) */
-        .guild-settings-card {
-            background: rgba(30, 41, 59, 0.4);
-            border: 1px solid rgba(242, 183, 5, 0.16);
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 15px;
-            text-align: left;
-        }
-        .guild-settings-card h4 { font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; color: var(--primary-color); }
-        .setting-item { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-        .setting-item label { font-size: 11px; color: var(--text-muted); font-weight: 600; display: block; }
-        .setting-item input { 
-            background: rgba(0, 0, 0, 0.2); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: 6px; 
-            padding: 8px 12px; 
-            color: var(--text-light); 
-            font-size: 13px;
-            outline: none;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .setting-item input:focus { border-color: var(--primary-color); }
-        .save-settings-btn {
-            background: var(--primary-color);
-            color: var(--text-light);
-            border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-weight: 700;
-            cursor: pointer;
-            margin-top: 10px;
-            width: 100%;
-            font-size: 13px;
-        }
-        .discord-help { font-size: 10px; color: var(--accent-rust); margin-top: 2px; }
-        :root:not([data-theme="dark"]) .user-topbar,
-        :root:not([data-theme="dark"]) .guild-settings-card,
-        :root:not([data-theme="dark"]) .invite-link {
+        :root:not([data-theme="dark"]) .user-topbar {
             background: rgba(255, 252, 246, 0.92);
             border-color: rgba(26, 23, 20, 0.22);
             box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
         }
-        :root:not([data-theme="dark"]) .menu-sub span,
-        :root:not([data-theme="dark"]) .setting-item[style] {
-            background: rgba(201, 84, 43, 0.12) !important;
-            border-color: rgba(201, 84, 43, 0.34) !important;
-            color: #7B2E18;
-        }
         :root:not([data-theme="dark"]) .role-badge,
-        :root:not([data-theme="dark"]) .guild-settings-card h4,
         :root:not([data-theme="dark"]) a[style*="color: var(--primary-color)"] {
             color: #7B2E18 !important;
-        }
-        :root:not([data-theme="dark"]) .setting-item input {
-            background: #fffaf1;
-            border-color: rgba(26, 23, 20, 0.26);
-            color: #1A1714;
-        }
-        :root:not([data-theme="dark"]) .save-settings-btn {
-            color: #1A1714;
         }
         :root[data-theme="dark"] .role-badge {
             background: rgba(99, 102, 241, 0.2);
@@ -241,26 +145,6 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
-        }
-        :root[data-theme="dark"] .guild-settings-card {
-            background: rgba(30, 41, 59, 0.4);
-            border-color: rgba(99, 102, 241, 0.1);
-        }
-        :root[data-theme="dark"] .guild-settings-card h4,
-        :root[data-theme="dark"] #inviteLink a {
-            color: #818cf8 !important;
-        }
-        :root[data-theme="dark"] .invite-link {
-            background: rgba(0,0,0,0.3);
-            border-color: var(--primary-color);
-        }
-        :root[data-theme="dark"] .setting-item input {
-            background: rgba(0, 0, 0, 0.2);
-            border-color: rgba(255, 255, 255, 0.1);
-            color: white;
-        }
-        :root[data-theme="dark"] .setting-item input:focus {
-            border-color: #818cf8;
         }
     </style>
 </head>
@@ -280,6 +164,7 @@
             <option value="dark">다크블루</option>
                 </select>
                 <button class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
+                <button id="settingsBtn" class="logout-btn settings-btn" type="button" onclick="window.location.href='settings.html'">설정</button>
                 <button class="logout-btn" onclick="logout()">로그아웃</button>
             </div>
         </div>
@@ -335,52 +220,6 @@
             </a>
         </div>
 
-        <div id="adminPanel" class="admin-panel" style="display: none;">
-            <h3 style="font-size: 16px; margin: 0 0 15px 0;">관리자 메뉴</h3>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1;" onclick="generateInvite('MEMBER')">일반 가입 링크 생성</button>
-                <button id="masterOnlyInvite" class="auth-btn" style="padding: 10px; font-size: 14px; flex: 1; background: var(--primary-color); display: none;" onclick="generateInvite('ADMIN')">운영진 가입 링크 생성</button>
-            </div>
-            <div id="inviteLink" class="invite-link"></div>
-
-            <!-- Master Only Integrated Settings -->
-            <div id="masterSettingsPanel" class="guild-settings-card" style="display: none;">
-                <h4>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"/></svg>
-                    전체 설정 (길드 및 디스코드)
-                </h4>
-                <div class="setting-item">
-                    <label>길드 이름</label>
-                    <input type="text" id="guildNameInput" placeholder="오딘 길드">
-                </div>
-                <div class="setting-item">
-                    <label>디스코드 봇 토큰 (Bot Token)</label>
-                    <input type="password" id="discordTokenInput" placeholder="디스코드 개발자 포털의 토큰">
-                </div>
-                <div class="setting-item">
-                    <label>알림 전송 채널 ID (Channel ID)</label>
-                    <input type="text" id="discordChannelIdInput" placeholder="공지 사항을 보낼 채널 ID">
-                </div>
-                <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
-                    <label style="margin-bottom: 0;">디스코드 메시지 알림 전송</label>
-                    <label class="switch">
-                        <input type="checkbox" id="discordEnabledInput" checked>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="setting-item" style="flex-direction: row; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
-                    <label style="margin-bottom: 0;">길드원 전투력 수정 가능</label>
-                    <label class="switch">
-                        <input type="checkbox" id="allowCombatPowerEditInput" checked>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="save-settings-btn" style="flex: 2;" onclick="saveGuildSettings()">설정 저장 및 봇 가동</button>
-                    <button class="save-settings-btn" style="flex: 1; background: #7D7468;" onclick="testDiscord()">테스트 알림</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -411,8 +250,7 @@
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
 
         if (role === 'MASTER' || role === 'ADMIN') {
-            document.getElementById('adminPanel').style.display = 'block';
-            document.getElementById('masterOnlyInvite').style.display = 'block';
+            document.getElementById('settingsBtn').style.display = 'inline-block';
         }
 
         async function loadSettings() {
@@ -427,75 +265,8 @@
                     document.getElementById('guildHeader').style.display = 'block';
                     document.title = `${settings.guild_name} - 메뉴`;
                     
-                    // Fill inputs if master or admin
-                    if (document.getElementById('guildNameInput')) {
-                        document.getElementById('guildNameInput').value = settings.guild_name;
-                        document.getElementById('discordTokenInput').value = settings.discord_token || '';
-                        document.getElementById('discordChannelIdInput').value = settings.discord_channel_id || '';
-                        document.getElementById('discordEnabledInput').checked = settings.discord_enabled !== 0;
-                        document.getElementById('allowCombatPowerEditInput').checked = settings.allow_member_combat_power_edit !== 0;
-                        if (role === 'MASTER' || role === 'ADMIN') {
-                            document.getElementById('masterSettingsPanel').style.display = 'block';
-                        }
-                    }
                 }
             } catch(e) {}
-        }
-
-        async function saveGuildSettings() {
-            if (role !== 'MASTER' && role !== 'ADMIN') return;
-            const guild_name = document.getElementById('guildNameInput').value;
-            const discord_token = document.getElementById('discordTokenInput').value;
-            const discord_channel_id = document.getElementById('discordChannelIdInput').value;
-            const discord_enabled = document.getElementById('discordEnabledInput').checked ? 1 : 0;
-            const allow_member_combat_power_edit = document.getElementById('allowCombatPowerEditInput').checked ? 1 : 0;
-
-            try {
-                const res = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ 
-                        guild_name, 
-                        discord_token, 
-                        discord_channel_id,
-                        discord_enabled,
-                        allow_member_combat_power_edit
-                    })
-                });
-                if (res.status === 401) return logout();
-                if (res.ok) {
-                    alert('길드 설정 및 디스코드 정보가 저장되었습니다.');
-                    location.reload();
-                } else {
-                    alert('저장에 실패했습니다.');
-                }
-            } catch (err) {
-                alert('서버 통신 오류');
-            }
-        }
-
-        async function testDiscord() {
-            if (role !== 'MASTER' && role !== 'ADMIN') return;
-            try {
-                const res = await fetch('/api/test-discord', {
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}` 
-                    }
-                });
-                if (res.status === 401) return logout();
-                const data = await res.json();
-                if (res.ok) {
-                    alert('디스코드로 테스트 메시지를 보냈습니다! 채널을 확인하세요.');
-                } else {
-                    alert('테스트 실패: ' + data.error);
-                }
-            } catch (err) {
-                alert('서버 통신 오류');
-            }
         }
         loadSettings();
 
@@ -508,37 +279,6 @@
             window.location.href = 'login.html';
         }
 
-        async function generateInvite(targetRole = 'MEMBER') {
-            try {
-                const res = await fetch('/api/invites', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ targetRole: targetRole })
-                });
-                
-                if (res.status === 401 || res.status === 403) {
-                    alert('세션이 만료되었거나 권한이 없습니다.');
-                    logout();
-                    return;
-                }
-                
-                const data = await res.json();
-                
-                if (res.ok) {
-                    const link = `${window.location.origin}/register.html?token=${data.inviteToken}`;
-                    const inviteDiv = document.getElementById('inviteLink');
-                    inviteDiv.style.display = 'block';
-                    inviteDiv.innerHTML = `생성된 가입 링크 (복사해서 전달하세요):<br><a href="${link}" target="_blank" style="color: var(--primary-color);">${link}</a>`;
-                } else {
-                    alert('오류: ' + data.error);
-                }
-            } catch (err) {
-                alert('서버 통신 오류');
-            }
-        }
     </script>
 </body>
 </html>
