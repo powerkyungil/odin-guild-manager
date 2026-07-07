@@ -101,8 +101,15 @@
         }
         .toggle-row strong { display: block; font-size: 14px; }
         .toggle-row span { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
+        .toggle-row.locked {
+            opacity: 0.7;
+        }
         .switch { position: relative; display: inline-block; width: 50px; height: 24px; flex: 0 0 auto; }
         .switch input { opacity: 0; width: 0; height: 0; }
+        .switch input:disabled + .slider {
+            cursor: not-allowed;
+            background-color: #6b7280;
+        }
         .slider {
             position: absolute;
             cursor: pointer;
@@ -230,10 +237,10 @@
                         <label for="guildNameInput">길드 이름</label>
                         <input type="text" id="guildNameInput" placeholder="오딘 길드">
                     </div>
-                    <div class="toggle-row">
+                    <div class="toggle-row" id="combatPowerToggleRow">
                         <div>
                             <strong>길드원 전투력 수정 가능</strong>
-                            <span>OFF일 경우 정보수정 화면에서 전투력 입력이 잠기고, 서버에서도 기존 전투력을 유지합니다.</span>
+                            <span id="combatPowerToggleHint">OFF일 경우 정보수정 화면에서 전투력 입력이 잠기고, 서버에서도 기존 전투력을 유지합니다.</span>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="allowCombatPowerEditInput" checked>
@@ -291,6 +298,7 @@
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const role = localStorage.getItem('role') || sessionStorage.getItem('role');
         const roleLabels = { MASTER: '길드장', ADMIN: '운영진', MEMBER: '길드원' };
+        const isMaster = role === 'MASTER';
         let currentSettings = {
             guild_name: '오딘 길드',
             discord_token: '',
@@ -315,6 +323,17 @@
 
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
 
+        function syncCombatPowerTogglePermission() {
+            const toggle = document.getElementById('allowCombatPowerEditInput');
+            const row = document.getElementById('combatPowerToggleRow');
+            const hint = document.getElementById('combatPowerToggleHint');
+            toggle.disabled = !isMaster;
+            row.classList.toggle('locked', !isMaster);
+            hint.textContent = isMaster
+                ? 'OFF일 경우 정보수정 화면에서 전투력 입력이 잠기고, 서버에서도 기존 전투력을 유지합니다.'
+                : '이 설정은 길드장만 변경할 수 있습니다. 운영진은 현재 상태만 확인할 수 있습니다.';
+        }
+
         document.querySelectorAll('.settings-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.settings-tab').forEach(btn => btn.classList.remove('active'));
@@ -334,6 +353,7 @@
                 document.getElementById('discordChannelIdInput').value = currentSettings.discord_channel_id || '';
                 document.getElementById('discordEnabledInput').checked = currentSettings.discord_enabled !== 0;
                 document.getElementById('allowCombatPowerEditInput').checked = currentSettings.allow_member_combat_power_edit !== 0;
+                syncCombatPowerTogglePermission();
                 if (currentSettings.guild_name) document.title = `${currentSettings.guild_name} - 설정`;
             } catch (err) {
                 alert('설정을 불러오지 못했습니다.');
@@ -458,6 +478,7 @@
             window.location.href = 'login.html';
         }
 
+        syncCombatPowerTogglePermission();
         loadSettings();
     </script>
 </body>

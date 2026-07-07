@@ -1995,13 +1995,17 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', verifyToken, (req, res) => {
     if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
     const { guild_name, discord_token, discord_channel_id, discord_enabled, allow_member_combat_power_edit } = req.body;
-    const allowCombatPowerEdit = parseInt(allow_member_combat_power_edit) === 0 ? 0 : 1;
+    const requestedAllowCombatPowerEdit = parseInt(allow_member_combat_power_edit) === 0 ? 0 : 1;
 
     // UPSERT style: Try to update first available row first.
-    db.get("SELECT rowid as id FROM odin_settings LIMIT 1", (err, row) => {
+    db.get("SELECT rowid as id, allow_member_combat_power_edit FROM odin_settings LIMIT 1", (err, row) => {
         if (err) {
             return res.status(500).json({ error: 'DB Error while checking settings: ' + err.message });
         }
+
+        const allowCombatPowerEdit = req.userRole === 'MASTER'
+            ? requestedAllowCombatPowerEdit
+            : (row && row.allow_member_combat_power_edit === 0 ? 0 : 1);
 
         if (row) {
             // Update existing row
