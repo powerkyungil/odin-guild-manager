@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const screenshotStatus = document.getElementById('screenshot-status');
   const screenshotRemoveBtn = document.getElementById('screenshot-remove-btn');
   const screenshotAnalyzeBtn = document.getElementById('screenshot-analyze-btn');
+  const ocrTemplateSelect = document.getElementById('ocr-template-select');
   const ocrResultPanel = document.getElementById('ocr-result-panel');
   const ocrResultList = document.getElementById('ocr-result-list');
 
@@ -55,7 +56,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
+  const loadOcrTemplates = async () => {
+    try {
+      const response = await fetch('/api/ocr/templates', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.status === 401) return handleAuthError();
+      const data = await response.json();
+      const templates = Array.isArray(data.templates) ? data.templates : [];
+      ocrTemplateSelect.replaceChildren();
+      if (templates.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '사용 가능한 템플릿이 없습니다';
+        ocrTemplateSelect.appendChild(option);
+        return;
+      }
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '선택해주세요.';
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      ocrTemplateSelect.appendChild(placeholder);
+      templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = String(template.id);
+        option.textContent = template.name;
+        ocrTemplateSelect.appendChild(option);
+      });
+      ocrTemplateSelect.disabled = false;
+      screenshotAnalyzeBtn.disabled = true;
+    } catch (error) {
+      console.error('Failed to load OCR templates', error);
+      ocrTemplateSelect.replaceChildren();
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = '템플릿 목록을 불러오지 못했습니다';
+      ocrTemplateSelect.appendChild(option);
+    }
+  };
+
   const setInputMode = (mode) => {
+    if (mode === 'screenshot' && myRole !== 'MASTER') mode = 'direct';
     const isScreenshot = mode === 'screenshot';
     directInputTab.classList.toggle('active', !isScreenshot);
     screenshotInputTab.classList.toggle('active', isScreenshot);
@@ -133,8 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
       screenshotFileName.textContent = file.name;
       screenshotImageSize.textContent = `${image.naturalWidth}×${image.naturalHeight} → ${width}×${height} · ${formatFileSize(optimizedScreenshotFile.size)}`;
       screenshotPreview.hidden = false;
-      screenshotAnalyzeBtn.disabled = false;
+      screenshotAnalyzeBtn.disabled = !ocrTemplateSelect.value;
       screenshotStatus.textContent = '최적화 완료. OCR 분석을 시작할 수 있습니다.';
+      if (!ocrTemplateSelect.value) screenshotStatus.textContent = '스크린샷 템플릿을 선택해주세요.';
     } catch (error) {
       if (version !== screenshotProcessVersion) return;
       clearScreenshot();
@@ -142,12 +186,267 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const parseOcrRemainingTime = (text) => {
+    const unitToMs = { '일': 86400000, '시간': 3600000, '분': 60000, '초': 1000 };
+    const matches = [...String(text || '').matchAll(/(\d+)\s*(일|시간|분|초)/g)];
+    if (matches.length === 0) return null;
+
+    const durationMs = matches.reduce((total, [, amount, unit]) => total + Number(amount) * unitToMs[unit], 0);
+    return durationMs > 0 ? durationMs : null;
+  };
+
+  // The dungeon UI uses descriptive names while the schedule list keeps its
+  // floor-prefixed canonical names. Keep these aliases local to OCR matching.
+  const OCR_BOSS_ALIASES = {
+    '4층분노의모네가름': ['분노의 모네가름'],
+    '7층나태의드라우그': ['나태의 드라우그'],
+    '10층다인홀로크': ['기만의 기사 다인홀로크'],
+    '최하층강글': ['광란의 사제 강글로티'],
+    '최하층굴베': ['광란의 굴베이그', '광란의 마수 굴베이그'],
+    '최하층스네르': ['광란의 상속자 스네르', '광란의 참수자 스네르']
+  };
+
+  const normalizeOcrText = (text) => String(text || '').replace(/[\s·ㆍ,./-]/g, '');
+
+  const normalizeOcrTextWithSourceIndexes = (text) => {
+    const rawText = String(text || '');
+    let normalizedText = '';
+    const sourceIndexes = [];
+    for (let index = 0; index < rawText.length; index += 1) {
+      if (/[\s·ㆍ,./-]/.test(rawText[index])) continue;
+      normalizedText += rawText[index];
+      sourceIndexes.push(index);
+    }
+    return { normalizedText, sourceIndexes, rawText };
+  };
+
+  const formatOcrRemainingTime = (durationMs) => {
+    let seconds = Math.floor(durationMs / 1000);
+    const days = Math.floor(seconds / 86400);
+    seconds %= 86400;
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const minutes = Math.floor(seconds / 60);
+    seconds %= 60;
+    return [
+      days ? `${days}일` : '',
+      hours ? `${hours}시간` : '',
+      minutes ? `${minutes}분` : '',
+      seconds ? `${seconds}초` : ''
+    ].filter(Boolean).join(' ');
+  };
+
+  const getOcrCurrentTime = (fields) => {
+    const timeField = fields.find(field => {
+      const name = String(field.name || field.fieldName || '').toLowerCase();
+      const value = String(field.inferText ?? field.value ?? '');
+      return /current[_\s-]*time|현재\s*시간/.test(name) || /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(value);
+    });
+    if (!timeField) return null;
+
+    const value = String(timeField.inferText ?? timeField.value ?? '');
+    const match = value.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return null;
+
+    const [, hoursText, minutesText, secondsText = '0'] = match;
+    const hours = Number(hoursText);
+    const minutes = Number(minutesText);
+    const seconds = Number(secondsText);
+    if (hours > 23 || minutes > 59 || seconds > 59) return null;
+
+    const referenceTime = getNow().getTime();
+    const referenceDate = getSeoulDateParts(referenceTime);
+    let gameTime = getSeoulTimestamp(referenceDate.year, referenceDate.month, referenceDate.day, hours, minutes, seconds);
+
+    // A screenshot may be analyzed shortly after midnight. Use the game-time
+    // date closest to the application's synchronized server time.
+    const halfDayMs = 12 * 60 * 60 * 1000;
+    if (gameTime - referenceTime > halfDayMs) gameTime -= 24 * 60 * 60 * 1000;
+    if (referenceTime - gameTime > halfDayMs) gameTime += 24 * 60 * 60 * 1000;
+
+    return {
+      fieldName: timeField.name || timeField.fieldName || 'current_time',
+      value: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+      timestamp: gameTime
+    };
+  };
+
+  const getOcrScheduleCandidates = (fields) => {
+    const bossNames = [...new Set(
+      customBossesList
+        .filter(definition => definition.type !== '고정')
+        .map(definition => definition.boss)
+    )];
+    const bossMatchers = bossNames.flatMap(boss => [boss, ...(OCR_BOSS_ALIASES[boss] || [])]
+      .map(alias => ({ boss, alias: normalizeOcrText(alias) })))
+      .sort((a, b) => b.alias.length - a.alias.length);
+    const currentTime = getOcrCurrentTime(fields);
+    const analyzedAt = currentTime?.timestamp || getNow().getTime();
+
+    const candidates = fields.flatMap((field, index) => {
+      const text = String(field.inferText ?? field.value ?? '').replace(/\s+/g, ' ').trim();
+      const { normalizedText, sourceIndexes, rawText } = normalizeOcrTextWithSourceIndexes(text);
+      const matches = [];
+      bossMatchers.forEach(matcher => {
+        let startAt = normalizedText.indexOf(matcher.alias);
+        while (startAt !== -1) {
+          matches.push({ ...matcher, startAt, endAt: startAt + matcher.alias.length });
+          startAt = normalizedText.indexOf(matcher.alias, startAt + matcher.alias.length);
+        }
+      });
+
+      // Multiple card values can occasionally be returned in a single OCR
+      // field. Keep the longest matcher at each overlapping position, then
+      // use the text after each boss name as that boss's remaining-time range.
+      matches.sort((a, b) => a.startAt - b.startAt || b.alias.length - a.alias.length);
+      const nonOverlappingMatches = matches.reduce((result, match) => {
+        const previous = result[result.length - 1];
+        if (!previous || match.startAt >= previous.endAt) result.push(match);
+        return result;
+      }, []);
+
+      return nonOverlappingMatches.map((match, matchIndex) => {
+        const nextMatch = nonOverlappingMatches[matchIndex + 1];
+        const sourceStart = sourceIndexes[match.endAt] ?? rawText.length;
+        const sourceEnd = sourceIndexes[nextMatch?.startAt] ?? rawText.length;
+        const timeText = rawText.slice(sourceStart, sourceEnd);
+        const isAppearing = /출[연현]\s*중/.test(timeText);
+        const remainingMs = isAppearing ? 0 : parseOcrRemainingTime(timeText);
+        if (remainingMs === null) return null;
+
+        return {
+          fieldName: field.name || field.fieldName || `필드 ${index + 1}`,
+          boss: match.boss,
+          rawText: text,
+          remainingMs,
+          isAppearing,
+          spawnTime: analyzedAt + remainingMs
+        };
+      }).filter(Boolean);
+    });
+
+    return { candidates, currentTime };
+  };
+
+  const renderOcrRegistration = (candidates, totalFieldCount, currentTime) => {
+    const registration = document.createElement('div');
+    registration.className = 'ocr-registration';
+
+    const heading = document.createElement('strong');
+    heading.textContent = `스케줄 등록 대상 ${candidates.length}건`;
+    registration.appendChild(heading);
+
+    const help = document.createElement('p');
+    const hasTargetSelectableBoss = candidates.some(candidate => customBossesList.some(definition =>
+      (definition.type === '본섭' || definition.type === '침공') && definition.boss === candidate.boss
+    ));
+    const timeBasis = currentTime
+      ? `게임 현재 시간 ${currentTime.value}을 기준으로 계산합니다.`
+      : '현재 앱 시간을 기준으로 계산합니다.';
+    help.textContent = hasTargetSelectableBoss
+      ? `${timeBasis} 던전 보스는 공통 · 던전으로 자동 등록됩니다. 지역 보스만 등록할 서버를 선택하세요.`
+      : `${timeBasis} 던전 보스는 공통 · 던전으로 자동 등록됩니다. 매칭되지 않거나 비어 있는 필드는 제외됩니다.`;
+    registration.appendChild(help);
+
+    const candidateList = document.createElement('div');
+    candidateList.className = 'ocr-registration-list';
+    candidates.forEach(candidate => {
+      const row = document.createElement('div');
+      row.className = 'ocr-registration-item';
+      const boss = document.createElement('strong');
+      boss.textContent = candidate.boss;
+      const remaining = document.createElement('span');
+      remaining.textContent = candidate.isAppearing ? '현재 출현' : `${formatOcrRemainingTime(candidate.remainingMs)} 후`;
+      row.append(boss, remaining);
+      candidateList.appendChild(row);
+    });
+    registration.appendChild(candidateList);
+
+    if (candidates.length === 0) {
+      const warning = document.createElement('p');
+      warning.className = 'ocr-registration-warning';
+      warning.textContent = `${totalFieldCount}개 필드에서 등록 가능한 보스명과 남은 시간을 찾지 못했습니다.`;
+      registration.appendChild(warning);
+      return registration;
+    }
+
+    const controls = document.createElement('div');
+    controls.className = 'ocr-registration-controls';
+    const label = document.createElement('label');
+    label.textContent = '등록 대상';
+    const targetSelect = document.createElement('select');
+    const targetOptions = hasTargetSelectableBoss
+      ? [['본섭', '본섭'], ['침공', '침공']]
+      : [['본섭', '공통 · 던전 자동 등록']];
+    targetOptions.forEach(([value, text]) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = text;
+      targetSelect.appendChild(option);
+    });
+    targetSelect.disabled = !hasTargetSelectableBoss;
+    label.appendChild(targetSelect);
+
+    const registerButton = document.createElement('button');
+    registerButton.type = 'button';
+    registerButton.className = 'secondary-btn ocr-register-btn';
+    registerButton.textContent = '확인 후 스케줄 등록';
+    controls.append(label, registerButton);
+    registration.appendChild(controls);
+
+    registerButton.addEventListener('click', async () => {
+      const targetType = targetSelect.value;
+      const scheduleByBoss = new Map();
+      candidates.forEach(candidate => {
+        const definition = customBossesList.find(item => item.type === '공통' && item.boss === candidate.boss)
+          || customBossesList.find(item => item.type === targetType && item.boss === candidate.boss);
+        if (!definition) return;
+        scheduleByBoss.set(`${definition.type}/${definition.region}/${definition.boss}`, {
+          type: definition.type,
+          region: definition.region,
+          boss: definition.boss,
+          spawnTime: candidate.spawnTime
+        });
+      });
+      const schedules = [...scheduleByBoss.values()];
+      if (schedules.length === 0) {
+        screenshotStatus.textContent = `${targetType} 목록에서 등록할 보스를 찾지 못했습니다.`;
+        return;
+      }
+
+      const originalText = registerButton.textContent;
+      registerButton.disabled = true;
+      registerButton.textContent = '스케줄 등록 중…';
+      const saved = await uploadSchedules(schedules);
+      if (saved) {
+        registerButton.textContent = '등록 완료';
+        screenshotStatus.textContent = `${targetType} 보스 스케줄 ${schedules.length}건을 등록했습니다.`;
+      } else {
+        registerButton.disabled = false;
+        registerButton.textContent = originalText;
+      }
+    });
+
+    return registration;
+  };
+
   directInputTab.addEventListener('click', () => setInputMode('direct'));
   screenshotInputTab.addEventListener('click', () => setInputMode('screenshot'));
   screenshotFileInput.addEventListener('change', (event) => prepareScreenshot(event.target.files[0]));
   screenshotRemoveBtn.addEventListener('click', () => screenshotFileInput.click());
+  ocrTemplateSelect.addEventListener('change', () => {
+    screenshotAnalyzeBtn.disabled = !optimizedScreenshotFile || !ocrTemplateSelect.value;
+    if (optimizedScreenshotFile && ocrTemplateSelect.value) {
+      screenshotStatus.textContent = '최적화 완료. OCR 분석을 시작할 수 있습니다.';
+    }
+  });
   screenshotAnalyzeBtn.addEventListener('click', async () => {
     if (!optimizedScreenshotFile) return;
+    const selectedTemplateId = Number(ocrTemplateSelect.value);
+    if (!Number.isInteger(selectedTemplateId) || selectedTemplateId <= 0) {
+      screenshotStatus.textContent = '스크린샷 템플릿을 선택해주세요.';
+      return;
+    }
     const originalLabel = screenshotAnalyzeBtn.textContent;
     screenshotAnalyzeBtn.disabled = true;
     screenshotAnalyzeBtn.textContent = 'OCR 분석 중…';
@@ -160,7 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: {
           'Content-Type': optimizedScreenshotFile.type,
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'X-OCR-TEMPLATE-ID': String(selectedTemplateId)
         },
         body: optimizedScreenshotFile
       });
@@ -173,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      const { candidates, currentTime } = getOcrScheduleCandidates(fields);
       fields.forEach((field, index) => {
         const item = document.createElement('div');
         item.className = 'ocr-result-item';
@@ -183,8 +484,9 @@ document.addEventListener('DOMContentLoaded', () => {
         item.append(label, value);
         ocrResultList.appendChild(item);
       });
+      ocrResultList.appendChild(renderOcrRegistration(candidates, fields.length, currentTime));
       ocrResultPanel.hidden = false;
-      screenshotStatus.textContent = `${fields.length}개 항목을 인식했습니다. 템플릿 필드명을 확인해주세요.`;
+      screenshotStatus.textContent = `${fields.length}개 항목을 인식했습니다. 등록할 보스와 서버를 확인해주세요.`;
     } catch (error) {
       screenshotStatus.textContent = error.message || 'OCR 분석 중 오류가 발생했습니다.';
     } finally {
@@ -206,7 +508,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   screenshotDropzone.addEventListener('drop', (event) => prepareScreenshot(event.dataTransfer.files[0]));
+  if (myRole !== 'MASTER') {
+    screenshotInputTab.hidden = true;
+  }
   setInputMode(localStorage.getItem(INPUT_MODE_STORAGE_KEY) === 'screenshot' ? 'screenshot' : 'direct');
+  if (myRole === 'MASTER') loadOcrTemplates();
 
   // --- Server Time Sync ---
   let serverTimeOffset = 0;
@@ -230,6 +536,45 @@ document.addEventListener('DOMContentLoaded', () => {
   function getNow() {
     return new Date(Date.now() + serverTimeOffset);
   }
+
+  const SEOUL_TIME_ZONE = 'Asia/Seoul';
+  const seoulDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: SEOUL_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  });
+
+  const getSeoulDateParts = (timestamp = getNow().getTime()) => {
+    const parts = {};
+    seoulDateTimeFormatter.formatToParts(new Date(timestamp)).forEach(part => {
+      if (part.type !== 'literal') parts[part.type] = Number(part.value);
+    });
+    return {
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
+      hour: parts.hour,
+      minute: parts.minute,
+      second: parts.second
+    };
+  };
+
+  // Korea Standard Time is UTC+09:00 year-round. Store every schedule as a
+  // UTC timestamp, while interpreting calendar input and output as Seoul time.
+  const getSeoulTimestamp = (year, month, day, hour = 0, minute = 0, second = 0, millisecond = 0) =>
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) - (9 * 60 * 60 * 1000);
+
+  const getSeoulWeekdayIndex = (parts) => new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+
+  const formatSeoulDate = (timestamp, options) => new Intl.DateTimeFormat('ko-KR', {
+    ...options,
+    timeZone: SEOUL_TIME_ZONE
+  }).format(new Date(timestamp));
 
   // --- Voice Notification State ---
   const voiceToggle = document.getElementById('voice-toggle');
@@ -416,9 +761,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 1. Update Main Clock
     if (currentTimeDisplay) {
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      const ss = String(now.getSeconds()).padStart(2, '0');
+      const seoulNow = getSeoulDateParts(now.getTime());
+      const hh = String(seoulNow.hour).padStart(2, '0');
+      const mm = String(seoulNow.minute).padStart(2, '0');
+      const ss = String(seoulNow.second).padStart(2, '0');
       currentTimeDisplay.textContent = `${hh}:${mm}:${ss}`;
     }
 
@@ -510,8 +856,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEY_INPUTS = 'odin_boss_inputs_v7';
 
   const getTodayString = () => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const today = getSeoulDateParts();
+    return `${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}`;
   };
 
   const loadSavedInputs = () => {
@@ -649,13 +995,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (res.status === 401) return handleAuthError();
       if (res.ok) {
         fetchSchedules();
+        return true;
       } else {
         const data = await res.json();
         alert('등록 실패: ' + (data.error || '알 수 없는 오류'));
+        return false;
       }
     } catch (e) {
       console.error('Failed to upload schedules', e);
       alert('서버 통신 오류: ' + e.message);
+      return false;
     }
   };
 
@@ -1221,39 +1570,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const min = parseInt(m[2]);
     const s = parseInt(m[3]) || 0;
 
-    const d = new Date();
-    d.setHours(h, min, s, 0);
-    return d.getTime();
+    const today = getSeoulDateParts();
+    return getSeoulTimestamp(today.year, today.month, today.day, h, min, s);
   };
 
   const injectFixedEventsInto = (schedules) => {
     const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
-    const nowLocalDate = getNow();
+    const nowMs = getNow().getTime();
+    const nowLocalDate = getSeoulDateParts(nowMs);
 
     // Inject for Today and Tomorrow (24h+ rolling window)
     for (let i = 0; i <= 1; i++) {
-      const targetDate = getNow();
-      targetDate.setDate(targetDate.getDate() + i);
-      const label = daysArr[targetDate.getDay()];
+      const targetCalendarDate = new Date(Date.UTC(nowLocalDate.year, nowLocalDate.month - 1, nowLocalDate.day + i));
+      const targetDate = {
+        year: targetCalendarDate.getUTCFullYear(),
+        month: targetCalendarDate.getUTCMonth() + 1,
+        day: targetCalendarDate.getUTCDate()
+      };
+      const label = daysArr[getSeoulWeekdayIndex(targetDate)];
 
       FIXED_EVENTS.forEach(ev => {
         if (!ev.days.includes(label)) return;
 
         const [h, m, s] = ev.timeStr.split(':').map(Number);
-        const tDate = new Date(targetDate);
-        tDate.setHours(h, m, s, 0);
+        const spawnTime = getSeoulTimestamp(targetDate.year, targetDate.month, targetDate.day, h, m, s);
 
         // Only add if it's in the future or within the last 30 mins
-        const now = getNow().getTime();
-        if (tDate.getTime() < now - 30 * 60 * 1000) return;
+        if (spawnTime < nowMs - 30 * 60 * 1000) return;
 
-        const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === tDate.getTime());
+        const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === spawnTime);
         if (existingIdx === -1) {
           schedules.push({
             type: ev.type,
             region: ev.region,
             boss: ev.boss,
-            spawnTime: tDate.getTime(),
+            spawnTime,
             isFixed: true
           });
         }
@@ -1265,9 +1616,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let hasError = false;
     let newItems = [];
 
-    const tonight = new Date();
-    tonight.setHours(23, 59, 59, 999);
-    const tonightMs = tonight.getTime();
+    const today = getSeoulDateParts();
+    const tonightMs = getSeoulTimestamp(today.year, today.month, today.day, 23, 59, 59, 999);
 
     document.querySelectorAll('.chapter-idx').forEach(form => {
       const chapterId = form.dataset.chapterId;
@@ -1384,13 +1734,13 @@ document.addEventListener('DOMContentLoaded', () => {
       else { invCount++; }
 
       const isPast = item.spawnTime <= now;
-      const spawnDate = new Date(item.spawnTime);
-      const hh = String(spawnDate.getHours()).padStart(2, '0');
-      const mm = String(spawnDate.getMinutes()).padStart(2, '0');
+      const spawnDate = getSeoulDateParts(item.spawnTime);
+      const hh = String(spawnDate.hour).padStart(2, '0');
+      const mm = String(spawnDate.minute).padStart(2, '0');
 
-      const nowDay = getNow();
-      const nowZero = new Date(nowDay.getFullYear(), nowDay.getMonth(), nowDay.getDate());
-      const spawnZero = new Date(spawnDate.getFullYear(), spawnDate.getMonth(), spawnDate.getDate());
+      const nowDay = getSeoulDateParts(now);
+      const nowZero = Date.UTC(nowDay.year, nowDay.month - 1, nowDay.day);
+      const spawnZero = Date.UTC(spawnDate.year, spawnDate.month - 1, spawnDate.day);
       const diffDays = Math.round((spawnZero - nowZero) / (1000 * 60 * 60 * 24));
 
       let timeLabel = `${hh}:${mm}`;
@@ -1411,7 +1761,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Date Separator for Compact View
       if (viewMode === 'compact') {
         const dateOptions = { month: '2-digit', day: '2-digit', weekday: 'long' };
-        const currentDateStr = spawnDate.toLocaleDateString('ko-KR', dateOptions);
+        const currentDateStr = formatSeoulDate(item.spawnTime, dateOptions);
         if (currentDateStr !== lastDateStr) {
           const sep = document.createElement('div');
           sep.className = 'date-separator';

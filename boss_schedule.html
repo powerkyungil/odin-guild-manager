@@ -8,7 +8,7 @@
   <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=10">
   <script>
     if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
       window.location.href = 'login.html';
@@ -74,8 +74,14 @@
           <button type="button" class="screenshot-remove-btn" id="screenshot-remove-btn">다른 이미지 선택</button>
         </div>
 
+        <div class="ocr-template-selector">
+          <label for="ocr-template-select">스크린샷 템플릿</label>
+          <select id="ocr-template-select" required disabled>
+            <option value="">템플릿 목록을 불러오는 중…</option>
+          </select>
+        </div>
         <p class="screenshot-notice" id="screenshot-status">이미지는 이 기기에서 OCR 권장 크기로 최적화됩니다.</p>
-        <button type="button" class="primary-btn screenshot-analyze-btn" id="screenshot-analyze-btn" disabled>OCR 분석하기</button>
+        <button type="button" class="primary-btn screenshot-analyze-btn" id="screenshot-analyze-btn" disabled>스크린샷 분석하기</button>
         <div class="ocr-result-panel" id="ocr-result-panel" hidden>
           <strong>인식 결과</strong>
           <p>등록 전 결과를 확인해주세요.</p>
@@ -193,7 +199,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=14"></script>
 </body>
 
 </html>

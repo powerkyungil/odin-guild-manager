@@ -71,7 +71,6 @@ body {
 
 /* Layout */
 .layout {
-  min-height: 100vh;
   padding-left: 0;
 }
 
@@ -510,6 +509,34 @@ body {
   background: rgba(255,255,255,0.08);
 }
 
+.ocr-template-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ocr-template-selector label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ocr-template-selector select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font: inherit;
+}
+
+.ocr-template-selector select:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .screenshot-analyze-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -564,6 +591,82 @@ body {
   flex-shrink: 0;
   color: var(--text);
   font-size: 12px;
+}
+
+.ocr-registration {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.ocr-registration > strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.ocr-registration > p {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ocr-registration-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ocr-registration-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: var(--main-soft);
+  font-size: 12px;
+}
+
+.ocr-registration-item strong {
+  color: var(--text);
+}
+
+.ocr-registration-item span,
+.ocr-registration-warning {
+  color: var(--muted);
+}
+
+.ocr-registration-controls {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ocr-registration-controls label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ocr-registration-controls select {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.ocr-register-btn {
+  width: auto;
+  min-height: 34px;
+  margin: 0;
+  white-space: nowrap;
 }
 
 :root:not([data-theme="dark"]) .input-mode-tabs,
