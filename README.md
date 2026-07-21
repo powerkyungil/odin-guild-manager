@@ -54,7 +54,22 @@ node server.js
 
 브라우저에서 [http://localhost:3000](http://localhost:3000)에 접속합니다.
 
-> 현재 서버는 `.env` 파일을 자동으로 읽지 않습니다. 환경 변수는 셸, 배포 환경 또는 PM2 설정을 통해 전달해야 합니다.
+> 로컬 개발 환경에서는 프로젝트 루트의 `.env` 파일을 자동으로 읽습니다. `.env.example`을 복사해 값을 설정하세요. 배포 환경에서는 호스트 또는 PM2의 환경 변수를 사용하세요.
+
+### CLOVA Template OCR 설정
+
+보스 시간표 스크린샷 기능은 **CLOVA Template OCR**을 사용합니다. CLOVA OCR 콘솔에서 시간표 UI를 기준 이미지로 등록하고, 인식할 각 필드(예: `boss_1`, `time_1`)를 지정한 뒤 API Gateway 연동 정보를 설정하세요.
+
+서버에는 다음 환경 변수만 전달합니다. `CLOVA_OCR_SECRET`은 브라우저나 저장소에 넣으면 안 됩니다.
+
+```bash
+export CLOVA_OCR_INVOKE_URL='https://...apigw.ntruss.com/.../infer'
+export CLOVA_OCR_SECRET='CLOVA OCR Client Secret'
+export CLOVA_OCR_TEMPLATE_ID='12345'
+export CLOVA_OCR_TEMPLATES='본섭:12345,침공:67890'
+```
+
+`CLOVA_OCR_TEMPLATES`를 설정하면 보스 시간표 화면에서 이름으로 템플릿을 선택할 수 있습니다. 각 항목은 `표시 이름:템플릿 ID` 형식이며 쉼표로 구분합니다. 스크린샷은 브라우저에서 장축 1960px 이하 JPEG로 정규화되고, 서버는 한 번에 한 건만 CLOVA OCR로 전달합니다. 이미지는 서버 디스크에 저장하지 않습니다.
 
 ### 최초 로그인
 
