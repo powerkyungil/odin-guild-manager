@@ -10,6 +10,9 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'odin-guild-secret-kyeongil';
+const CLOVA_OCR_INVOKE_URL = process.env.CLOVA_OCR_INVOKE_URL;
+const CLOVA_OCR_SECRET = process.env.CLOVA_OCR_SECRET;
+const CLOVA_OCR_TEMPLATE_ID = process.env.CLOVA_OCR_TEMPLATE_ID;
 
 app.use(cors());
 app.use(express.json());
@@ -571,6 +574,71 @@ const verifyToken = (req, res, next) => {
         next();
     });
 };
+
+// OCR is deliberately serialized: the Micro instance only relays one optimized
+// image at a time and never writes the screenshot to disk.
+let isBossOcrProcessing = false;
+
+app.post('/api/ocr/boss-schedule', verifyToken, express.raw({ type: ['image/jpeg', 'image/png'], limit: '5mb' }), async (req, res) => {
+    if (!CLOVA_OCR_INVOKE_URL || !CLOVA_OCR_SECRET || !CLOVA_OCR_TEMPLATE_ID) {
+        return res.status(503).json({ error: 'CLOVA Template OCR 환경변수가 설정되지 않았습니다.' });
+    }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: 'OCR 이미지가 필요합니다.' });
+    }
+    if (isBossOcrProcessing) {
+        return res.status(429).json({ error: '다른 스크린샷을 분석 중입니다. 잠시 후 다시 시도해주세요.' });
+    }
+
+    const contentType = req.headers['content-type'] === 'image/png' ? 'image/png' : 'image/jpeg';
+    const imageFormat = contentType === 'image/png' ? 'png' : 'jpg';
+    const templateId = Number(CLOVA_OCR_TEMPLATE_ID);
+    if (!Number.isInteger(templateId) || templateId <= 0) {
+        return res.status(500).json({ error: 'CLOVA_OCR_TEMPLATE_ID 설정값이 올바르지 않습니다.' });
+    }
+
+    isBossOcrProcessing = true;
+    try {
+        const form = new FormData();
+        const message = {
+            version: 'V2',
+            requestId: crypto.randomUUID(),
+            timestamp: Date.now(),
+            lang: 'ko',
+            images: [{
+                format: imageFormat,
+                name: 'boss-schedule',
+                templateIds: [templateId]
+            }]
+        };
+        form.append('message', JSON.stringify(message));
+        form.append('file', new Blob([req.body], { type: contentType }), `boss-schedule.${imageFormat}`);
+
+        const response = await fetch(CLOVA_OCR_INVOKE_URL, {
+            method: 'POST',
+            headers: { 'X-OCR-SECRET': CLOVA_OCR_SECRET },
+            body: form,
+            signal: AbortSignal.timeout(20000)
+        });
+        const responseText = await response.text();
+        let responseBody;
+        try {
+            responseBody = JSON.parse(responseText);
+        } catch (error) {
+            return res.status(502).json({ error: 'CLOVA OCR 응답을 해석할 수 없습니다.' });
+        }
+        if (!response.ok) {
+            return res.status(response.status >= 400 && response.status < 500 ? response.status : 502)
+                .json({ error: responseBody.message || 'CLOVA OCR 분석에 실패했습니다.' });
+        }
+        res.json(responseBody);
+    } catch (error) {
+        const message = error.name === 'TimeoutError' ? 'OCR 분석 시간이 초과되었습니다.' : 'OCR 서버 연결에 실패했습니다.';
+        res.status(502).json({ error: message });
+    } finally {
+        isBossOcrProcessing = false;
+    }
+});
 
 // --- AUTH API ---
 app.post('/api/login', (req, res) => {

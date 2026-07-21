@@ -3,12 +3,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebarClose = document.getElementById('sidebar-close');
   const layout = document.querySelector('.layout');
+  const mainContent = document.querySelector('.main-content');
   const formContainer = document.getElementById('form-container');
   const applyAllBtn = document.getElementById('apply-all-btn');
   const scheduleContainer = document.getElementById('schedule-container');
   const statsContainer = document.getElementById('stats-container');
   const currentTimeDisplay = document.getElementById('current-time-display');
   const renderFilterCheckboxes = Array.from(document.querySelectorAll('.render-filter-chk'));
+  const directInputTab = document.getElementById('direct-input-tab');
+  const screenshotInputTab = document.getElementById('screenshot-input-tab');
+  const screenshotPanel = document.getElementById('screenshot-input-panel');
+  const directInputFooter = document.getElementById('direct-input-footer');
+  const screenshotFileInput = document.getElementById('screenshot-file-input');
+  const screenshotDropzone = document.getElementById('screenshot-dropzone');
+  const screenshotPreview = document.getElementById('screenshot-preview');
+  const screenshotPreviewImage = document.getElementById('screenshot-preview-image');
+  const screenshotFileName = document.getElementById('screenshot-file-name');
+  const screenshotImageSize = document.getElementById('screenshot-image-size');
+  const screenshotStatus = document.getElementById('screenshot-status');
+  const screenshotRemoveBtn = document.getElementById('screenshot-remove-btn');
+  const screenshotAnalyzeBtn = document.getElementById('screenshot-analyze-btn');
+  const ocrResultPanel = document.getElementById('ocr-result-panel');
+  const ocrResultList = document.getElementById('ocr-result-list');
 
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
@@ -23,6 +39,174 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   if (!token) handleAuthError();
+
+  // --- Input mode / screenshot preparation ---
+  // OCR credentials remain server-side. This step only normalizes the selected image
+  // in the browser so the Micro server only needs to relay a small multipart file.
+  const INPUT_MODE_STORAGE_KEY = 'odin_boss_input_mode';
+  const OCR_RECOMMENDED_LONG_SIDE = 1960;
+  const MAX_SCREENSHOT_FILE_SIZE = 20 * 1024 * 1024;
+  let optimizedScreenshotFile = null;
+  let screenshotPreviewUrl = null;
+  let screenshotProcessVersion = 0;
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
+  const setInputMode = (mode) => {
+    const isScreenshot = mode === 'screenshot';
+    directInputTab.classList.toggle('active', !isScreenshot);
+    screenshotInputTab.classList.toggle('active', isScreenshot);
+    directInputTab.setAttribute('aria-selected', String(!isScreenshot));
+    screenshotInputTab.setAttribute('aria-selected', String(isScreenshot));
+    formContainer.hidden = isScreenshot;
+    screenshotPanel.hidden = !isScreenshot;
+    directInputFooter.hidden = isScreenshot;
+    localStorage.setItem(INPUT_MODE_STORAGE_KEY, mode);
+  };
+
+  const clearScreenshot = () => {
+    screenshotProcessVersion += 1;
+    optimizedScreenshotFile = null;
+    screenshotFileInput.value = '';
+    screenshotPreview.hidden = true;
+    screenshotAnalyzeBtn.disabled = true;
+    ocrResultPanel.hidden = true;
+    ocrResultList.replaceChildren();
+    screenshotStatus.textContent = '이미지는 이 기기에서 OCR 권장 크기로 최적화됩니다.';
+    if (screenshotPreviewUrl) URL.revokeObjectURL(screenshotPreviewUrl);
+    screenshotPreviewUrl = null;
+    screenshotPreviewImage.removeAttribute('src');
+  };
+
+  const loadImage = (file) => new Promise((resolve, reject) => {
+    const image = new Image();
+    const sourceUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(sourceUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(sourceUrl);
+      reject(new Error('이미지를 읽을 수 없습니다.'));
+    };
+    image.src = sourceUrl;
+  });
+
+  const prepareScreenshot = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > MAX_SCREENSHOT_FILE_SIZE) {
+      clearScreenshot();
+      screenshotStatus.textContent = '20MB 이하의 PNG, JPG, WEBP 이미지를 선택해주세요.';
+      return;
+    }
+
+    const version = ++screenshotProcessVersion;
+    optimizedScreenshotFile = null;
+    screenshotPreview.hidden = true;
+    screenshotAnalyzeBtn.disabled = true;
+    ocrResultPanel.hidden = true;
+    ocrResultList.replaceChildren();
+    screenshotStatus.textContent = '스크린샷을 OCR용 크기로 최적화하는 중…';
+
+    try {
+      const image = await loadImage(file);
+      const scale = Math.min(1, OCR_RECOMMENDED_LONG_SIDE / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d', { alpha: false });
+      context.drawImage(image, 0, 0, width, height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+
+      if (version !== screenshotProcessVersion) return;
+      if (!blob) throw new Error('이미지 최적화에 실패했습니다.');
+
+      optimizedScreenshotFile = new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'boss-schedule'}-ocr.jpg`, { type: 'image/jpeg' });
+      if (screenshotPreviewUrl) URL.revokeObjectURL(screenshotPreviewUrl);
+      screenshotPreviewUrl = URL.createObjectURL(optimizedScreenshotFile);
+      screenshotPreviewImage.src = screenshotPreviewUrl;
+      screenshotFileName.textContent = file.name;
+      screenshotImageSize.textContent = `${image.naturalWidth}×${image.naturalHeight} → ${width}×${height} · ${formatFileSize(optimizedScreenshotFile.size)}`;
+      screenshotPreview.hidden = false;
+      screenshotAnalyzeBtn.disabled = false;
+      screenshotStatus.textContent = '최적화 완료. OCR 분석을 시작할 수 있습니다.';
+    } catch (error) {
+      if (version !== screenshotProcessVersion) return;
+      clearScreenshot();
+      screenshotStatus.textContent = error.message || '이미지 처리 중 오류가 발생했습니다.';
+    }
+  };
+
+  directInputTab.addEventListener('click', () => setInputMode('direct'));
+  screenshotInputTab.addEventListener('click', () => setInputMode('screenshot'));
+  screenshotFileInput.addEventListener('change', (event) => prepareScreenshot(event.target.files[0]));
+  screenshotRemoveBtn.addEventListener('click', () => screenshotFileInput.click());
+  screenshotAnalyzeBtn.addEventListener('click', async () => {
+    if (!optimizedScreenshotFile) return;
+    const originalLabel = screenshotAnalyzeBtn.textContent;
+    screenshotAnalyzeBtn.disabled = true;
+    screenshotAnalyzeBtn.textContent = 'OCR 분석 중…';
+    screenshotStatus.textContent = '네이버 CLOVA Template OCR로 시간표를 분석하는 중…';
+    ocrResultPanel.hidden = true;
+    ocrResultList.replaceChildren();
+
+    try {
+      const response = await fetch('/api/ocr/boss-schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': optimizedScreenshotFile.type,
+          'Authorization': `Bearer ${token}`
+        },
+        body: optimizedScreenshotFile
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'OCR 분석에 실패했습니다.');
+
+      const fields = (data.images || []).flatMap(image => Array.isArray(image.fields) ? image.fields : []);
+      if (fields.length === 0) {
+        screenshotStatus.textContent = '인식된 필드가 없습니다. 템플릿의 인식 영역을 확인해주세요.';
+        return;
+      }
+
+      fields.forEach((field, index) => {
+        const item = document.createElement('div');
+        item.className = 'ocr-result-item';
+        const label = document.createElement('span');
+        label.textContent = field.name || field.fieldName || `필드 ${index + 1}`;
+        const value = document.createElement('strong');
+        value.textContent = field.inferText ?? field.value ?? '-';
+        item.append(label, value);
+        ocrResultList.appendChild(item);
+      });
+      ocrResultPanel.hidden = false;
+      screenshotStatus.textContent = `${fields.length}개 항목을 인식했습니다. 템플릿 필드명을 확인해주세요.`;
+    } catch (error) {
+      screenshotStatus.textContent = error.message || 'OCR 분석 중 오류가 발생했습니다.';
+    } finally {
+      screenshotAnalyzeBtn.disabled = false;
+      screenshotAnalyzeBtn.textContent = originalLabel;
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    screenshotDropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      screenshotDropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(eventName => {
+    screenshotDropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      screenshotDropzone.classList.remove('dragover');
+    });
+  });
+  screenshotDropzone.addEventListener('drop', (event) => prepareScreenshot(event.dataTransfer.files[0]));
+  setInputMode(localStorage.getItem(INPUT_MODE_STORAGE_KEY) === 'screenshot' ? 'screenshot' : 'direct');
 
   // --- Server Time Sync ---
   let serverTimeOffset = 0;
@@ -306,7 +490,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const toggleSidebar = () => {
-    layout.classList.toggle('sidebar-closed');
+    const isClosed = layout.classList.toggle('sidebar-closed');
+    mainContent.classList.toggle('sidebar-closed', isClosed);
     if (window.innerWidth <= 768) {
       layout.classList.toggle('sidebar-mobile-open');
     }

@@ -8,7 +8,7 @@
   <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=7">
   <script>
     if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
       window.location.href = 'login.html';
@@ -36,15 +36,56 @@
         </button>
       </div>
 
+      <div class="input-mode-tabs" role="tablist" aria-label="보스 입력 방식">
+        <button class="input-mode-tab active" id="direct-input-tab" type="button" role="tab" aria-selected="true" aria-controls="form-container">
+          직접 입력
+        </button>
+        <button class="input-mode-tab" id="screenshot-input-tab" type="button" role="tab" aria-selected="false" aria-controls="screenshot-input-panel">
+          스크린샷
+        </button>
+      </div>
 
-
-      <div class="sidebar-content" id="form-container" style="padding-top: 0;">
+      <div class="sidebar-content" id="form-container" style="padding-top: 0;" role="tabpanel" aria-labelledby="direct-input-tab">
         <!-- Accordion items injected via JS -->
+      </div>
+
+      <section class="sidebar-content screenshot-input-panel" id="screenshot-input-panel" role="tabpanel" aria-labelledby="screenshot-input-tab" hidden>
+        <div class="screenshot-intro">
+          <span class="screenshot-icon" aria-hidden="true">▣</span>
+          <div>
+            <strong>보스 시간표 스크린샷</strong>
+            <p>시간표가 모두 보이도록 찍은 이미지를 올려주세요.</p>
+          </div>
+        </div>
+
+        <label class="screenshot-dropzone" id="screenshot-dropzone" for="screenshot-file-input">
+          <input id="screenshot-file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+          <span class="screenshot-upload-icon" aria-hidden="true">↑</span>
+          <strong>스크린샷 선택</strong>
+          <span>또는 여기에 파일을 끌어다 놓으세요</span>
+        </label>
+
+        <div class="screenshot-preview" id="screenshot-preview" hidden>
+          <img id="screenshot-preview-image" alt="선택한 보스 시간표 스크린샷 미리보기">
+          <div class="screenshot-preview-meta">
+            <span id="screenshot-file-name"></span>
+            <span id="screenshot-image-size"></span>
+          </div>
+          <button type="button" class="screenshot-remove-btn" id="screenshot-remove-btn">다른 이미지 선택</button>
+        </div>
+
+        <p class="screenshot-notice" id="screenshot-status">이미지는 이 기기에서 OCR 권장 크기로 최적화됩니다.</p>
+        <button type="button" class="primary-btn screenshot-analyze-btn" id="screenshot-analyze-btn" disabled>OCR 분석하기</button>
+        <div class="ocr-result-panel" id="ocr-result-panel" hidden>
+          <strong>인식 결과</strong>
+          <p>등록 전 결과를 확인해주세요.</p>
+          <div class="ocr-result-list" id="ocr-result-list"></div>
+        </div>
       </div>
 
 
 
-      <div class="sidebar-footer">
+      <div class="sidebar-footer" id="direct-input-footer">
         <button id="apply-all-btn" class="primary-btn">전체 적용하기</button>
       </div>
     </aside>
