@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>길드원 아이템 현황 V2</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        const savedTheme = localStorage.getItem('uiTheme') || 'dark';
+        document.documentElement.dataset.theme = savedTheme;
+    </script>
+    <style>
+        .v2-shell {
+            width: min(1800px, calc(100% - 24px));
+            margin: 0 auto;
+            padding: 20px 0 36px;
+            font-size: 15px;
+        }
+
+        .v2-topbar,
+        .v2-hero,
+        .v2-toolbar,
+        .v2-table-card,
+        .v2-notice {
+            border: 1px solid var(--line);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        .v2-topbar {
+            min-height: 64px;
+            border-radius: 18px;
+            padding: 10px 12px 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .v2-back {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 750;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .v2-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .v2-btn {
+            min-height: 40px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 0 14px;
+            background: var(--panel-strong);
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 750;
+            cursor: pointer;
+            transition: transform .18s ease, border-color .18s ease, background .18s ease;
+        }
+
+        .v2-btn:hover {
+            transform: translateY(-1px);
+            border-color: var(--main);
+        }
+
+        .v2-btn.primary {
+            background: var(--main);
+            border-color: var(--main);
+            color: #fff;
+        }
+
+        :root:not([data-theme="dark"]) .v2-btn.primary {
+            color: #1a1714;
+        }
+
+        .v2-btn.danger {
+            color: var(--danger);
+        }
+
+        .v2-btn:disabled {
+            opacity: .55;
+            cursor: wait;
+            transform: none;
+        }
+
+        .v2-hero {
+            margin-top: 12px;
+            border-radius: 24px;
+            padding: 22px 24px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: end;
+            gap: 24px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .v2-hero::after {
+            content: "";
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            right: -90px;
+            top: -120px;
+            border-radius: 50%;
+            background: var(--main-soft);
+            pointer-events: none;
+        }
+
+        .v2-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: var(--main-soft);
+            color: var(--main);
+            font-size: 12px;
+            font-weight: 850;
+            letter-spacing: .08em;
+        }
+
+        .v2-hero h1 {
+            margin: 14px 0 8px;
+            font-size: clamp(26px, 4vw, 42px);
+            letter-spacing: -.04em;
+        }
+
+        .v2-hero p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.7;
+        }
+
+        .v2-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(96px, 1fr));
+            gap: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .v2-stat {
+            padding: 11px 14px;
+            border-radius: 16px;
+            background: var(--panel-strong);
+            border: 1px solid var(--line);
+            min-width: 110px;
+        }
+
+        .v2-stat-label {
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .v2-stat strong {
+            font-size: 22px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .v2-notice {
+            margin-top: 10px;
+            border-radius: 16px;
+            padding: 14px 18px;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .v2-notice strong {
+            color: var(--text);
+        }
+
+        .v2-toolbar {
+            margin-top: 10px;
+            border-radius: 18px;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px) auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .v2-input,
+        .v2-select,
+        .v2-modal input:not([type="checkbox"]) {
+            width: 100%;
+            min-height: 40px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 0 13px;
+            background: var(--panel-strong);
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .v2-input:focus,
+        .v2-select:focus,
+        .v2-modal input:not([type="checkbox"]):focus {
+            border-color: var(--main);
+            box-shadow: 0 0 0 3px var(--main-soft);
+        }
+
+        .v2-mine-toggle {
+            min-height: 44px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            background: var(--panel-strong);
+            font-weight: 700;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .v2-mine-toggle input,
+        .v2-check {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            min-height: 16px;
+            margin: 0;
+            padding: 0;
+            flex: 0 0 16px;
+            accent-color: var(--main);
+            cursor: pointer;
+        }
+
+        .v2-check:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        .v2-table-card {
+            margin-top: 10px;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .v2-table-meta {
+            min-height: 44px;
+            padding: 0 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .v2-table-wrap {
+            overflow: auto;
+            max-height: calc(100vh - 230px);
+            min-height: 280px;
+        }
+
+        .v2-table {
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 100%;
+            width: max-content;
+            font-size: 15px;
+        }
+
+        .v2-table th,
+        .v2-table td {
+            min-width: 70px;
+            height: 44px;
+            padding: 5px 7px;
+            text-align: center;
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+        }
+
+        .v2-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 7;
+            background: var(--panel-strong);
+            font-weight: 800;
+            height: 48px;
+            line-height: 1.25;
+        }
+
+        .v2-table .sticky-one,
+        .v2-table .sticky-two,
+        .v2-table .sticky-three {
+            position: sticky;
+            z-index: 5;
+        }
+
+        .v2-table thead .sticky-one,
+        .v2-table thead .sticky-two,
+        .v2-table thead .sticky-three {
+            z-index: 9;
+        }
+
+        .v2-table .sticky-one {
+            left: 0;
+            width: 140px;
+            min-width: 140px;
+            max-width: 140px;
+            text-align: left;
+        }
+
+        .v2-table .sticky-two {
+            left: 140px;
+            width: 72px;
+            min-width: 72px;
+            max-width: 72px;
+        }
+
+        .v2-table .sticky-three {
+            left: 212px;
+            width: 96px;
+            min-width: 96px;
+            max-width: 96px;
+        }
+
+        .v2-table th[data-member-id],
+        .v2-table td[data-member-id] {
+            width: 72px;
+            min-width: 72px;
+            max-width: 72px;
+        }
+
+        .v2-table .v2-table-spacer {
+            width: 100%;
+            min-width: 0;
+            padding: 0;
+            border-right: 0;
+        }
+
+        .v2-item-row .sticky-one,
+        .v2-item-row .sticky-three {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .v2-table tbody .sticky-one,
+        .v2-table tbody .sticky-two,
+        .v2-table tbody .sticky-three {
+            background: var(--panel-strong);
+        }
+
+        .v2-member-power {
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .v2-group-row td {
+            height: 44px;
+            padding: 5px 8px;
+            background: color-mix(in srgb, var(--main) 12%, var(--panel-strong));
+            color: var(--text);
+            font-weight: 850;
+            text-align: left;
+        }
+
+        .v2-group-content {
+            position: sticky;
+            left: 0;
+            width: min(100%, calc(100vw - 80px));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .v2-group-content > span:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .v2-group-actions {
+            display: inline-flex;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .v2-group-action {
+            min-width: 46px;
+            height: 28px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0 9px;
+            background: var(--panel);
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 750;
+            line-height: 26px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .v2-group-action:hover {
+            border-color: var(--main);
+            background: var(--main-soft);
+        }
+
+        .v2-group-action.danger {
+            color: var(--danger);
+        }
+
+        .v2-group-action.danger:hover {
+            border-color: var(--danger);
+            background: color-mix(in srgb, var(--danger) 10%, transparent);
+        }
+
+        .v2-icon-btn {
+            width: 32px;
+            height: 30px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            background: var(--panel);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .v2-priority {
+            color: #fbbf24;
+            font-weight: 800;
+        }
+
+        :root:not([data-theme="dark"]) .v2-priority {
+            color: #7B2E18;
+        }
+
+        .v2-priority.is-excluded {
+            color: var(--muted);
+        }
+
+        .v2-empty,
+        .v2-loading {
+            min-height: 280px;
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            padding: 32px;
+            text-align: center;
+        }
+
+        .v2-toast {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 100;
+            max-width: min(380px, calc(100% - 44px));
+            padding: 13px 16px;
+            border-radius: 13px;
+            background: #111827;
+            color: #fff;
+            box-shadow: 0 16px 40px rgba(0,0,0,.3);
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: .2s ease;
+        }
+
+        .v2-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .v2-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            display: none;
+            place-items: center;
+            padding: 20px;
+            background: rgba(4, 8, 18, .72);
+        }
+
+        .v2-modal-backdrop.open {
+            display: grid;
+        }
+
+        .v2-modal {
+            width: min(620px, 100%);
+            max-height: min(760px, calc(100vh - 40px));
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 22px;
+            background: var(--panel-strong);
+            box-shadow: var(--shadow);
+        }
+
+        .v2-modal-head,
+        .v2-modal-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .v2-modal h2 {
+            margin: 0;
+            font-size: 21px;
+        }
+
+        .v2-field {
+            margin-top: 18px;
+        }
+
+        .v2-field label {
+            display: block;
+            margin-bottom: 7px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 750;
+        }
+
+        .v2-item-editor {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 92px 34px;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .v2-item-editor button {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: transparent;
+            color: var(--danger);
+            cursor: pointer;
+        }
+
+        .v2-modal-foot {
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .v2-exclusion-list {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .v2-exclusion-item {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px 10px;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            background: var(--panel);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .v2-exclusion-item:hover {
+            border-color: var(--main);
+            background: var(--main-soft);
+        }
+
+        .v2-item-row:hover td,
+        .v2-item-row:hover .sticky-one,
+        .v2-item-row:hover .sticky-two,
+        .v2-item-row:hover .sticky-three {
+            background: color-mix(in srgb, var(--main) 7%, var(--panel-strong));
+        }
+
+        @media (max-width: 900px) {
+            .v2-shell {
+                width: min(100% - 20px, 1800px);
+                padding-top: 10px;
+            }
+
+            .v2-hero {
+                grid-template-columns: 1fr;
+                padding: 22px;
+            }
+
+            .v2-stats {
+                width: 100%;
+            }
+
+            .v2-toolbar {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .v2-toolbar .v2-input {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .v2-topbar {
+                align-items: flex-start;
+            }
+
+            .v2-actions {
+                gap: 6px;
+            }
+
+            .v2-actions .v2-btn {
+                min-height: 36px;
+                padding: 0 10px;
+                font-size: 13px;
+            }
+
+            .v2-table {
+                font-size: 14px;
+            }
+
+            .v2-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .v2-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .v2-toolbar .v2-input {
+                grid-column: auto;
+            }
+
+            .v2-table .sticky-one {
+                width: 120px;
+                min-width: 120px;
+                max-width: 120px;
+            }
+
+            .v2-table .sticky-two {
+                left: 120px;
+                width: 68px;
+                min-width: 68px;
+                max-width: 68px;
+            }
+
+            .v2-table .sticky-three {
+                left: 188px;
+                width: 90px;
+                min-width: 90px;
+                max-width: 90px;
+            }
+
+            .v2-exclusion-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="v2-shell">
+        <nav class="v2-topbar" aria-label="페이지 메뉴">
+            <a class="v2-back" href="menu.html"><span aria-hidden="true">←</span> 메뉴로 돌아가기</a>
+            <div class="v2-actions">
+                <button class="v2-btn" id="excludeButton" type="button" hidden>우선순위 제외</button>
+                <button class="v2-btn primary" id="addCollectionButton" type="button" hidden>+ 컬렉션 추가</button>
+                <button class="v2-btn" id="refreshButton" type="button">새로고침</button>
+            </div>
+        </nav>
+
+        <section class="v2-hero">
+            <div>
+                <span class="v2-kicker">STABLE ITEM ID · VERSION 2</span>
+                <h1>길드원 아이템 현황</h1>
+                <p>컬렉션 이름이나 아이템 정보가 수정되어도 기존 체크 상태를 고정 아이템 ID로 안전하게 유지합니다.</p>
+            </div>
+            <div class="v2-stats" aria-label="현황 요약">
+                <div class="v2-stat">
+                    <span class="v2-stat-label">길드원</span>
+                    <strong id="memberStat">-</strong>
+                </div>
+                <div class="v2-stat">
+                    <span class="v2-stat-label">아이템</span>
+                    <strong id="itemStat">-</strong>
+                </div>
+                <div class="v2-stat">
+                    <span class="v2-stat-label">내 달성률</span>
+                    <strong id="completionStat">-</strong>
+                </div>
+            </div>
+        </section>
+
+        <aside class="v2-notice">
+            <span aria-hidden="true">↻</span>
+            <span><strong>실시간 동기화는 사용하지 않습니다.</strong> 다른 길드원의 최신 체크를 확인하려면 상단의 새로고침 버튼을 눌러주세요.</span>
+        </aside>
+
+        <section class="v2-toolbar" aria-label="현황 필터">
+            <input class="v2-input" id="searchInput" type="search" placeholder="컬렉션 또는 부위 검색">
+            <select class="v2-select" id="collectionFilter" aria-label="컬렉션 선택">
+                <option value="">모든 컬렉션</option>
+            </select>
+            <label class="v2-mine-toggle">
+                <input id="mineOnlyInput" type="checkbox">
+                내 열만 보기
+            </label>
+        </section>
+
+        <section class="v2-table-card">
+            <div class="v2-table-meta">
+                <span id="resultText">데이터를 불러오는 중입니다.</span>
+                <span id="updatedText">-</span>
+            </div>
+            <div class="v2-table-wrap" id="tableWrap">
+                <div class="v2-loading" id="loadingState">아이템 현황을 불러오는 중입니다.</div>
+                <table class="v2-table" id="statusTable" hidden>
+                    <thead><tr id="tableHead"></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div class="v2-modal-backdrop" id="collectionModal" role="dialog" aria-modal="true" aria-labelledby="collectionModalTitle">
+        <div class="v2-modal">
+            <div class="v2-modal-head">
+                <h2 id="collectionModalTitle">컬렉션 추가</h2>
+                <button class="v2-icon-btn" type="button" data-close-modal="collectionModal" aria-label="닫기">×</button>
+            </div>
+            <div class="v2-field">
+                <label for="collectionNameInput">컬렉션 이름</label>
+                <input id="collectionNameInput" type="text" maxlength="80">
+            </div>
+            <div class="v2-field">
+                <label>아이템 목록</label>
+                <div id="itemEditors"></div>
+                <button class="v2-btn" id="addItemButton" type="button">+ 아이템 추가</button>
+            </div>
+            <div class="v2-modal-foot">
+                <button class="v2-btn" type="button" data-close-modal="collectionModal">취소</button>
+                <button class="v2-btn primary" id="saveCollectionButton" type="button">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="v2-modal-backdrop" id="exclusionModal" role="dialog" aria-modal="true" aria-labelledby="exclusionModalTitle">
+        <div class="v2-modal">
+            <div class="v2-modal-head">
+                <h2 id="exclusionModalTitle">우선순위 제외 길드원</h2>
+                <button class="v2-icon-btn" type="button" data-close-modal="exclusionModal" aria-label="닫기">×</button>
+            </div>
+            <p style="color:var(--muted); line-height:1.6; margin:12px 0 0;">선택한 길드원은 미보유자 우선순위 계산에서 후순위로 표시됩니다.</p>
+            <div class="v2-exclusion-list" id="exclusionList"></div>
+            <div class="v2-modal-foot">
+                <button class="v2-btn primary" type="button" data-close-modal="exclusionModal">완료</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="v2-toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
+        const role = storage.getItem('role');
+        const isAdmin = role === 'MASTER' || role === 'ADMIN';
+        const canEditAllMembers = role === 'MASTER';
+
+        let myUserId = Number.parseInt(storage.getItem('userId'), 10);
+        let members = [];
+        let collections = [];
+        let statuses = [];
+        let statusSet = new Set();
+        let excludedIds = [];
+        let editingCollectionId = null;
+        let toastTimer;
+
+        const elements = {
+            refreshButton: document.getElementById('refreshButton'),
+            excludeButton: document.getElementById('excludeButton'),
+            addCollectionButton: document.getElementById('addCollectionButton'),
+            searchInput: document.getElementById('searchInput'),
+            collectionFilter: document.getElementById('collectionFilter'),
+            mineOnlyInput: document.getElementById('mineOnlyInput'),
+            table: document.getElementById('statusTable'),
+            tableHead: document.getElementById('tableHead'),
+            tableBody: document.getElementById('tableBody'),
+            loadingState: document.getElementById('loadingState'),
+            resultText: document.getElementById('resultText'),
+            updatedText: document.getElementById('updatedText'),
+            memberStat: document.getElementById('memberStat'),
+            itemStat: document.getElementById('itemStat'),
+            completionStat: document.getElementById('completionStat'),
+            collectionModal: document.getElementById('collectionModal'),
+            collectionModalTitle: document.getElementById('collectionModalTitle'),
+            collectionNameInput: document.getElementById('collectionNameInput'),
+            itemEditors: document.getElementById('itemEditors'),
+            saveCollectionButton: document.getElementById('saveCollectionButton'),
+            exclusionModal: document.getElementById('exclusionModal'),
+            exclusionList: document.getElementById('exclusionList'),
+            toast: document.getElementById('toast')
+        };
+
+        const authHeaders = (json = false) => ({
+            Authorization: `Bearer ${token}`,
+            ...(json ? { 'Content-Type': 'application/json' } : {})
+        });
+        const statusKey = (userId, itemId) => `${userId}:${itemId}`;
+
+        function showToast(message) {
+            clearTimeout(toastTimer);
+            elements.toast.textContent = message;
+            elements.toast.classList.add('show');
+            toastTimer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
+        }
+
+        function handleAuthError() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('username');
+            localStorage.removeItem('nickname');
+            localStorage.removeItem('userId');
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            if (response.status === 401 || response.status === 403 && !token) {
+                handleAuthError();
+                throw new Error('인증이 만료되었습니다.');
+            }
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error || '요청에 실패했습니다.');
+            return body;
+        }
+
+        async function ensureMyUserId() {
+            if (myUserId) return;
+            const me = await fetchJson('/api/users/me', { headers: authHeaders() });
+            myUserId = me.id;
+            storage.setItem('userId', String(me.id));
+        }
+
+        async function loadData({ announce = false } = {}) {
+            elements.refreshButton.disabled = true;
+            elements.refreshButton.textContent = '불러오는 중';
+            try {
+                await ensureMyUserId();
+                const [collectionRows, memberRows, statusRows, excludedRows] = await Promise.all([
+                    fetchJson('/api/v2/collections', { headers: authHeaders() }),
+                    fetchJson('/api/users', { headers: authHeaders() }),
+                    fetchJson('/api/v2/user-collections', { headers: authHeaders() }),
+                    fetchJson('/api/excluded-members', { headers: authHeaders() })
+                ]);
+
+                collections = collectionRows;
+                members = memberRows
+                    .filter(member => member.nickname)
+                    .sort((a, b) => Number(b.combat_power || 0) - Number(a.combat_power || 0));
+                statuses = statusRows;
+                statusSet = new Set(statuses.map(row => statusKey(row.user_id, row.collection_item_id)));
+                excludedIds = excludedRows;
+
+                renderCollectionFilter();
+                renderTable();
+                updateSummary();
+                elements.updatedText.textContent = `마지막 갱신 ${new Date().toLocaleTimeString('ko-KR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                })}`;
+                if (announce) showToast('최신 현황으로 새로고침했습니다.');
+            } catch (error) {
+                elements.loadingState.textContent = error.message || '데이터를 불러오지 못했습니다.';
+                elements.loadingState.hidden = false;
+                elements.table.hidden = true;
+            } finally {
+                elements.refreshButton.disabled = false;
+                elements.refreshButton.textContent = '새로고침';
+            }
+        }
+
+        function renderCollectionFilter() {
+            const selected = elements.collectionFilter.value;
+            elements.collectionFilter.replaceChildren(new Option('모든 컬렉션', ''));
+            collections.forEach(collection => {
+                elements.collectionFilter.add(new Option(collection.name, String(collection.id)));
+            });
+            if ([...elements.collectionFilter.options].some(option => option.value === selected)) {
+                elements.collectionFilter.value = selected;
+            }
+        }
+
+        function createCell(tag, text, className) {
+            const cell = document.createElement(tag);
+            if (text !== undefined) cell.textContent = text;
+            if (className) cell.className = className;
+            return cell;
+        }
+
+        function calculatePriority(itemId) {
+            const normal = members.find(member =>
+                !excludedIds.includes(member.id) && !statusSet.has(statusKey(member.id, itemId))
+            );
+            if (normal) return { ...normal, excluded: false };
+            const excluded = members.find(member =>
+                excludedIds.includes(member.id) && !statusSet.has(statusKey(member.id, itemId))
+            );
+            return excluded ? { ...excluded, excluded: true } : null;
+        }
+
+        function renderTable() {
+            elements.tableHead.replaceChildren();
+            elements.tableBody.replaceChildren();
+
+            [
+                ['부위 / 컬렉션', 'sticky-one'],
+                ['강화', 'sticky-two'],
+                ['1순위', 'sticky-three']
+            ].forEach(([label, className]) => elements.tableHead.appendChild(createCell('th', label, className)));
+
+            members.forEach(member => {
+                const th = createCell('th');
+                th.dataset.memberId = member.id;
+                const name = document.createElement('div');
+                name.textContent = member.nickname;
+                const power = document.createElement('div');
+                power.className = 'v2-member-power';
+                power.textContent = Number(member.combat_power || 0).toLocaleString();
+                th.append(name, power);
+                elements.tableHead.appendChild(th);
+            });
+            elements.tableHead.appendChild(createCell('th', '', 'v2-table-spacer'));
+
+            collections.forEach(collection => {
+                const groupRow = document.createElement('tr');
+                groupRow.className = 'v2-group-row';
+                groupRow.dataset.collectionId = collection.id;
+                groupRow.dataset.collectionName = collection.name.toUpperCase();
+                const groupCell = createCell('td');
+                groupCell.colSpan = members.length + 4;
+                const groupContent = document.createElement('div');
+                groupContent.className = 'v2-group-content';
+                const groupName = document.createElement('span');
+                groupName.textContent = `${collection.name} · ${collection.items.length}개`;
+                groupContent.appendChild(groupName);
+
+                if (isAdmin) {
+                    const actions = document.createElement('span');
+                    actions.className = 'v2-group-actions';
+                    const editButton = document.createElement('button');
+                    editButton.className = 'v2-group-action';
+                    editButton.type = 'button';
+                    editButton.textContent = '수정';
+                    editButton.title = '컬렉션 수정';
+                    editButton.addEventListener('click', () => openCollectionModal(collection));
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'v2-group-action danger';
+                    deleteButton.type = 'button';
+                    deleteButton.textContent = '삭제';
+                    deleteButton.title = '컬렉션 삭제';
+                    deleteButton.addEventListener('click', () => deleteCollection(collection));
+                    actions.append(editButton, deleteButton);
+                    groupContent.appendChild(actions);
+                }
+
+                groupCell.appendChild(groupContent);
+                groupRow.appendChild(groupCell);
+                elements.tableBody.appendChild(groupRow);
+
+                collection.items.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.className = 'v2-item-row';
+                    row.dataset.collectionId = collection.id;
+                    row.dataset.search = `${collection.name} ${item.part} ${item.enchantment}`.toUpperCase();
+                    row.appendChild(createCell('td', item.part, 'sticky-one'));
+                    row.appendChild(createCell('td', item.enchantment, 'sticky-two'));
+
+                    const priority = calculatePriority(item.id);
+                    const priorityCell = createCell(
+                        'td',
+                        priority ? `${priority.nickname}${priority.excluded ? ' · 후순위' : ''}` : '-',
+                        'sticky-three v2-priority'
+                    );
+                    priorityCell.dataset.priorityItemId = item.id;
+                    priorityCell.classList.toggle('is-excluded', Boolean(priority?.excluded));
+                    row.appendChild(priorityCell);
+
+                    members.forEach(member => {
+                        const td = createCell('td');
+                        td.dataset.memberId = member.id;
+                        const checkbox = document.createElement('input');
+                        checkbox.className = 'v2-check';
+                        checkbox.type = 'checkbox';
+                        checkbox.checked = statusSet.has(statusKey(member.id, item.id));
+                        checkbox.disabled = !canEditAllMembers && member.id !== myUserId;
+                        checkbox.setAttribute('aria-label', `${member.nickname} ${item.part} ${item.enchantment}`);
+                        checkbox.addEventListener('change', () => toggleStatus(member.id, item.id, checkbox));
+                        td.appendChild(checkbox);
+                        row.appendChild(td);
+                    });
+                    row.appendChild(createCell('td', '', 'v2-table-spacer'));
+                    elements.tableBody.appendChild(row);
+                });
+            });
+
+            elements.loadingState.hidden = true;
+            elements.table.hidden = false;
+            applyFilters();
+        }
+
+        function updatePriority(itemId) {
+            const priority = calculatePriority(itemId);
+            const cell = elements.tableBody.querySelector(`[data-priority-item-id="${itemId}"]`);
+            if (cell) {
+                cell.textContent = priority ? `${priority.nickname}${priority.excluded ? ' · 후순위' : ''}` : '-';
+                cell.classList.toggle('is-excluded', Boolean(priority?.excluded));
+            }
+        }
+
+        async function toggleStatus(userId, itemId, checkbox) {
+            const completed = checkbox.checked;
+            checkbox.disabled = true;
+            try {
+                await fetchJson('/api/v2/user-collections/toggle', {
+                    method: 'POST',
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ userId, collectionItemId: itemId, completed })
+                });
+                const key = statusKey(userId, itemId);
+                if (completed) statusSet.add(key);
+                else statusSet.delete(key);
+                updatePriority(itemId);
+                updateSummary();
+            } catch (error) {
+                checkbox.checked = !completed;
+                showToast(error.message);
+            } finally {
+                checkbox.disabled = !canEditAllMembers && userId !== myUserId;
+            }
+        }
+
+        function applyFilters() {
+            const query = elements.searchInput.value.trim().toUpperCase();
+            const selectedCollection = elements.collectionFilter.value;
+            const mineOnly = elements.mineOnlyInput.checked;
+            let visibleItems = 0;
+
+            elements.tableHead.querySelectorAll('[data-member-id]').forEach(cell => {
+                cell.hidden = mineOnly && Number(cell.dataset.memberId) !== myUserId;
+            });
+            elements.tableBody.querySelectorAll('td[data-member-id]').forEach(cell => {
+                cell.hidden = mineOnly && Number(cell.dataset.memberId) !== myUserId;
+            });
+
+            collections.forEach(collection => {
+                const collectionMatches = !selectedCollection || selectedCollection === String(collection.id);
+                const groupRow = elements.tableBody.querySelector(
+                    `.v2-group-row[data-collection-id="${collection.id}"]`
+                );
+                let collectionVisibleItems = 0;
+                elements.tableBody.querySelectorAll(
+                    `.v2-item-row[data-collection-id="${collection.id}"]`
+                ).forEach(row => {
+                    const visible = collectionMatches && (!query || row.dataset.search.includes(query));
+                    row.hidden = !visible;
+                    if (visible) {
+                        visibleItems += 1;
+                        collectionVisibleItems += 1;
+                    }
+                });
+                if (groupRow) groupRow.hidden = collectionVisibleItems === 0;
+            });
+
+            elements.resultText.textContent = `${visibleItems.toLocaleString()}개 아이템 표시 중`;
+        }
+
+        function updateSummary() {
+            const itemCount = collections.reduce((sum, collection) => sum + collection.items.length, 0);
+            const myCompleted = collections.reduce((sum, collection) =>
+                sum + collection.items.filter(item => statusSet.has(statusKey(myUserId, item.id))).length, 0
+            );
+            elements.memberStat.textContent = `${members.length}명`;
+            elements.itemStat.textContent = `${itemCount}개`;
+            elements.completionStat.textContent = itemCount
+                ? `${Math.round(myCompleted / itemCount * 100)}%`
+                : '0%';
+        }
+
+        function addItemEditor(item = {}) {
+            const row = document.createElement('div');
+            row.className = 'v2-item-editor';
+            if (item.id) row.dataset.itemId = item.id;
+            const partInput = document.createElement('input');
+            partInput.type = 'text';
+            partInput.placeholder = '부위';
+            partInput.value = item.part || '';
+            const enchantmentInput = document.createElement('input');
+            enchantmentInput.type = 'number';
+            enchantmentInput.placeholder = '강화';
+            enchantmentInput.value = String(item.enchantment || '').replace(/^강화\s*/, '');
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.textContent = '×';
+            removeButton.setAttribute('aria-label', '아이템 행 삭제');
+            removeButton.addEventListener('click', () => row.remove());
+            row.append(partInput, enchantmentInput, removeButton);
+            elements.itemEditors.appendChild(row);
+        }
+
+        function openCollectionModal(collection = null) {
+            editingCollectionId = collection ? collection.id : null;
+            elements.collectionModalTitle.textContent = collection ? '컬렉션 수정' : '컬렉션 추가';
+            elements.collectionNameInput.value = collection ? collection.name : '';
+            elements.itemEditors.replaceChildren();
+            if (collection) collection.items.forEach(addItemEditor);
+            else addItemEditor();
+            elements.collectionModal.classList.add('open');
+            elements.collectionNameInput.focus();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('open');
+        }
+
+        async function saveCollection() {
+            const name = elements.collectionNameInput.value.trim();
+            const items = [...elements.itemEditors.querySelectorAll('.v2-item-editor')]
+                .map(row => {
+                    const inputs = row.querySelectorAll('input');
+                    const itemId = Number.parseInt(row.dataset.itemId, 10);
+                    const part = inputs[0].value.trim();
+                    const enhancement = inputs[1].value.trim();
+                    return {
+                        id: itemId || null,
+                        part,
+                        enchantment: enhancement ? `강화 ${enhancement}` : ''
+                    };
+                })
+                .filter(item => item.part && item.enchantment);
+
+            if (!name) return showToast('컬렉션 이름을 입력해주세요.');
+            if (items.length === 0) return showToast('아이템을 한 개 이상 입력해주세요.');
+
+            elements.saveCollectionButton.disabled = true;
+            try {
+                const url = editingCollectionId
+                    ? `/api/v2/collections/${editingCollectionId}`
+                    : '/api/v2/collections';
+                await fetchJson(url, {
+                    method: editingCollectionId ? 'PUT' : 'POST',
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ name, items })
+                });
+                closeModal('collectionModal');
+                await loadData();
+                showToast('컬렉션을 저장했습니다.');
+            } catch (error) {
+                showToast(error.message);
+            } finally {
+                elements.saveCollectionButton.disabled = false;
+            }
+        }
+
+        async function deleteCollection(collection) {
+            if (!confirm(`'${collection.name}' 컬렉션을 삭제할까요?\n체크 기록도 함께 삭제됩니다.`)) return;
+            try {
+                await fetchJson(`/api/v2/collections/${collection.id}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+                await loadData();
+                showToast('컬렉션을 삭제했습니다.');
+            } catch (error) {
+                showToast(error.message);
+            }
+        }
+
+        function openExclusionModal() {
+            elements.exclusionList.replaceChildren();
+            members.forEach(member => {
+                const label = document.createElement('label');
+                label.className = 'v2-exclusion-item';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'v2-check';
+                checkbox.checked = excludedIds.includes(member.id);
+                checkbox.addEventListener('change', () => toggleExclusion(member.id, checkbox));
+                const text = document.createElement('span');
+                text.textContent = member.nickname;
+                label.append(checkbox, text);
+                elements.exclusionList.appendChild(label);
+            });
+            elements.exclusionModal.classList.add('open');
+        }
+
+        async function toggleExclusion(userId, checkbox) {
+            checkbox.disabled = true;
+            try {
+                const result = await fetchJson('/api/excluded-members/toggle', {
+                    method: 'POST',
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ userId })
+                });
+                if (result.status === 'added') excludedIds.push(userId);
+                else excludedIds = excludedIds.filter(id => id !== userId);
+                collections.forEach(collection => collection.items.forEach(item => updatePriority(item.id)));
+            } catch (error) {
+                checkbox.checked = !checkbox.checked;
+                showToast(error.message);
+            } finally {
+                checkbox.disabled = false;
+            }
+        }
+
+        if (!token) {
+            handleAuthError();
+        } else {
+            elements.addCollectionButton.hidden = !isAdmin;
+            elements.excludeButton.hidden = !isAdmin;
+            elements.refreshButton.addEventListener('click', () => loadData({ announce: true }));
+            elements.searchInput.addEventListener('input', applyFilters);
+            elements.collectionFilter.addEventListener('change', applyFilters);
+            elements.mineOnlyInput.addEventListener('change', applyFilters);
+            elements.addCollectionButton.addEventListener('click', () => openCollectionModal());
+            elements.excludeButton.addEventListener('click', openExclusionModal);
+            document.getElementById('addItemButton').addEventListener('click', () => addItemEditor());
+            elements.saveCollectionButton.addEventListener('click', saveCollection);
+            document.querySelectorAll('[data-close-modal]').forEach(button => {
+                button.addEventListener('click', () => closeModal(button.dataset.closeModal));
+            });
+            document.querySelectorAll('.v2-modal-backdrop').forEach(backdrop => {
+                backdrop.addEventListener('click', event => {
+                    if (event.target === backdrop) backdrop.classList.remove('open');
+                });
+            });
+            loadData();
+        }
+    </script>
+</body>
+</html>

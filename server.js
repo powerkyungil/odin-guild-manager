@@ -27,6 +27,14 @@ try {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let httpServerStarted = false;
+const startHttpServer = () => {
+    if (httpServerStarted) return;
+    httpServerStarted = true;
+    app.listen(PORT, () => {
+        // Server running after database initialization and migrations complete.
+    });
+};
 const JWT_SECRET = process.env.JWT_SECRET || 'odin-guild-secret-kyeongil';
 const CLOVA_OCR_INVOKE_URL = process.env.CLOVA_OCR_INVOKE_URL;
 const CLOVA_OCR_SECRET = process.env.CLOVA_OCR_SECRET;
@@ -138,7 +146,9 @@ app.get('/api/time', (req, res) => {
 });
 
 // --- Auth Routes ---
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+const dbPath = process.env.DB_PATH
+    ? path.resolve(process.env.DB_PATH)
+    : path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         // Error opening database
@@ -216,6 +226,36 @@ function initDB() {
             user_id INTEGER,
             collection_name TEXT,
             UNIQUE(user_id, collection_name)
+        )`);
+
+        // Stable item IDs replace the legacy collection-name based check keys.
+        // The legacy table is intentionally retained so migration can be audited
+        // and rolled back without losing the original records.
+        db.run(`CREATE TABLE IF NOT EXISTS collection_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            collection_id INTEGER NOT NULL,
+            part TEXT NOT NULL,
+            enchantment TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            legacy_key TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+            UNIQUE(collection_id, legacy_key, sort_order)
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS user_collection_items (
+            user_id INTEGER NOT NULL,
+            collection_item_id INTEGER NOT NULL,
+            completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, collection_item_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (collection_item_id) REFERENCES collection_items(id) ON DELETE CASCADE
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS app_migrations (
+            name TEXT PRIMARY KEY,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            details TEXT
         )`);
 
         // Participation Targets Table
@@ -475,30 +515,49 @@ function initDB() {
             items TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`, (err) => {
-            if (!err) {
-                db.get("SELECT COUNT(*) as count FROM collections", (err, row) => {
-                    if (row && row.count === 0) {
-                        try {
-                            const fs = require('fs');
-                            const dataPath = path.join(__dirname, 'collections_data.js');
-                            if (fs.existsSync(dataPath)) {
-                                let content = fs.readFileSync(dataPath, 'utf8');
-                                const startIdx = content.indexOf('[');
-                                const endIdx = content.lastIndexOf(']');
-                                if (startIdx !== -1 && endIdx !== -1) {
-                                    const jsonStr = content.substring(startIdx, endIdx + 1);
-                                    const collections = JSON.parse(jsonStr);
-                                    const stmt = db.prepare("INSERT INTO collections (name, items) VALUES (?, ?)");
-                                    collections.forEach(c => stmt.run([c.name, JSON.stringify(c.items)]));
-                                    stmt.finalize();
-                                }
-                            }
-                        } catch (e) {
-                            // Error seeding collections
-                        }
-                    }
-                });
+            if (err) {
+                console.error('Collections table initialization failed:', err.message);
+                return process.exit(1);
             }
+
+            db.get("SELECT COUNT(*) as count FROM collections", (countErr, row) => {
+                if (countErr) {
+                    console.error('Collections count failed:', countErr.message);
+                    return process.exit(1);
+                }
+
+                const migrate = () => {
+                    migrateCollectionItemIds()
+                        .then(startHttpServer)
+                        .catch((migrationErr) => {
+                            console.error('Collection item ID migration failed:', migrationErr.message);
+                            process.exit(1);
+                        });
+                };
+
+                if (!row || row.count > 0) return migrate();
+
+                try {
+                    const dataPath = path.join(__dirname, 'collections_data.js');
+                    if (!fs.existsSync(dataPath)) return migrate();
+
+                    const content = fs.readFileSync(dataPath, 'utf8');
+                    const startIdx = content.indexOf('[');
+                    const endIdx = content.lastIndexOf(']');
+                    if (startIdx === -1 || endIdx === -1) return migrate();
+
+                    const collections = JSON.parse(content.substring(startIdx, endIdx + 1));
+                    const stmt = db.prepare("INSERT INTO collections (name, items) VALUES (?, ?)");
+                    collections.forEach(c => stmt.run([c.name, JSON.stringify(c.items)]));
+                    stmt.finalize((seedErr) => {
+                        if (seedErr) console.error('Collections seed failed:', seedErr.message);
+                        migrate();
+                    });
+                } catch (seedErr) {
+                    console.error('Collections seed failed:', seedErr.message);
+                    migrate();
+                }
+            });
         });
 
         // Initial Master
@@ -509,6 +568,108 @@ function initDB() {
             }
         });
     });
+}
+
+const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
+    });
+});
+
+const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+    });
+});
+
+const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+    });
+});
+
+const parseLegacyCollectionItems = (collection) => {
+    let rawItems;
+    try {
+        rawItems = JSON.parse(collection.items || '[]');
+    } catch (_) {
+        rawItems = [];
+    }
+
+    const seenCounts = {};
+    return rawItems.map((rawItem, sortOrder) => {
+        const fullItem = String(rawItem);
+        const [part = '', enchantment = ''] = fullItem.split('|').map(value => value.trim());
+        const countKey = fullItem.trim();
+        seenCounts[countKey] = (seenCounts[countKey] || 0) + 1;
+
+        let legacyKey = `${collection.name}||${part}||${enchantment}`;
+        if (seenCounts[countKey] > 1) legacyKey += `||${seenCounts[countKey]}`;
+
+        return { part, enchantment, sortOrder, legacyKey };
+    }).filter(item => item.part && item.enchantment);
+};
+
+async function migrateCollectionItemIds() {
+    const migrationName = '2026-collection-item-ids-v1';
+    const alreadyApplied = await dbGet("SELECT name FROM app_migrations WHERE name = ?", [migrationName]);
+    if (alreadyApplied) return;
+
+    const collections = await dbAll("SELECT id, name, items FROM collections ORDER BY id ASC");
+
+    try {
+        for (const collection of collections) {
+            for (const item of parseLegacyCollectionItems(collection)) {
+                await dbRun(
+                    `INSERT OR IGNORE INTO collection_items
+                        (collection_id, part, enchantment, sort_order, legacy_key, is_active)
+                     VALUES (?, ?, ?, ?, ?, 1)`,
+                    [collection.id, item.part, item.enchantment, item.sortOrder, item.legacyKey]
+                );
+            }
+        }
+
+        await dbRun(`
+            INSERT OR IGNORE INTO user_collection_items (user_id, collection_item_id)
+            SELECT uc.user_id, ci.id
+            FROM user_collections uc
+            JOIN collection_items ci ON ci.legacy_key = uc.collection_name
+        `);
+
+        const legacyCount = await dbGet("SELECT COUNT(*) AS count FROM user_collections");
+        const migratedCount = await dbGet(`
+            SELECT COUNT(*) AS count
+            FROM user_collections uc
+            WHERE EXISTS (
+                SELECT 1 FROM collection_items ci WHERE ci.legacy_key = uc.collection_name
+            )
+        `);
+        const unmatchedCount = Math.max(0, legacyCount.count - migratedCount.count);
+        const details = JSON.stringify({
+            legacyChecks: legacyCount.count,
+            matchedLegacyChecks: migratedCount.count,
+            unmatchedLegacyChecks: unmatchedCount
+        });
+
+        await dbRun(
+            "INSERT INTO app_migrations (name, details) VALUES (?, ?)",
+            [migrationName, details]
+        );
+
+        console.log(
+            `Collection item migration complete: ${migratedCount.count}/${legacyCount.count} legacy checks matched`
+        );
+        if (unmatchedCount > 0) {
+            console.warn(
+                `${unmatchedCount} legacy collection checks could not be matched and remain in user_collections`
+            );
+        }
+    } catch (err) {
+        throw err;
+    }
 }
 
 const BOSS_TIMERS = {
@@ -1607,7 +1768,144 @@ app.post('/api/excluded-members/toggle', verifyToken, (req, res) => {
     });
 });
 
+const normalizeCollectionItems = (items) => {
+    if (!Array.isArray(items)) return [];
+
+    return items.map((item) => {
+        if (typeof item === 'string') {
+            const [part = '', enchantment = ''] = item.split('|').map(value => value.trim());
+            return { id: null, part, enchantment };
+        }
+
+        const id = Number.parseInt(item && item.id, 10);
+        return {
+            id: Number.isInteger(id) && id > 0 ? id : null,
+            part: String((item && item.part) || '').trim(),
+            enchantment: String((item && item.enchantment) || '').trim()
+        };
+    }).filter(item => item.part && item.enchantment);
+};
+
+const serializeLegacyItems = (items) => JSON.stringify(
+    items.map(item => `${item.part} | ${item.enchantment}`)
+);
+
+const assignLegacyKeys = (collectionName, items) => {
+    const seenCounts = {};
+    return items.map((item) => {
+        const countKey = `${item.part} | ${item.enchantment}`;
+        seenCounts[countKey] = (seenCounts[countKey] || 0) + 1;
+        let legacyKey = `${collectionName}||${item.part}||${item.enchantment}`;
+        if (seenCounts[countKey] > 1) legacyKey += `||${seenCounts[countKey]}`;
+        return { ...item, legacyKey };
+    });
+};
+
+let collectionMutationQueue = Promise.resolve();
+const queueCollectionMutation = (mutation) => {
+    const result = collectionMutationQueue.then(mutation, mutation);
+    collectionMutationQueue = result.catch(() => {});
+    return result;
+};
+
+const updateCollectionWithItems = (collectionId, name, rawItems) => {
+    const items = assignLegacyKeys(name, rawItems);
+    return queueCollectionMutation(async () => {
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        try {
+            const collectionResult = await dbRun(
+                "UPDATE collections SET name = ?, items = ? WHERE id = ?",
+                [name, serializeLegacyItems(items), collectionId]
+            );
+            if (collectionResult.changes === 0) throw new Error('Collection not found.');
+
+            const existingItems = await dbAll(
+                "SELECT id, legacy_key FROM collection_items WHERE collection_id = ?",
+                [collectionId]
+            );
+            const existingById = new Map(existingItems.map(item => [item.id, item]));
+            await dbRun("UPDATE collection_items SET is_active = 0 WHERE collection_id = ?", [collectionId]);
+
+            for (let index = 0; index < items.length; index++) {
+                const item = items[index];
+                if (item.id) {
+                    const existing = existingById.get(item.id);
+                    if (!existing) {
+                        throw new Error(`Collection item ${item.id} does not belong to this collection.`);
+                    }
+                    await dbRun(
+                        `UPDATE collection_items
+                         SET part = ?, enchantment = ?, sort_order = ?, legacy_key = ?, is_active = 1
+                         WHERE id = ? AND collection_id = ?`,
+                        [item.part, item.enchantment, index, item.legacyKey, item.id, collectionId]
+                    );
+                    if (existing.legacy_key && existing.legacy_key !== item.legacyKey) {
+                        await dbRun(
+                            `INSERT OR IGNORE INTO user_collections (user_id, collection_name)
+                             SELECT user_id, ? FROM user_collections WHERE collection_name = ?`,
+                            [item.legacyKey, existing.legacy_key]
+                        );
+                        await dbRun(
+                            "DELETE FROM user_collections WHERE collection_name = ?",
+                            [existing.legacy_key]
+                        );
+                    }
+                } else {
+                    await dbRun(
+                        `INSERT INTO collection_items
+                            (collection_id, part, enchantment, sort_order, legacy_key, is_active)
+                         VALUES (?, ?, ?, ?, ?, 1)`,
+                        [collectionId, item.part, item.enchantment, index, item.legacyKey]
+                    );
+                }
+            }
+
+            await dbRun("COMMIT");
+        } catch (err) {
+            try { await dbRun("ROLLBACK"); } catch (_) {}
+            throw err;
+        }
+    });
+};
+
+const syncLegacyCheckToV2 = (userId, legacyKey, completed, callback) => {
+    db.all(
+        "SELECT id FROM collection_items WHERE legacy_key = ? AND is_active = 1",
+        [legacyKey],
+        (lookupErr, items) => {
+            if (lookupErr || items.length === 0) return callback();
+            let remaining = items.length;
+            const finish = () => {
+                remaining -= 1;
+                if (remaining === 0) callback();
+            };
+            items.forEach((item) => {
+                const sql = completed
+                    ? "INSERT OR IGNORE INTO user_collection_items (user_id, collection_item_id) VALUES (?, ?)"
+                    : "DELETE FROM user_collection_items WHERE user_id = ? AND collection_item_id = ?";
+                db.run(sql, [userId, item.id], finish);
+            });
+        }
+    );
+};
+
+const syncV2CheckToLegacy = (userId, collectionItemId, completed, callback) => {
+    db.get(
+        "SELECT legacy_key FROM collection_items WHERE id = ?",
+        [collectionItemId],
+        (lookupErr, item) => {
+            if (lookupErr || !item || !item.legacy_key) return callback();
+            const sql = completed
+                ? "INSERT OR IGNORE INTO user_collections (user_id, collection_name) VALUES (?, ?)"
+                : "DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?";
+            db.run(sql, [userId, item.legacy_key], () => callback());
+        }
+    );
+};
+
+// V1 is retained for migration verification and is accessible only to the master.
 app.get('/api/user-collections', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
     db.all("SELECT user_id, collection_name FROM user_collections", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -1615,66 +1913,276 @@ app.get('/api/user-collections', verifyToken, (req, res) => {
 });
 
 app.post('/api/user-collections/toggle', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
     const { userId, collectionName, completed } = req.body;
     const targetUserId = parseInt(userId, 10);
-    if (!targetUserId || !collectionName) return res.status(400).json({ error: 'Invalid request.' });
-    if (req.userId !== targetUserId && req.userRole === 'MEMBER') return res.status(403).json({ error: 'Denied.' });
+    if (!targetUserId || !collectionName || typeof completed !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid request.' });
+    }
+    const sql = completed
+        ? "INSERT OR IGNORE INTO user_collections (user_id, collection_name) VALUES (?, ?)"
+        : "DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?";
+    db.run(sql, [targetUserId, collectionName], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        syncLegacyCheckToV2(targetUserId, collectionName, completed, () => {
+            res.json({ status: completed ? 'added' : 'removed' });
+        });
+    });
+});
 
-    if (typeof completed === 'boolean') {
+app.get('/api/collections', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
+    db.all("SELECT * FROM collections ORDER BY id ASC", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        try {
+            res.json(rows.map(row => ({ ...row, items: JSON.parse(row.items) })));
+        } catch (parseErr) {
+            res.status(500).json({ error: parseErr.message });
+        }
+    });
+});
+
+app.get('/api/v2/user-collections', verifyToken, (req, res) => {
+    db.all(
+        `SELECT uci.user_id, uci.collection_item_id
+         FROM user_collection_items uci
+         JOIN collection_items ci ON ci.id = uci.collection_item_id
+         WHERE ci.is_active = 1`,
+        (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+        }
+    );
+});
+
+app.post('/api/v2/user-collections/toggle', verifyToken, (req, res) => {
+    const { userId, collectionItemId, completed } = req.body;
+    const targetUserId = parseInt(userId, 10);
+    const targetCollectionItemId = parseInt(collectionItemId, 10);
+    if (!targetUserId || !targetCollectionItemId || typeof completed !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid request.' });
+    }
+    if (req.userId !== targetUserId && req.userRole !== 'MASTER') {
+        return res.status(403).json({ error: 'Master only for editing other members.' });
+    }
+
+    db.get(
+        "SELECT id FROM collection_items WHERE id = ? AND is_active = 1",
+        [targetCollectionItemId],
+        (itemErr, item) => {
+            if (itemErr) return res.status(500).json({ error: itemErr.message });
+            if (!item) return res.status(404).json({ error: 'Collection item not found.' });
+
         if (completed) {
             return db.run(
-                "INSERT OR IGNORE INTO user_collections (user_id, collection_name) VALUES (?, ?)",
-                [targetUserId, collectionName],
+                    "INSERT OR IGNORE INTO user_collection_items (user_id, collection_item_id) VALUES (?, ?)",
+                    [targetUserId, targetCollectionItemId],
                 (err) => {
                     if (err) return res.status(500).json({ error: err.message });
-                    res.json({ status: 'added' });
+                    syncV2CheckToLegacy(targetUserId, targetCollectionItemId, true, () => {
+                        res.json({ status: 'added' });
+                    });
                 }
             );
         }
 
         return db.run(
-            "DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?",
-            [targetUserId, collectionName],
+                "DELETE FROM user_collection_items WHERE user_id = ? AND collection_item_id = ?",
+                [targetUserId, targetCollectionItemId],
             (err) => {
                 if (err) return res.status(500).json({ error: err.message });
-                res.json({ status: 'removed' });
+                syncV2CheckToLegacy(targetUserId, targetCollectionItemId, false, () => {
+                    res.json({ status: 'removed' });
+                });
             }
         );
-    }
-
-    db.get("SELECT id FROM user_collections WHERE user_id = ? AND collection_name = ?", [targetUserId, collectionName], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (row) {
-            db.run("DELETE FROM user_collections WHERE user_id = ? AND collection_name = ?", [targetUserId, collectionName], (deleteErr) => {
-                if (deleteErr) return res.status(500).json({ error: deleteErr.message });
-                res.json({ status: 'removed' });
-            });
-        } else {
-            db.run("INSERT INTO user_collections (user_id, collection_name) VALUES (?, ?)", [targetUserId, collectionName], (insertErr) => {
-                if (insertErr) return res.status(500).json({ error: insertErr.message });
-                res.json({ status: 'added' });
-            });
         }
-    });
+    );
 });
 
-app.get('/api/collections', verifyToken, (req, res) => {
-    db.all("SELECT * FROM collections ORDER BY id ASC", (err, rows) => res.json(rows.map(r => ({ ...r, items: JSON.parse(r.items) }))));
+app.get('/api/v2/collections', verifyToken, (req, res) => {
+    db.all(
+        `SELECT
+            c.id,
+            c.name,
+            c.created_at,
+            ci.id AS item_id,
+            ci.part,
+            ci.enchantment,
+            ci.sort_order
+         FROM collections c
+         LEFT JOIN collection_items ci
+           ON ci.collection_id = c.id AND ci.is_active = 1
+         ORDER BY c.id ASC, ci.sort_order ASC, ci.id ASC`,
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            const collectionsById = new Map();
+            rows.forEach((row) => {
+                if (!collectionsById.has(row.id)) {
+                    collectionsById.set(row.id, {
+                        id: row.id,
+                        name: row.name,
+                        created_at: row.created_at,
+                        items: []
+                    });
+                }
+                if (row.item_id) {
+                    collectionsById.get(row.id).items.push({
+                        id: row.item_id,
+                        part: row.part,
+                        enchantment: row.enchantment
+                    });
+                }
+            });
+            res.json(Array.from(collectionsById.values()));
+        }
+    );
+});
+
+app.post('/api/v2/collections', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const name = String(req.body.name || '').trim();
+    const normalizedItems = normalizeCollectionItems(req.body.items);
+    if (!name || normalizedItems.length === 0) return res.status(400).json({ error: 'Name and items are required.' });
+    const items = assignLegacyKeys(name, normalizedItems);
+
+    queueCollectionMutation(async () => {
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        try {
+            const collectionResult = await dbRun(
+                "INSERT INTO collections (name, items) VALUES (?, ?)",
+                [name, serializeLegacyItems(items)]
+            );
+            for (let index = 0; index < items.length; index++) {
+                const item = items[index];
+                await dbRun(
+                    `INSERT INTO collection_items
+                        (collection_id, part, enchantment, sort_order, legacy_key, is_active)
+                     VALUES (?, ?, ?, ?, ?, 1)`,
+                    [collectionResult.lastID, item.part, item.enchantment, index, item.legacyKey]
+                );
+            }
+            await dbRun("COMMIT");
+            return collectionResult.lastID;
+        } catch (err) {
+            try { await dbRun("ROLLBACK"); } catch (_) {}
+            throw err;
+        }
+    }).then(
+        id => res.json({ success: true, id }),
+        err => res.status(500).json({ error: err.message })
+    );
+});
+
+app.delete('/api/v2/collections/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const collectionId = parseInt(req.params.id, 10);
+    if (!collectionId) return res.status(400).json({ error: 'Invalid collection id.' });
+
+    queueCollectionMutation(async () => {
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        try {
+            await dbRun(
+                `DELETE FROM user_collections
+                 WHERE collection_name IN (
+                    SELECT legacy_key
+                    FROM collection_items
+                    WHERE collection_id = ? AND legacy_key IS NOT NULL
+                 )`,
+                [collectionId]
+            );
+            await dbRun(
+                `DELETE FROM user_collection_items
+                 WHERE collection_item_id IN (
+                    SELECT id FROM collection_items WHERE collection_id = ?
+                 )`,
+                [collectionId]
+            );
+            await dbRun("DELETE FROM collection_items WHERE collection_id = ?", [collectionId]);
+            const result = await dbRun("DELETE FROM collections WHERE id = ?", [collectionId]);
+            if (result.changes === 0) throw new Error('Collection not found.');
+            await dbRun("COMMIT");
+        } catch (err) {
+            try { await dbRun("ROLLBACK"); } catch (_) {}
+            throw err;
+        }
+    }).then(
+        () => res.json({ success: true }),
+        err => res.status(500).json({ error: err.message })
+    );
+});
+
+app.put('/api/v2/collections/:id', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+    const collectionId = parseInt(req.params.id, 10);
+    const name = String(req.body.name || '').trim();
+    const items = normalizeCollectionItems(req.body.items);
+    if (!collectionId || !name || items.length === 0) {
+        return res.status(400).json({ error: 'Collection id, name, and items are required.' });
+    }
+
+    const suppliedIds = items.filter(item => item.id).map(item => item.id);
+    if (new Set(suppliedIds).size !== suppliedIds.length) {
+        return res.status(400).json({ error: 'Duplicate collection item id.' });
+    }
+
+    updateCollectionWithItems(collectionId, name, items).then(
+        () => res.json({ success: true }),
+        err => res.status(500).json({ error: err.message })
+    );
 });
 
 app.post('/api/collections', verifyToken, (req, res) => {
-    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    db.run("INSERT INTO collections (name, items) VALUES (?, ?)", [req.body.name, JSON.stringify(req.body.items)], function () { res.json({ success: true, id: this.lastID }); });
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
+    res.redirect(307, '/api/v2/collections');
 });
 
 app.delete('/api/collections/:id', verifyToken, (req, res) => {
-    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    db.run("DELETE FROM collections WHERE id = ?", [req.params.id], () => res.json({ success: true }));
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
+    res.redirect(307, `/api/v2/collections/${req.params.id}`);
 });
 
 app.put('/api/collections/:id', verifyToken, (req, res) => {
-    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    db.run("UPDATE collections SET name = ?, items = ? WHERE id = ?", [req.body.name, JSON.stringify(req.body.items), req.params.id], () => res.json({ success: true }));
+    if (req.userRole !== 'MASTER') return res.status(403).json({ error: 'Master only.' });
+
+    const collectionId = parseInt(req.params.id, 10);
+    const name = String(req.body.name || '').trim();
+    const incomingItems = normalizeCollectionItems(req.body.items);
+    if (!collectionId || !name || incomingItems.length === 0) {
+        return res.status(400).json({ error: 'Collection id, name, and items are required.' });
+    }
+
+    db.all(
+        `SELECT id, part, enchantment
+         FROM collection_items
+         WHERE collection_id = ? AND is_active = 1
+         ORDER BY sort_order ASC, id ASC`,
+        [collectionId],
+        (err, existingItems) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            const unusedIds = new Set(existingItems.map(item => item.id));
+            const itemsWithIds = incomingItems.map((item, index) => {
+                let match = existingItems.find(existing =>
+                    unusedIds.has(existing.id)
+                    && existing.part === item.part
+                    && existing.enchantment === item.enchantment
+                );
+                if (!match && existingItems[index] && unusedIds.has(existingItems[index].id)) {
+                    match = existingItems[index];
+                }
+                if (!match) match = existingItems.find(existing => unusedIds.has(existing.id));
+                if (match) unusedIds.delete(match.id);
+                return { ...item, id: match ? match.id : null };
+            });
+
+            updateCollectionWithItems(collectionId, name, itemsWithIds).then(
+                () => res.json({ success: true }),
+                updateErr => res.status(500).json({ error: updateErr.message })
+            );
+        }
+    );
 });
 
 // --- ADMIN USERS ---
@@ -1707,6 +2215,7 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
             try {
                 await runSql("BEGIN TRANSACTION");
                 await runSql("DELETE FROM user_collections WHERE user_id = ?", [targetUserId]);
+                await runSql("DELETE FROM user_collection_items WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM group_members WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM excluded_members WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM siege_data WHERE user_id = ?", [targetUserId]);
@@ -2170,8 +2679,4 @@ app.post('/api/test-discord', verifyToken, async (req, res) => {
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));
-});
-
-app.listen(PORT, () => {
-    // Server running
 });

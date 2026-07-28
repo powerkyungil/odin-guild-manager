@@ -103,6 +103,8 @@ export CLOVA_OCR_TEMPLATES='본섭:12345,침공:67890'
 
 일부 세부 작업은 서버 API에서 역할을 다시 검사하므로 화면 요소를 직접 호출해도 권한 없이 실행할 수 없습니다.
 
+기존 아이템 현황(V1)은 `MASTER`만 접근할 수 있습니다. V2 체크 상태는 `MASTER`만 모든 길드원을 수정할 수 있으며, `ADMIN`과 `MEMBER`는 본인 상태만 수정할 수 있습니다.
+
 ## Discord 알림 설정
 
 1. Discord Developer Portal에서 봇을 만들고 길드 서버에 초대합니다.
@@ -125,6 +127,25 @@ cp database.sqlite.backup database.sqlite
 ```
 
 백업과 복원은 쓰기 작업이 없는 상태에서 진행하는 것이 안전합니다. `*.sqlite`, `.env` 등 운영 데이터와 비밀 정보는 `.gitignore`에 포함되어 있습니다.
+
+### 아이템 현황 V2 마이그레이션
+
+V2는 기존 `user_collections` 데이터를 삭제하지 않고 고정 `collection_item_id` 기반 테이블로 복사합니다. 새 코드를 처음 실행하면 마이그레이션이 한 번만 자동 실행됩니다.
+
+```bash
+# 서버를 중지하고 반드시 백업
+npx pm2 stop odin-guild-manager
+cp database.sqlite database.sqlite.before-collections-v2
+
+# 새 코드 설치 후 최초 실행
+npm ci --omit=dev
+npx pm2 restart odin-guild-manager
+
+# 기존 데이터와 V2 데이터의 누락 여부 검사
+npm run audit:collection-migration
+```
+
+검사 결과에서 `unmatchedLegacyChecks`와 `orphanV2Checks`가 모두 `0`이어야 합니다. 문제가 있으면 서버를 다시 중지한 뒤 백업 파일을 `database.sqlite`로 복원할 수 있습니다.
 
 ## PM2로 운영하기
 

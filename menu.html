@@ -199,9 +199,14 @@
                 <p>접속이 어려운 길드원과 지원자를 매칭</p>
             </a>
 
-            <a href="collections.html" class="menu-card">
+            <a href="collections.html" class="menu-card" id="legacyCollectionsMenu" hidden>
                 <h3>길드원 아이템 현황</h3>
-                <p>아이템 컬렉션 달성 상태 관리</p>
+                <p>기존 아이템 컬렉션 달성 상태 관리</p>
+            </a>
+
+            <a href="collections_v2.html" class="menu-card">
+                <h3>길드원 아이템 현황 <span class="new-badge">V2</span></h3>
+                <p>고정 아이템 ID 기반의 안전한 달성 현황 관리</p>
             </a>
 
             <a href="content.html" class="menu-card">
@@ -248,6 +253,7 @@
         const role = localStorage.getItem('role') || sessionStorage.getItem('role');
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
+        document.getElementById('legacyCollectionsMenu').hidden = role !== 'MASTER';
 
         if (role === 'MASTER' || role === 'ADMIN') {
             document.getElementById('settingsBtn').style.display = 'inline-block';
