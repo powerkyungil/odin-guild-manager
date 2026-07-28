@@ -37,7 +37,7 @@
       </div>
 
       <div class="input-mode-tabs" role="tablist" aria-label="보스 입력 방식">
-        <button class="input-mode-tab active" id="direct-input-tab" type="button" role="tab" aria-selected="true" aria-controls="form-container">
+        <button class="input-mode-tab active" id="direct-input-tab" type="button" role="tab" aria-selected="true" aria-controls="direct-input-panel">
           직접 입력
         </button>
         <button class="input-mode-tab" id="screenshot-input-tab" type="button" role="tab" aria-selected="false" aria-controls="screenshot-input-panel">
@@ -45,9 +45,14 @@
         </button>
       </div>
 
-      <div class="sidebar-content" id="form-container" style="padding-top: 0;" role="tabpanel" aria-labelledby="direct-input-tab">
-        <!-- Accordion items injected via JS -->
-      </div>
+      <section class="direct-input-panel" id="direct-input-panel" role="tabpanel" aria-labelledby="direct-input-tab">
+        <div class="sidebar-content" id="form-container" style="padding-top: 0;">
+          <!-- Accordion items injected via JS -->
+        </div>
+        <div class="sidebar-footer">
+          <button id="apply-all-btn" class="primary-btn">전체 적용하기</button>
+        </div>
+      </section>
 
       <section class="sidebar-content screenshot-input-panel" id="screenshot-input-panel" role="tabpanel" aria-labelledby="screenshot-input-tab" hidden>
         <div class="screenshot-intro">
@@ -87,12 +92,6 @@
           <p>등록 전 결과를 확인해주세요.</p>
           <div class="ocr-result-list" id="ocr-result-list"></div>
         </div>
-      </div>
-
-
-
-      <div class="sidebar-footer" id="direct-input-footer">
-        <button id="apply-all-btn" class="primary-btn">전체 적용하기</button>
       </div>
     </aside>
 

@@ -12,8 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderFilterCheckboxes = Array.from(document.querySelectorAll('.render-filter-chk'));
   const directInputTab = document.getElementById('direct-input-tab');
   const screenshotInputTab = document.getElementById('screenshot-input-tab');
+  const directInputPanel = document.getElementById('direct-input-panel');
   const screenshotPanel = document.getElementById('screenshot-input-panel');
-  const directInputFooter = document.getElementById('direct-input-footer');
   const screenshotFileInput = document.getElementById('screenshot-file-input');
   const screenshotDropzone = document.getElementById('screenshot-dropzone');
   const screenshotPreview = document.getElementById('screenshot-preview');
@@ -104,9 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
     screenshotInputTab.classList.toggle('active', isScreenshot);
     directInputTab.setAttribute('aria-selected', String(!isScreenshot));
     screenshotInputTab.setAttribute('aria-selected', String(isScreenshot));
-    formContainer.hidden = isScreenshot;
+    directInputPanel.hidden = isScreenshot;
     screenshotPanel.hidden = !isScreenshot;
-    directInputFooter.hidden = isScreenshot;
     localStorage.setItem(INPUT_MODE_STORAGE_KEY, mode);
   };
 
