@@ -273,6 +273,13 @@
             overflow: auto;
             max-height: calc(100vh - 230px);
             min-height: 280px;
+            cursor: grab;
+            touch-action: pan-x pan-y;
+        }
+
+        .v2-table-wrap.is-dragging {
+            cursor: grabbing;
+            user-select: none;
         }
 
         .v2-table {
@@ -796,6 +803,7 @@
             searchInput: document.getElementById('searchInput'),
             collectionFilter: document.getElementById('collectionFilter'),
             mineOnlyInput: document.getElementById('mineOnlyInput'),
+            tableWrap: document.getElementById('tableWrap'),
             table: document.getElementById('statusTable'),
             tableHead: document.getElementById('tableHead'),
             tableBody: document.getElementById('tableBody'),
@@ -1228,6 +1236,57 @@
             }
         }
 
+        function initGrabToScroll() {
+            const wrap = elements.tableWrap;
+            let pointerId = null;
+            let startX = 0;
+            let startY = 0;
+            let startScrollLeft = 0;
+            let startScrollTop = 0;
+
+            const stopDragging = event => {
+                if (pointerId === null || event.pointerId !== pointerId) return;
+                if (wrap.hasPointerCapture(pointerId)) wrap.releasePointerCapture(pointerId);
+                pointerId = null;
+                wrap.classList.remove('is-dragging');
+            };
+
+            wrap.addEventListener('pointerdown', event => {
+                if (event.pointerType !== 'mouse' || event.button !== 0) return;
+                if (event.target.closest('input, button, a, select, textarea, label')) return;
+
+                pointerId = event.pointerId;
+                startX = event.clientX;
+                startY = event.clientY;
+                startScrollLeft = wrap.scrollLeft;
+                startScrollTop = wrap.scrollTop;
+                try {
+                    wrap.setPointerCapture(pointerId);
+                } catch (_) {
+                    // Pointer capture can be unavailable in older embedded browsers.
+                }
+                wrap.classList.add('is-dragging');
+            });
+
+            wrap.addEventListener('pointermove', event => {
+                if (event.pointerId !== pointerId) return;
+                const deltaX = event.clientX - startX;
+                const deltaY = event.clientY - startY;
+                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) event.preventDefault();
+                wrap.scrollLeft = startScrollLeft - deltaX * 1.5;
+                wrap.scrollTop = startScrollTop - deltaY * 1.5;
+            });
+
+            wrap.addEventListener('pointerup', stopDragging);
+            wrap.addEventListener('pointercancel', stopDragging);
+            wrap.addEventListener('lostpointercapture', event => {
+                if (event.pointerId === pointerId) {
+                    pointerId = null;
+                    wrap.classList.remove('is-dragging');
+                }
+            });
+        }
+
         if (!token) {
             handleAuthError();
         } else {
@@ -1249,6 +1308,7 @@
                     if (event.target === backdrop) backdrop.classList.remove('open');
                 });
             });
+            initGrabToScroll();
             loadData();
         }
     </script>
