@@ -199,7 +199,7 @@
                 <p>접속이 어려운 길드원과 지원자를 매칭</p>
             </a>
 
-            <a href="collections.html" class="menu-card" id="legacyCollectionsMenu" hidden>
+            <a href="collections.html" class="menu-card" id="legacyCollectionsMenu">
                 <h3>길드원 아이템 현황</h3>
                 <p>기존 아이템 컬렉션 달성 상태 관리</p>
             </a>
@@ -253,7 +253,12 @@
         const role = localStorage.getItem('role') || sessionStorage.getItem('role');
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
-        document.getElementById('legacyCollectionsMenu').hidden = role !== 'MASTER';
+        document.getElementById('legacyCollectionsMenu').addEventListener('click', event => {
+            if (role === 'MASTER') return;
+            event.preventDefault();
+            alert('기존 길드원 아이템 현황(V1)은 길드장 전용입니다. V2를 이용해 주세요.');
+            window.location.href = 'collections_v2.html';
+        });
 
         if (role === 'MASTER' || role === 'ADMIN') {
             document.getElementById('settingsBtn').style.display = 'inline-block';

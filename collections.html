@@ -12,7 +12,8 @@
         if (!legacyAccessToken) {
             window.location.replace('login.html');
         } else if (legacyAccessRole !== 'MASTER') {
-            window.location.replace('menu.html');
+            alert('기존 길드원 아이템 현황(V1)은 길드장 전용입니다. V2를 이용해 주세요.');
+            window.location.replace('collections_v2.html');
         }
     </script>
   <link rel="stylesheet" href="auth.css">
@@ -919,7 +920,7 @@
         if (!token) {
             handleAuthError();
         } else if (!isMaster) {
-            window.location.replace('menu.html');
+            window.location.replace('collections_v2.html');
         } else {
             init();
             initGrabToScroll();
