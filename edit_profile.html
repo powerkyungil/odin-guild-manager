@@ -80,7 +80,18 @@
                 </div>
             </div>
 
-            <!-- 3. 장비 정보 -->
+            <!-- 3. 부계정 정보 -->
+            <div class="form-section">
+                <div class="alternate-character-header">
+                    <div>
+                        <div class="form-section-title" style="margin-bottom: 5px;">부계정 정보</div>
+                        <p class="alternate-character-description">부계정 캐릭터 1개의 캐릭터명과 주클래스를 등록할 수 있습니다.</p>
+                    </div>
+                </div>
+                <div id="alternateCharacterList" class="alternate-character-list"></div>
+            </div>
+
+            <!-- 4. 장비 정보 -->
             <div class="form-section">
                 <div class="form-section-title">장비 정보</div>
                 <div class="grid-3" id="equipment-grid">
@@ -88,7 +99,7 @@
                 </div>
             </div>
 
-            <!-- 4. 스킬 정보 -->
+            <!-- 5. 스킬 정보 -->
             <div class="form-section">
                 <div class="form-section-title">스킬 습득 여부</div>
                 <div class="grid-2">
@@ -139,6 +150,54 @@
 
         const occSelect = document.getElementById('occupation');
         const classSelect = document.getElementById('main_class');
+        const alternateCharacterList = document.getElementById('alternateCharacterList');
+        const allMainClasses = Object.values(classMap).flat();
+
+        function addAlternateCharacter(character = {}) {
+            const row = document.createElement('div');
+            row.className = 'alternate-character-row';
+
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'form-group';
+            const nameLabel = document.createElement('label');
+            nameLabel.textContent = '캐릭터명';
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'alternate-character-name';
+            nameInput.maxLength = 30;
+            nameInput.placeholder = '부계정 캐릭터명';
+            nameInput.value = character.character_name || '';
+            nameGroup.append(nameLabel, nameInput);
+
+            const classGroup = document.createElement('div');
+            classGroup.className = 'form-group';
+            const classLabel = document.createElement('label');
+            classLabel.textContent = '주클래스';
+            const altClassSelect = document.createElement('select');
+            altClassSelect.className = 'alternate-character-class';
+            altClassSelect.innerHTML = '<option value="">선택하세요</option>';
+            allMainClasses.forEach(mainClass => {
+                const option = document.createElement('option');
+                option.value = mainClass;
+                option.textContent = mainClass;
+                altClassSelect.appendChild(option);
+            });
+            altClassSelect.value = character.main_class || '';
+            classGroup.append(classLabel, altClassSelect);
+
+            const clearButton = document.createElement('button');
+            clearButton.type = 'button';
+            clearButton.className = 'alternate-character-clear-btn';
+            clearButton.textContent = '입력 지우기';
+            clearButton.addEventListener('click', () => {
+                nameInput.value = '';
+                altClassSelect.value = '';
+                nameInput.focus();
+            });
+
+            row.append(nameGroup, classGroup, clearButton);
+            alternateCharacterList.appendChild(row);
+        }
 
         occSelect.addEventListener('change', () => {
             const occ = occSelect.value;
@@ -257,6 +316,8 @@
                     document.getElementById('max_crit_resist').value = data.max_crit_resist || 0;
                     document.getElementById('status_effect_acc').value = data.status_effect_acc || 0;
 
+                    alternateCharacterList.innerHTML = '';
+                    addAlternateCharacter((data.alternate_characters || [])[0] || {});
 
                     // Pre-fill equipment
                     if (data.equipment) {
@@ -314,6 +375,19 @@
                 skills[el.dataset.group][el.dataset.name] = el.value;
             });
 
+            const alternateCharacters = Array.from(document.querySelectorAll('.alternate-character-row')).map(row => ({
+                character_name: row.querySelector('.alternate-character-name').value.trim(),
+                main_class: row.querySelector('.alternate-character-class').value
+            }));
+            const hasIncompleteAlternateCharacter = alternateCharacters.some(character =>
+                Boolean(character.character_name) !== Boolean(character.main_class)
+            );
+            if (hasIncompleteAlternateCharacter) {
+                messageDiv.style.color = 'var(--danger-color)';
+                messageDiv.textContent = '부계정의 캐릭터명과 주클래스를 모두 입력해 주세요.';
+                return;
+            }
+
             const body = {
                 password: document.getElementById('password').value,
                 nickname: document.getElementById('nickname').value,
@@ -323,6 +397,7 @@
                 max_crit_rate: parseFloat(document.getElementById('max_crit_rate').value) || 0,
                 max_crit_resist: parseFloat(document.getElementById('max_crit_resist').value) || 0,
                 status_effect_acc: parseFloat(document.getElementById('status_effect_acc').value) || 0,
+                alternate_characters: alternateCharacters.filter(character => character.character_name && character.main_class),
                 equipment,
                 skills
             };

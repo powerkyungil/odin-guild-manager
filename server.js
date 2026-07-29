@@ -177,6 +177,38 @@ function initDB() {
             status_effect_acc INTEGER DEFAULT 0
         )`);
 
+        // Alternate characters are stored separately so existing user records
+        // remain untouched. Only one alternate character is allowed per user.
+        db.run(`CREATE TABLE IF NOT EXISTS user_alternate_characters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            character_name TEXT NOT NULL,
+            main_class TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, character_name),
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_user_alternate_characters_user
+            ON user_alternate_characters(user_id, sort_order, id)`);
+        // Keep the earliest existing alternate character before enforcing the
+        // new one-character-per-user rule.
+        db.run(`DELETE FROM user_alternate_characters
+            WHERE EXISTS (
+                SELECT 1
+                FROM user_alternate_characters AS earlier
+                WHERE earlier.user_id = user_alternate_characters.user_id
+                  AND (
+                    earlier.sort_order < user_alternate_characters.sort_order
+                    OR (
+                        earlier.sort_order = user_alternate_characters.sort_order
+                        AND earlier.id < user_alternate_characters.id
+                    )
+                  )
+            )`);
+        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_alternate_characters_one_per_user
+            ON user_alternate_characters(user_id)`);
+
         // Migration: Add new columns if they don't exist
         db.all("PRAGMA table_info(users)", (err, columns) => {
             if (err || !columns) return;
@@ -887,38 +919,116 @@ app.post('/api/users/register', (req, res) => {
     });
 });
 
-app.get('/api/users/me', verifyToken, (req, res) => {
-    db.get("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users WHERE id = ?", [req.userId], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: 'User not found.' });
+app.get('/api/users/me', verifyToken, async (req, res) => {
+    try {
+        const row = await dbGet("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users WHERE id = ?", [req.userId]);
+        if (!row) return res.status(404).json({ error: 'User not found.' });
+
+        row.alternate_characters = await dbAll(
+            `SELECT id, character_name, main_class
+             FROM user_alternate_characters
+             WHERE user_id = ?
+             ORDER BY sort_order ASC, id ASC`,
+            [req.userId]
+        );
         res.json(row);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.put('/api/users/me', verifyToken, (req, res) => {
+const normalizeAlternateCharacters = (value) => {
+    if (!Array.isArray(value)) return [];
+    if (value.length > 1) throw new Error('부계정은 1개만 등록할 수 있습니다.');
+
+    return value.map((character, index) => {
+        const characterName = String(character?.character_name || '').trim();
+        const mainClass = String(character?.main_class || '').trim();
+        if (!characterName && !mainClass) return null;
+        if (!characterName || !mainClass) throw new Error('부계정의 캐릭터명과 주클래스를 모두 입력해 주세요.');
+        if (characterName.length > 30 || mainClass.length > 30) throw new Error('부계정 정보는 항목당 30자 이내로 입력해 주세요.');
+
+        return { characterName, mainClass, sortOrder: index };
+    }).filter(Boolean);
+};
+
+app.put('/api/users/me', verifyToken, async (req, res) => {
     const { password, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc } = req.body;
-    db.get("SELECT combat_power FROM users WHERE id = ?", [req.userId], (userErr, user) => {
-        if (userErr || !user) return res.status(404).json({ error: 'User not found.' });
+    const shouldUpdateAlternateCharacters = Object.prototype.hasOwnProperty.call(req.body, 'alternate_characters');
+    let alternateCharacters;
 
-        db.get("SELECT allow_member_combat_power_edit FROM odin_settings LIMIT 1", (settingsErr, settings) => {
-            if (settingsErr) return res.status(500).json({ error: settingsErr.message });
+    try {
+        alternateCharacters = shouldUpdateAlternateCharacters
+            ? normalizeAlternateCharacters(req.body.alternate_characters)
+            : [];
+    } catch (validationErr) {
+        return res.status(400).json({ error: validationErr.message });
+    }
 
-            const allowCombatPowerEdit = !settings || settings.allow_member_combat_power_edit !== 0;
-            const nextCombatPower = allowCombatPowerEdit ? combat_power : user.combat_power;
-            let sql = `UPDATE users SET nickname = ?, occupation = ?, main_class = ?, combat_power = ?, equipment = ?, skills = ?, max_crit_rate = ?, max_crit_resist = ?, status_effect_acc = ?`;
-            let params = [nickname, occupation, main_class, nextCombatPower, JSON.stringify(equipment), JSON.stringify(skills), max_crit_rate || 0, max_crit_resist || 0, status_effect_acc || 0];
-            if (password && password.trim() !== "") {
-                params.push(bcrypt.hashSync(password, 10));
-                sql += `, password_hash = ?`;
+    try {
+        const user = await dbGet("SELECT combat_power FROM users WHERE id = ?", [req.userId]);
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+
+        const settings = await dbGet("SELECT allow_member_combat_power_edit FROM odin_settings LIMIT 1");
+        const allowCombatPowerEdit = !settings || settings.allow_member_combat_power_edit !== 0;
+        const nextCombatPower = allowCombatPowerEdit ? combat_power : user.combat_power;
+        let sql = `UPDATE users SET nickname = ?, occupation = ?, main_class = ?, combat_power = ?, equipment = ?, skills = ?, max_crit_rate = ?, max_crit_resist = ?, status_effect_acc = ?`;
+        const params = [nickname, occupation, main_class, nextCombatPower, JSON.stringify(equipment), JSON.stringify(skills), max_crit_rate || 0, max_crit_resist || 0, status_effect_acc || 0];
+        if (password && password.trim() !== "") {
+            params.push(bcrypt.hashSync(password, 10));
+            sql += `, password_hash = ?`;
+        }
+        sql += ` WHERE id = ?`;
+        params.push(req.userId);
+
+        await dbRun("BEGIN TRANSACTION");
+        try {
+            await dbRun(sql, params);
+            if (shouldUpdateAlternateCharacters) {
+                await dbRun("DELETE FROM user_alternate_characters WHERE user_id = ?", [req.userId]);
+                for (const character of alternateCharacters) {
+                    await dbRun(
+                        `INSERT INTO user_alternate_characters (user_id, character_name, main_class, sort_order)
+                         VALUES (?, ?, ?, ?)`,
+                        [req.userId, character.characterName, character.mainClass, character.sortOrder]
+                    );
+                }
             }
-            sql += ` WHERE id = ?`;
-            params.push(req.userId);
-            db.run(sql, params, () => res.json({ success: true }));
-        });
-    });
+            await dbRun("COMMIT");
+            res.json({ success: true });
+        } catch (txErr) {
+            try { await dbRun("ROLLBACK"); } catch (_) { }
+            throw txErr;
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/users', verifyToken, (req, res) => {
-    db.all("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users", (err, rows) => res.json(rows));
+app.get('/api/users', verifyToken, async (req, res) => {
+    try {
+        const users = await dbAll("SELECT id, role, nickname, occupation, main_class, combat_power, equipment, skills, max_crit_rate, max_crit_resist, status_effect_acc FROM users");
+        const alternateCharacters = await dbAll(
+            `SELECT id, user_id, character_name, main_class
+             FROM user_alternate_characters
+             ORDER BY user_id ASC, sort_order ASC, id ASC`
+        );
+        const charactersByUser = new Map();
+        alternateCharacters.forEach(character => {
+            if (!charactersByUser.has(character.user_id)) charactersByUser.set(character.user_id, []);
+            charactersByUser.get(character.user_id).push({
+                id: character.id,
+                character_name: character.character_name,
+                main_class: character.main_class
+            });
+        });
+        users.forEach(user => {
+            user.alternate_characters = charactersByUser.get(user.id) || [];
+        });
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- HAND SUPPORT API ---
@@ -2216,6 +2326,7 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
                 await runSql("BEGIN TRANSACTION");
                 await runSql("DELETE FROM user_collections WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM user_collection_items WHERE user_id = ?", [targetUserId]);
+                await runSql("DELETE FROM user_alternate_characters WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM group_members WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM excluded_members WHERE user_id = ?", [targetUserId]);
                 await runSql("DELETE FROM siege_data WHERE user_id = ?", [targetUserId]);

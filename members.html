@@ -81,6 +81,70 @@
         .members-table th { font-size: 11px; padding: 10px 10px; white-space: nowrap; }
         .members-table td { padding: 8px 10px; }
         .rank-badge { width: 22px; height: 22px; font-size: 11px; }
+        .character-summary-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+            white-space: nowrap;
+        }
+        .alternate-account-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            min-width: max-content;
+            padding-left: 8px;
+            border-left: 1px solid rgba(255,255,255,0.12);
+        }
+        .alternate-account-title {
+            color: var(--text-muted);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .alternate-account-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 7px;
+            border: 1px solid rgba(242, 183, 5, 0.2);
+            border-radius: 6px;
+            background: rgba(242, 183, 5, 0.07);
+            font-size: 10px;
+            line-height: 1.3;
+        }
+        .alternate-account-name {
+            overflow: hidden;
+            color: var(--text-light);
+            font-weight: 600;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .alternate-account-divider {
+            color: rgba(255,255,255,0.25);
+        }
+        .alternate-account-class {
+            flex: 0 0 auto;
+            color: var(--text-muted);
+        }
+        .main-character-summary {
+            flex: 0 0 auto;
+            color: var(--text-light);
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        :root:not([data-theme="dark"]) .alternate-account-inline {
+            border-left-color: rgba(26, 23, 20, 0.15);
+        }
+        :root:not([data-theme="dark"]) .alternate-account-item {
+            border-color: rgba(198, 146, 4, 0.3);
+            background: rgba(242, 183, 5, 0.12);
+        }
+        :root:not([data-theme="dark"]) .alternate-account-divider {
+            color: rgba(26, 23, 20, 0.3);
+        }
 
         @media (max-width: 768px) {
             .auth-container { margin: 20px auto; padding: 0 10px; }
@@ -356,7 +420,7 @@
                     <tr>
                         <th style="width: 30px;">#</th>
                         <th style="width: 100px;">닉네임</th>
-                        <th style="width: 130px;">직업 / 주클래스</th>
+                        <th style="width: 330px;">캐릭터</th>
                         <th style="width: 70px;">전투력</th>
                         <th style="width: 125px;">치명타 / 적중</th>
                         <th>장비 정보 (무기 ~ 벨트)</th>
@@ -525,6 +589,15 @@
             return '';
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
         function getSkillClass(val) {
             if (val === '10강') return 'skill-max';
             if (['7강','8강','9강'].includes(val)) return 'skill-high';
@@ -538,14 +611,30 @@
             users.forEach((u, index) => {
                 const rank = index + 1;
                 const row = document.createElement('tr');
+                const occupation = String(u.occupation || '');
+                const mainClass = String(u.main_class || '');
+                const mainCharacterSummary = [occupation, mainClass].filter(Boolean).join(' · ') || '-';
+                const combatPowerValue = Number(u.combat_power);
+                const combatPower = Number.isFinite(combatPowerValue) ? combatPowerValue : 0;
+                const alternateCharacter = (u.alternate_characters || [])[0];
+                const alternateAccountHtml = alternateCharacter
+                    ? `<div class="alternate-account-inline">
+                        <span class="alternate-account-title">부계정</span>
+                        <div class="alternate-account-item" title="${escapeHtml(alternateCharacter.character_name)} · ${escapeHtml(alternateCharacter.main_class)}">
+                            <span class="alternate-account-name">${escapeHtml(alternateCharacter.character_name)}</span>
+                            <span class="alternate-account-divider">·</span>
+                            <span class="alternate-account-class">${escapeHtml(alternateCharacter.main_class)}</span>
+                        </div>
+                    </div>`
+                    : '';
                 
                 let rankClass = rank <= 5 ? 'rank-1-5' : (rank <= 20 ? 'rank-6-20' : 'rank-other');
                 let occClass = '';
-                if (u.occupation.includes('워리어')) occClass = 'row-warrior';
-                else if (u.occupation.includes('로그')) occClass = 'row-rogue';
-                else if (u.occupation.includes('소서리스')) occClass = 'row-소서리스';
-                else if (u.occupation.includes('프리스트')) occClass = 'row-프리스트';
-                else if (u.occupation.includes('실드')) occClass = 'row-실드';
+                if (occupation.includes('워리어')) occClass = 'row-warrior';
+                else if (occupation.includes('로그')) occClass = 'row-rogue';
+                else if (occupation.includes('소서리스')) occClass = 'row-소서리스';
+                else if (occupation.includes('프리스트')) occClass = 'row-프리스트';
+                else if (occupation.includes('실드')) occClass = 'row-실드';
 
                 row.className = `${rankClass} ${occClass}`;
 
@@ -640,11 +729,13 @@
                             ` : ''}
                         </div>
                     </td>
-                    <td data-label="직업 / 주클래스" style="color: var(--text-muted); font-size: 10px; line-height: 1.3;">
-                        <div style="color: var(--text-light); font-weight: 600;">${u.occupation}</div>
-                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.main_class}</div>
+                    <td data-label="캐릭터">
+                        <div class="character-summary-line">
+                            <div class="main-character-summary">${escapeHtml(mainCharacterSummary)}</div>
+                            ${alternateAccountHtml}
+                        </div>
                     </td>
-                    <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:14px;">${u.combat_power.toLocaleString()}</td>
+                    <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:14px;">${combatPower.toLocaleString()}</td>
                     <td data-label="치명타 / 적중" style="font-size: 11px; line-height: 1.5; color: var(--text-muted);">
                         <div>치확: <span style="color: var(--text-light); font-weight: 700;">${u.max_crit_rate || 0}%</span></div>
                         <div>치저: <span style="color: var(--text-light); font-weight: 700;">${u.max_crit_resist || 0}%</span></div>
