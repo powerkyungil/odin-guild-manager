@@ -251,6 +251,65 @@
             opacity: 0.45;
         }
 
+        .v2-status-mark {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--line);
+            border-radius: 7px;
+            font-size: 14px;
+            font-weight: 900;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .v2-status-mark.is-complete {
+            border-color: var(--main);
+            background: var(--main);
+            color: #fff;
+            box-shadow: 0 0 0 3px var(--main-soft);
+        }
+
+        :root:not([data-theme="dark"]) .v2-status-mark.is-complete {
+            color: #1a1714;
+        }
+
+        .v2-status-mark.is-incomplete {
+            border-color: color-mix(in srgb, var(--muted) 55%, transparent);
+            background: color-mix(in srgb, var(--muted) 8%, var(--panel));
+            color: var(--muted);
+        }
+
+        button.v2-status-mark {
+            padding: 0;
+            font-family: inherit;
+        }
+
+        .v2-status-mark.is-editable {
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .v2-status-mark.is-editable:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .v2-status-mark.is-editable:focus-visible {
+            outline: 3px solid var(--main-soft);
+            outline-offset: 2px;
+        }
+
+        .v2-status-mark.is-editable:disabled {
+            cursor: wait;
+            opacity: 0.7;
+        }
+
+        .v2-readonly-status-cell {
+            background: color-mix(in srgb, var(--panel) 92%, var(--muted)) !important;
+        }
+
         .v2-table-card {
             margin-top: 10px;
             border-radius: 20px;
@@ -267,6 +326,30 @@
             border-bottom: 1px solid var(--line);
             color: var(--muted);
             font-size: 14px;
+        }
+
+        .v2-status-legend {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .v2-status-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .v2-status-legend .v2-status-mark {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            font-size: 12px;
         }
 
         .v2-table-wrap {
@@ -378,6 +461,27 @@
             color: var(--muted);
             font-size: 12px;
             font-weight: 600;
+        }
+
+        .v2-member-heading.is-me {
+            background: color-mix(in srgb, var(--main) 13%, var(--panel-strong));
+            box-shadow: inset 0 -3px 0 var(--main);
+        }
+
+        .v2-me-badge {
+            display: inline-block;
+            margin-left: 4px;
+            padding: 1px 5px;
+            border-radius: 999px;
+            background: var(--main);
+            color: #fff;
+            font-size: 9px;
+            font-weight: 900;
+            vertical-align: 1px;
+        }
+
+        :root:not([data-theme="dark"]) .v2-me-badge {
+            color: #1a1714;
         }
 
         .v2-group-row td {
@@ -652,6 +756,17 @@
                 grid-column: auto;
             }
 
+            .v2-table-meta {
+                flex-wrap: wrap;
+                padding: 9px 12px;
+            }
+
+            .v2-status-legend {
+                width: 100%;
+                justify-content: flex-start;
+                order: 3;
+            }
+
             .v2-table .sticky-one {
                 width: 120px;
                 min-width: 120px;
@@ -730,6 +845,10 @@
         <section class="v2-table-card">
             <div class="v2-table-meta">
                 <span id="resultText">데이터를 불러오는 중입니다.</span>
+                <span class="v2-status-legend" aria-label="달성 상태 표시 안내">
+                    <span class="v2-status-legend-item"><span class="v2-status-mark is-complete" aria-hidden="true">✓</span> 달성</span>
+                    <span class="v2-status-legend-item"><span class="v2-status-mark is-incomplete" aria-hidden="true">—</span> 미달성</span>
+                </span>
                 <span id="updatedText">-</span>
             </div>
             <div class="v2-table-wrap" id="tableWrap">
@@ -945,8 +1064,16 @@
             members.forEach(member => {
                 const th = createCell('th');
                 th.dataset.memberId = member.id;
+                th.className = 'v2-member-heading';
+                th.classList.toggle('is-me', member.id === myUserId);
                 const name = document.createElement('div');
                 name.textContent = member.nickname;
+                if (member.id === myUserId) {
+                    const meBadge = document.createElement('span');
+                    meBadge.className = 'v2-me-badge';
+                    meBadge.textContent = '나';
+                    name.appendChild(meBadge);
+                }
                 const power = document.createElement('div');
                 power.className = 'v2-member-power';
                 power.textContent = Number(member.combat_power || 0).toLocaleString();
@@ -1012,14 +1139,28 @@
                     members.forEach(member => {
                         const td = createCell('td');
                         td.dataset.memberId = member.id;
-                        const checkbox = document.createElement('input');
-                        checkbox.className = 'v2-check';
-                        checkbox.type = 'checkbox';
-                        checkbox.checked = statusSet.has(statusKey(member.id, item.id));
-                        checkbox.disabled = !canEditAllMembers && member.id !== myUserId;
-                        checkbox.setAttribute('aria-label', `${member.nickname} ${item.part} ${item.enchantment}`);
-                        checkbox.addEventListener('change', () => toggleStatus(member.id, item.id, checkbox));
-                        td.appendChild(checkbox);
+                        const completed = statusSet.has(statusKey(member.id, item.id));
+                        const canEditMember = canEditAllMembers || member.id === myUserId;
+
+                        if (canEditMember) {
+                            const statusButton = document.createElement('button');
+                            statusButton.className = 'v2-status-mark is-editable';
+                            statusButton.type = 'button';
+                            statusButton.checked = completed;
+                            updateStatusMark(statusButton, completed, member, item, true);
+                            statusButton.addEventListener('click', () => {
+                                statusButton.checked = !statusButton.checked;
+                                updateStatusMark(statusButton, statusButton.checked, member, item, true);
+                                toggleStatus(member.id, item.id, statusButton, member, item);
+                            });
+                            td.appendChild(statusButton);
+                        } else {
+                            td.classList.add('v2-readonly-status-cell');
+                            const statusMark = document.createElement('span');
+                            statusMark.className = 'v2-status-mark';
+                            updateStatusMark(statusMark, completed, member, item, false);
+                            td.appendChild(statusMark);
+                        }
                         row.appendChild(td);
                     });
                     row.appendChild(createCell('td', '', 'v2-table-spacer'));
@@ -1032,6 +1173,19 @@
             applyFilters();
         }
 
+        function updateStatusMark(element, completed, member, item, editable) {
+            element.classList.toggle('is-complete', completed);
+            element.classList.toggle('is-incomplete', !completed);
+            element.textContent = completed ? '✓' : '—';
+            element.title = `${member.nickname}: ${completed ? '달성' : '미달성'}${editable ? ' (클릭하여 변경)' : ''}`;
+            element.setAttribute('aria-label', `${member.nickname} ${item.part} ${item.enchantment} ${completed ? '달성' : '미달성'}${editable ? ', 클릭하여 변경' : ''}`);
+            if (editable) {
+                element.setAttribute('aria-pressed', String(completed));
+            } else {
+                element.setAttribute('role', 'img');
+            }
+        }
+
         function updatePriority(itemId) {
             const priority = calculatePriority(itemId);
             const cell = elements.tableBody.querySelector(`[data-priority-item-id="${itemId}"]`);
@@ -1041,7 +1195,7 @@
             }
         }
 
-        async function toggleStatus(userId, itemId, checkbox) {
+        async function toggleStatus(userId, itemId, checkbox, member, item) {
             const completed = checkbox.checked;
             checkbox.disabled = true;
             try {
@@ -1057,6 +1211,7 @@
                 updateSummary();
             } catch (error) {
                 checkbox.checked = !completed;
+                updateStatusMark(checkbox, checkbox.checked, member, item, true);
                 showToast(error.message);
             } finally {
                 checkbox.disabled = !canEditAllMembers && userId !== myUserId;
