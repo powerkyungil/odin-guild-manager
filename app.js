@@ -852,6 +852,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let participationTargets = [];
   let participantsMap = {};
 
+  const getParticipationVoteKey = (item) =>
+    `${item.type}|${item.region}|${item.boss}|${item.spawnTime}`;
+
   const STORAGE_KEY_INPUTS = 'odin_boss_inputs_v7';
 
   const getTodayString = () => {
@@ -1781,7 +1784,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const isTarget = participationTargets.includes(item.boss);
       let participationHtml = '';
       if (isTarget) {
-        const list = participantsMap[item.boss] || [];
+        const participationVoteKey = getParticipationVoteKey(item);
+        const list = participantsMap[participationVoteKey] || [];
         const IJoined = list.includes(myNickname);
         const timeUntilSpawn = item.spawnTime - now;
         const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 mins before
@@ -1840,11 +1844,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pBtn) {
         pBtn.addEventListener('click', async () => {
           if (pBtn.classList.contains('joined')) {
-            showParticipantModal(item.boss, participantsMap[item.boss] || []);
+            showParticipantModal(item.boss, participantsMap[getParticipationVoteKey(item)] || []);
           } else {
             fetch('/api/participants/' + encodeURIComponent(item.boss), {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` }
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                type: item.type,
+                region: item.region,
+                spawnTime: item.spawnTime
+              })
             }).then(r => {
               if (r.status === 401) return handleAuthError();
               return r.json();
