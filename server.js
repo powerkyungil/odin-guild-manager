@@ -324,6 +324,56 @@ function initDB() {
             });
         });
 
+        // Each scheduled boss occurrence is immutable history. The live
+        // boss_schedules table is still used for the current schedule, while
+        // this table keeps past occurrences available for participation stats.
+        db.run(`CREATE TABLE IF NOT EXISTS boss_vote_event_history (
+            vote_key TEXT PRIMARY KEY,
+            type TEXT,
+            region TEXT,
+            boss TEXT,
+            spawnTime INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_boss_vote_event_history_spawnTime
+            ON boss_vote_event_history(spawnTime)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_boss_vote_participants_spawnTime
+            ON boss_vote_participants(spawnTime)`);
+        db.run(`CREATE TRIGGER IF NOT EXISTS archive_boss_schedule_insert
+            AFTER INSERT ON boss_schedules
+            WHEN NEW.type IS NOT NULL
+                AND NEW.region IS NOT NULL
+                AND NEW.boss IS NOT NULL
+                AND NEW.spawnTime IS NOT NULL
+            BEGIN
+                INSERT OR IGNORE INTO boss_vote_event_history
+                    (vote_key, type, region, boss, spawnTime)
+                VALUES (
+                    NEW.type || '|' || NEW.region || '|' || NEW.boss || '|' || NEW.spawnTime,
+                    NEW.type,
+                    NEW.region,
+                    NEW.boss,
+                    NEW.spawnTime
+                );
+            END`);
+        db.run(`CREATE TRIGGER IF NOT EXISTS archive_boss_schedule_delete
+            BEFORE DELETE ON boss_schedules
+            WHEN OLD.type IS NOT NULL
+                AND OLD.region IS NOT NULL
+                AND OLD.boss IS NOT NULL
+                AND OLD.spawnTime IS NOT NULL
+            BEGIN
+                INSERT OR IGNORE INTO boss_vote_event_history
+                    (vote_key, type, region, boss, spawnTime)
+                VALUES (
+                    OLD.type || '|' || OLD.region || '|' || OLD.boss || '|' || OLD.spawnTime,
+                    OLD.type,
+                    OLD.region,
+                    OLD.boss,
+                    OLD.spawnTime
+                );
+            END`);
+
         db.run(`CREATE TABLE IF NOT EXISTS boss_vote_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type TEXT DEFAULT '투표',
@@ -362,6 +412,10 @@ function initDB() {
                 if (!names.includes('updated_at')) db.run("ALTER TABLE boss_vote_event_states ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
             });
         });
+        db.run(`CREATE INDEX IF NOT EXISTS idx_boss_vote_events_spawnTime
+            ON boss_vote_events(spawnTime)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_boss_vote_event_states_spawnTime
+            ON boss_vote_event_states(spawnTime)`);
 
         // Content Groups Table (New)
         db.run(`CREATE TABLE IF NOT EXISTS content_groups (
@@ -418,6 +472,40 @@ function initDB() {
             FOREIGN KEY (request_id) REFERENCES support_requests(id) ON DELETE CASCADE,
             FOREIGN KEY (applicant_id) REFERENCES users(id) ON DELETE CASCADE
         )`);
+
+        // Jjankkaembo item draws: admins define the complete participant list.
+        // Participant nicknames are snapshotted so completed draw history remains
+        // readable even when a guild member later changes their profile.
+        db.run(`CREATE TABLE IF NOT EXISTS janken_draws (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_name TEXT NOT NULL,
+            participant_count INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'READY' CHECK (status IN ('READY', 'DRAWN')),
+            created_by INTEGER,
+            created_by_nickname TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            drawn_at DATETIME,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS janken_draw_participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            draw_id INTEGER NOT NULL,
+            user_id INTEGER,
+            nickname TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            is_winner INTEGER NOT NULL DEFAULT 0 CHECK (is_winner IN (0, 1)),
+            FOREIGN KEY (draw_id) REFERENCES janken_draws(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            UNIQUE(draw_id, user_id)
+        )`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_janken_draws_created_at
+            ON janken_draws(created_at DESC)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_janken_draw_participants_draw
+            ON janken_draw_participants(draw_id, sort_order, id)`);
+        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_janken_draw_single_winner
+            ON janken_draw_participants(draw_id)
+            WHERE is_winner = 1`);
 
         // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
         db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
@@ -785,8 +873,34 @@ function cleanupSupportRequests() {
     `);
 }
 
+const configuredBossHistoryRetentionDays = Number.parseInt(process.env.BOSS_HISTORY_RETENTION_DAYS || '90', 10);
+const BOSS_HISTORY_RETENTION_DAYS = Number.isFinite(configuredBossHistoryRetentionDays)
+    && configuredBossHistoryRetentionDays > 0
+    ? configuredBossHistoryRetentionDays
+    : 90;
+
+function cleanupBossParticipationHistory() {
+    const cutoff = Date.now() - (BOSS_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        // Delete live rows first because the schedule delete trigger archives
+        // them into boss_vote_event_history.
+        db.run("DELETE FROM boss_schedules WHERE spawnTime < ?", [cutoff]);
+        db.run("DELETE FROM boss_vote_participants WHERE spawnTime < ?", [cutoff]);
+        db.run("DELETE FROM boss_vote_event_history WHERE spawnTime < ?", [cutoff]);
+        db.run("DELETE FROM boss_vote_event_states WHERE spawnTime < ?", [cutoff]);
+        db.run("DELETE FROM boss_vote_events WHERE spawnTime < ?", [cutoff]);
+        db.run("COMMIT", (err) => {
+            if (err) console.error('[Cleanup] Boss participation history cleanup failed:', err.message);
+        });
+    });
+}
+
 setInterval(cleanupSupportRequests, 24 * 60 * 60 * 1000);
 setTimeout(cleanupSupportRequests, 2000);
+setInterval(cleanupBossParticipationHistory, 24 * 60 * 60 * 1000);
+setTimeout(cleanupBossParticipationHistory, 2500);
 
 // --- Middleware ---
 const verifyToken = (req, res, next) => {
@@ -1034,6 +1148,216 @@ app.get('/api/users', verifyToken, async (req, res) => {
 // --- HAND SUPPORT API ---
 const isAdminRole = (role) => role === 'MASTER' || role === 'ADMIN';
 
+const jankenDrawSelect = `
+    SELECT
+        id,
+        item_name AS itemName,
+        participant_count AS participantCount,
+        status,
+        created_by AS createdBy,
+        created_by_nickname AS createdByNickname,
+        created_at AS createdAt,
+        drawn_at AS drawnAt
+    FROM janken_draws
+`;
+
+async function getJankenDraws(drawId = null) {
+    const draws = drawId
+        ? await dbAll(`${jankenDrawSelect} WHERE id = ?`, [drawId])
+        : await dbAll(`${jankenDrawSelect} ORDER BY id DESC LIMIT 50`);
+
+    if (draws.length === 0) return [];
+
+    const placeholders = draws.map(() => '?').join(',');
+    const participants = await dbAll(
+        `SELECT
+            id,
+            draw_id AS drawId,
+            user_id AS userId,
+            nickname,
+            sort_order AS sortOrder,
+            is_winner AS isWinner
+         FROM janken_draw_participants
+         WHERE draw_id IN (${placeholders})
+         ORDER BY draw_id DESC, sort_order ASC, id ASC`,
+        draws.map(draw => draw.id)
+    );
+    const participantsByDraw = new Map();
+    participants.forEach(participant => {
+        participant.isWinner = participant.isWinner === 1;
+        if (!participantsByDraw.has(participant.drawId)) participantsByDraw.set(participant.drawId, []);
+        participantsByDraw.get(participant.drawId).push(participant);
+    });
+
+    return draws.map(draw => ({
+        ...draw,
+        participants: participantsByDraw.get(draw.id) || []
+    }));
+}
+
+app.get('/api/janken/draws', verifyToken, async (req, res) => {
+    try {
+        res.json(await getJankenDraws());
+    } catch (err) {
+        res.status(500).json({ error: '짱깸보 기록을 불러오지 못했습니다.' });
+    }
+});
+
+app.post('/api/janken/draws', verifyToken, async (req, res) => {
+    if (!isAdminRole(req.userRole)) {
+        return res.status(403).json({ error: '길드장과 운영진만 짱깸보를 만들 수 있습니다.' });
+    }
+
+    const itemName = String(req.body.itemName || '').trim();
+    const participantCount = Number(req.body.participantCount);
+    const rawParticipantIds = Array.isArray(req.body.participantIds) ? req.body.participantIds : [];
+    const participantIds = [...new Set(rawParticipantIds.map(Number))]
+        .filter(id => Number.isInteger(id) && id > 0);
+
+    if (!itemName || itemName.length > 80) {
+        return res.status(400).json({ error: '아이템명은 1자 이상 80자 이내로 입력해 주세요.' });
+    }
+    if (!Number.isInteger(participantCount) || participantCount < 2 || participantCount > 200) {
+        return res.status(400).json({ error: '참여 인원은 2명 이상 200명 이하로 설정해 주세요.' });
+    }
+    if (participantIds.length !== participantCount || rawParticipantIds.length !== participantCount) {
+        return res.status(400).json({ error: '설정한 참여 인원 수와 선택한 길드원 수가 일치해야 합니다.' });
+    }
+
+    const placeholders = participantIds.map(() => '?').join(',');
+    try {
+        const [members, creator] = await Promise.all([
+            dbAll(
+                `SELECT id, nickname
+                 FROM users
+                 WHERE id IN (${placeholders})
+                 ORDER BY COALESCE(nickname, ''), id`,
+                participantIds
+            ),
+            dbGet("SELECT nickname FROM users WHERE id = ?", [req.userId])
+        ]);
+
+        if (members.length !== participantCount) {
+            return res.status(400).json({ error: '선택한 길드원 중 현재 존재하지 않는 계정이 있습니다.' });
+        }
+
+        const memberById = new Map(members.map(member => [member.id, member]));
+        await dbRun("BEGIN TRANSACTION");
+        try {
+            const created = await dbRun(
+                `INSERT INTO janken_draws
+                    (item_name, participant_count, status, created_by, created_by_nickname)
+                 VALUES (?, ?, 'READY', ?, ?)`,
+                [itemName, participantCount, req.userId, creator?.nickname || req.userNickname || '운영진']
+            );
+
+            for (let index = 0; index < participantIds.length; index += 1) {
+                const userId = participantIds[index];
+                const member = memberById.get(userId);
+                await dbRun(
+                    `INSERT INTO janken_draw_participants
+                        (draw_id, user_id, nickname, sort_order)
+                     VALUES (?, ?, ?, ?)`,
+                    [created.lastID, userId, member.nickname || `길드원 #${userId}`, index]
+                );
+            }
+            await dbRun("COMMIT");
+
+            const [draw] = await getJankenDraws(created.lastID);
+            res.status(201).json(draw);
+        } catch (txErr) {
+            try { await dbRun("ROLLBACK"); } catch (_) { }
+            throw txErr;
+        }
+    } catch (err) {
+        res.status(500).json({ error: '짱깸보를 만드는 중 오류가 발생했습니다.' });
+    }
+});
+
+app.post('/api/janken/draws/:id/draw', verifyToken, async (req, res) => {
+    if (!isAdminRole(req.userRole)) {
+        return res.status(403).json({ error: '길드장과 운영진만 추첨을 시작할 수 있습니다.' });
+    }
+
+    const drawId = Number(req.params.id);
+    if (!Number.isInteger(drawId) || drawId <= 0) {
+        return res.status(400).json({ error: '올바르지 않은 짱깸보 번호입니다.' });
+    }
+
+    try {
+        const participants = await dbAll(
+            `SELECT id
+             FROM janken_draw_participants
+             WHERE draw_id = ?
+             ORDER BY sort_order ASC, id ASC`,
+            [drawId]
+        );
+        if (participants.length < 2) {
+            return res.status(409).json({ error: '추첨할 참가자가 부족합니다.' });
+        }
+
+        const locked = await dbRun(
+            `UPDATE janken_draws
+             SET status = 'DRAWN', drawn_at = CURRENT_TIMESTAMP
+             WHERE id = ? AND status = 'READY'`,
+            [drawId]
+        );
+        if (locked.changes !== 1) {
+            return res.status(409).json({ error: '이미 추첨이 끝났거나 존재하지 않는 짱깸보입니다.' });
+        }
+
+        const winner = participants[crypto.randomInt(participants.length)];
+        try {
+            await dbRun(
+                `UPDATE janken_draw_participants
+                 SET is_winner = 1
+                 WHERE id = ? AND draw_id = ?`,
+                [winner.id, drawId]
+            );
+        } catch (winnerErr) {
+            await dbRun(
+                `UPDATE janken_draws
+                 SET status = 'READY', drawn_at = NULL
+                 WHERE id = ? AND NOT EXISTS (
+                    SELECT 1 FROM janken_draw_participants
+                    WHERE draw_id = ? AND is_winner = 1
+                 )`,
+                [drawId, drawId]
+            );
+            throw winnerErr;
+        }
+
+        const [draw] = await getJankenDraws(drawId);
+        res.json(draw);
+    } catch (err) {
+        res.status(500).json({ error: '추첨 결과를 확정하는 중 오류가 발생했습니다.' });
+    }
+});
+
+app.delete('/api/janken/draws/:id', verifyToken, async (req, res) => {
+    if (!isAdminRole(req.userRole)) {
+        return res.status(403).json({ error: '길드장과 운영진만 준비 중인 짱깸보를 취소할 수 있습니다.' });
+    }
+
+    const drawId = Number(req.params.id);
+    if (!Number.isInteger(drawId) || drawId <= 0) {
+        return res.status(400).json({ error: '올바르지 않은 짱깸보 번호입니다.' });
+    }
+
+    try {
+        const removed = await dbRun(
+            "DELETE FROM janken_draws WHERE id = ? AND status = 'READY'",
+            [drawId]
+        );
+        if (removed.changes !== 1) {
+            return res.status(409).json({ error: '완료된 결과는 삭제할 수 없습니다.' });
+        }
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: '짱깸보를 취소하지 못했습니다.' });
+    }
+});
+
 const supportRequestSelect = `
     SELECT
         sr.id,
@@ -1238,6 +1562,14 @@ app.post('/api/support-requests/:requestId/select/:applicationId', verifyToken, 
 
 // --- BOSS API ---
 
+function getScheduleVoteKey(item) {
+    return `${item.type}|${item.region}|${item.boss}|${item.spawnTime}`;
+}
+
+function getVoteKey(item) {
+    return item.isManual ? `manual|${item.id}` : getScheduleVoteKey(item);
+}
+
 app.get('/api/schedules', verifyToken, (req, res) => {
     db.all("SELECT * FROM boss_schedules ORDER BY spawnTime ASC", (err, rows) => res.json(rows));
 });
@@ -1249,7 +1581,6 @@ app.post('/api/schedules', verifyToken, (req, res) => {
         db.run("BEGIN TRANSACTION");
         schedules.forEach(s => {
             db.run("DELETE FROM boss_schedules WHERE type = ? AND region = ? AND boss = ?", [s.type, s.region, s.boss]);
-            db.run("DELETE FROM boss_participants WHERE boss = ?", [s.boss]);
             db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)", [s.type, s.region, s.boss, s.spawnTime, req.userId]);
         });
         db.run("COMMIT", () => res.json({ success: true }));
@@ -1262,7 +1593,6 @@ app.post('/api/schedules/cut', verifyToken, (req, res) => {
         if (!row || !row.cooldown) return res.status(400).json({ error: 'No cooldown defined for this boss.' });
         const spawnTime = Date.now() + (row.cooldown * 3600 * 1000);
         db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], () => {
-            db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
             db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)", [type, region, boss, spawnTime, req.userId], () => res.json({ success: true, nextSpawn: spawnTime }));
         });
     });
@@ -1274,7 +1604,6 @@ app.post('/api/schedules/mung', verifyToken, (req, res) => {
         if (!row || !row.cooldown) return res.status(400).json({ error: 'No cooldown defined for this boss.' });
         const nextSpawn = parseInt(currentSpawnTime) + (row.cooldown * 3600 * 1000);
         db.run("DELETE FROM boss_schedules WHERE boss = ? AND region = ? AND type = ?", [boss, region, type], () => {
-            db.run("DELETE FROM boss_participants WHERE boss = ?", [boss]);
             db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 1)", [type, region, boss, nextSpawn, req.userId], () => res.json({ success: true, nextSpawn: nextSpawn }));
         });
     });
@@ -1352,28 +1681,81 @@ app.post('/api/admin/reset-bosses', verifyToken, (req, res) => {
 
 // --- PARTICIPANTS ---
 app.post('/api/participants/:boss', verifyToken, (req, res) => {
-    const boss = req.params.boss;
-    db.get("SELECT nickname FROM users WHERE id = ?", [req.userId], (err, row) => {
-        const userNick = row.nickname;
-        db.get("SELECT * FROM boss_participants WHERE boss = ? AND nickname = ?", [boss, userNick], (err, existing) => {
-            if (existing) {
-                db.run("DELETE FROM boss_participants WHERE boss = ? AND nickname = ?", [boss, userNick], () => res.json({ joined: false }));
-            } else {
-                db.run("INSERT INTO boss_participants (boss, nickname) VALUES (?, ?)", [boss, userNick], () => res.json({ joined: true }));
+    const boss = String(req.params.boss || '').trim();
+    const type = String(req.body?.type || '').trim();
+    const region = String(req.body?.region || '').trim();
+    const spawnTime = Number(req.body?.spawnTime);
+    if (!boss || !type || !region || !Number.isFinite(spawnTime)) {
+        return res.status(400).json({ error: 'boss, type, region, and spawnTime are required.' });
+    }
+
+    const voteKey = getScheduleVoteKey({ type, region, boss, spawnTime });
+    db.get(
+        "SELECT state FROM boss_vote_event_states WHERE vote_key = ?",
+        [voteKey],
+        (stateErr, stateRow) => {
+            if (stateErr) return res.status(500).json({ error: stateErr.message });
+            if (stateRow && String(stateRow.state || '').toUpperCase() === 'INACTIVE') {
+                return res.status(400).json({ error: 'Inactive vote boss.' });
             }
-        });
-    });
+
+            db.get("SELECT nickname FROM users WHERE id = ?", [req.userId], (userErr, user) => {
+                if (userErr) return res.status(500).json({ error: userErr.message });
+                if (!user) return res.status(404).json({ error: 'User not found.' });
+                const nickname = user.nickname || req.userNickname || req.userName;
+
+                db.get(
+                    "SELECT vote_key FROM boss_vote_participants WHERE vote_key = ? AND user_id = ?",
+                    [voteKey, req.userId],
+                    (findErr, existing) => {
+                        if (findErr) return res.status(500).json({ error: findErr.message });
+
+                        if (existing) {
+                            db.run(
+                                "DELETE FROM boss_vote_participants WHERE vote_key = ? AND user_id = ?",
+                                [voteKey, req.userId],
+                                (deleteErr) => {
+                                    if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+                                    res.json({ joined: false });
+                                }
+                            );
+                        } else {
+                            db.run(
+                                `INSERT INTO boss_vote_participants
+                                    (vote_key, boss, spawnTime, user_id, nickname)
+                                 VALUES (?, ?, ?, ?, ?)`,
+                                [voteKey, boss, spawnTime, req.userId, nickname],
+                                (insertErr) => {
+                                    if (insertErr) return res.status(500).json({ error: insertErr.message });
+                                    res.json({ joined: true });
+                                }
+                            );
+                        }
+                    }
+                );
+            });
+        }
+    );
 });
 
 app.get('/api/participants', verifyToken, (req, res) => {
-    db.all("SELECT boss, nickname FROM boss_participants", (err, rows) => {
+    const cutoff = Date.now() - (BOSS_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    db.all(
+        `SELECT vote_key, nickname
+         FROM boss_vote_participants
+         WHERE spawnTime >= ?
+         ORDER BY created_at ASC`,
+        [cutoff],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
         const map = {};
         rows.forEach(r => {
-            if (!map[r.boss]) map[r.boss] = [];
-            map[r.boss].push(r.nickname);
+            if (!map[r.vote_key]) map[r.vote_key] = [];
+            map[r.vote_key].push(r.nickname);
         });
         res.json(map);
-    });
+        }
+    );
 });
 
 app.get('/api/participation-targets', verifyToken, (req, res) => {
@@ -1391,8 +1773,6 @@ app.post('/api/participation-targets', verifyToken, (req, res) => {
         res.json({ success: true });
     });
 });
-
-const getVoteKey = (item) => item.isManual ? `manual|${item.id}` : `${item.type}|${item.region}|${item.boss}|${item.spawnTime}`;
 
 const getTodayTomorrowWindow = () => {
     const now = new Date();
@@ -1469,7 +1849,8 @@ const applyInactiveVoteStates = (rows, startMs, endMs, callback) => {
     );
 };
 
-const buildVoteRowsForRange = (startMs, endMs, callback) => {
+const buildVoteRowsForRange = (startMs, endMs, callback, options = {}) => {
+    const includeHistory = options.includeHistory === true;
     db.all("SELECT boss FROM participation_targets", (targetErr, targetRows) => {
         if (targetErr) return callback(targetErr);
         const targetBosses = (targetRows || []).map(r => r.boss);
@@ -1517,6 +1898,36 @@ const buildVoteRowsForRange = (startMs, endMs, callback) => {
             );
         };
 
+        const loadHistoryRows = () => {
+            if (!includeHistory || targetBosses.length === 0) return loadFixedRows();
+
+            const placeholders = targetBosses.map(() => '?').join(',');
+            db.all(
+                `SELECT type, region, boss, spawnTime
+                 FROM boss_vote_event_history
+                 WHERE spawnTime >= ? AND spawnTime <= ?
+                   AND boss IN (${placeholders})`,
+                [startMs, endMs, ...targetBosses],
+                (historyErr, historyRows) => {
+                    if (historyErr) return callback(historyErr);
+
+                    const existingKeys = new Set(voteRows.map(row => getVoteKey(row)));
+                    (historyRows || []).forEach(row => {
+                        const voteKey = getVoteKey(row);
+                        if (existingKeys.has(voteKey)) return;
+                        voteRows.push({
+                            ...row,
+                            isFixed: false,
+                            isManual: false,
+                            isHistory: true
+                        });
+                        existingKeys.add(voteKey);
+                    });
+                    loadFixedRows();
+                }
+            );
+        };
+
         if (targetBosses.length === 0) return loadManualRows();
 
         const placeholders = targetBosses.map(() => '?').join(',');
@@ -1534,7 +1945,7 @@ const buildVoteRowsForRange = (startMs, endMs, callback) => {
                         isManual: false
                     });
                 });
-                loadFixedRows();
+                loadHistoryRows();
             }
         );
     });
@@ -1727,7 +2138,7 @@ app.get('/api/vote-stats', verifyToken, (req, res) => {
                 });
             }
         );
-    });
+    }, { includeHistory: true });
 });
 
 app.get('/api/vote-member-rates', verifyToken, (req, res) => {
@@ -1799,7 +2210,7 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
                 );
             }
         );
-    });
+    }, { includeHistory: true });
 });
 
 app.delete('/api/vote-participants/:voteKey/users/:userId', verifyToken, (req, res) => {
