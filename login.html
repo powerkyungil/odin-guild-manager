@@ -88,6 +88,10 @@
                     }
 
                     const storage = autoLogin ? localStorage : sessionStorage;
+                    ['token', 'role', 'username', 'userId', 'nickname'].forEach(key => {
+                        localStorage.removeItem(key);
+                        sessionStorage.removeItem(key);
+                    });
                     storage.setItem('token', data.token);
                     storage.setItem('role', data.role);
                     storage.setItem('username', data.username);

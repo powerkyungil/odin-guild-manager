@@ -238,7 +238,9 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const sessionToken = sessionStorage.getItem('token');
+        const activeStorage = sessionToken ? sessionStorage : localStorage;
+        const token = sessionToken || localStorage.getItem('token');
         
         const handleAuthError = () => {
             localStorage.removeItem('token');
@@ -259,10 +261,10 @@
             document.documentElement.dataset.theme = themeSelect.value;
         });
 
-        const currentUsername = localStorage.getItem('username') || sessionStorage.getItem('username');
+        const currentUsername = activeStorage.getItem('username');
         document.getElementById('userNameDisplay').textContent = currentUsername;
         document.getElementById('jankenMenu').hidden = currentUsername !== '움매';
-        const role = localStorage.getItem('role') || sessionStorage.getItem('role');
+        const role = activeStorage.getItem('role');
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
         document.getElementById('legacyCollectionsMenu').addEventListener('click', event => {
