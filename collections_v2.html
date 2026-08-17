@@ -978,8 +978,7 @@
             return body;
         }
 
-        async function ensureMyUserId() {
-            if (myUserId) return;
+        async function syncMyUserId() {
             const me = await fetchJson('/api/users/me', { headers: authHeaders() });
             myUserId = me.id;
             storage.setItem('userId', String(me.id));
@@ -989,7 +988,7 @@
             elements.refreshButton.disabled = true;
             elements.refreshButton.textContent = '불러오는 중';
             try {
-                await ensureMyUserId();
+                await syncMyUserId();
                 const [collectionRows, memberRows, statusRows, excludedRows] = await Promise.all([
                     fetchJson('/api/v2/collections', { headers: authHeaders() }),
                     fetchJson('/api/users', { headers: authHeaders() }),
@@ -1204,7 +1203,11 @@
                 await fetchJson('/api/v2/user-collections/toggle', {
                     method: 'POST',
                     headers: authHeaders(true),
-                    body: JSON.stringify({ userId, collectionItemId: itemId, completed })
+                    body: JSON.stringify({
+                        ...(canEditAllMembers ? { userId } : {}),
+                        collectionItemId: itemId,
+                        completed
+                    })
                 });
                 const key = statusKey(userId, itemId);
                 if (completed) statusSet.add(key);

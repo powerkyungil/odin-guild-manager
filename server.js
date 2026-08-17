@@ -2570,13 +2570,12 @@ app.get('/api/v2/user-collections', verifyToken, (req, res) => {
 
 app.post('/api/v2/user-collections/toggle', verifyToken, (req, res) => {
     const { userId, collectionItemId, completed } = req.body;
-    const targetUserId = parseInt(userId, 10);
+    const requestedUserId = parseInt(userId, 10);
+    const authenticatedUserId = parseInt(req.userId, 10);
+    const targetUserId = req.userRole === 'MASTER' ? requestedUserId : authenticatedUserId;
     const targetCollectionItemId = parseInt(collectionItemId, 10);
     if (!targetUserId || !targetCollectionItemId || typeof completed !== 'boolean') {
         return res.status(400).json({ error: 'Invalid request.' });
-    }
-    if (req.userId !== targetUserId && req.userRole !== 'MASTER') {
-        return res.status(403).json({ error: 'Master only for editing other members.' });
     }
 
     db.get(

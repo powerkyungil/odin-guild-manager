@@ -174,14 +174,14 @@ async function main() {
     if (await requestStatus('/api/v2/user-collections/toggle', adminToken, {
         method: 'POST',
         body: crossEditBody
-    }) !== 403) {
-        throw new Error('Admin must not edit another member completion.');
+    }) !== 200) {
+        throw new Error('Admin completion updates must use the authenticated user.');
     }
     if (await requestStatus('/api/v2/user-collections/toggle', memberToken, {
         method: 'POST',
         body: crossEditBody
-    }) !== 403) {
-        throw new Error('Member must not edit another member completion.');
+    }) !== 200) {
+        throw new Error('Member completion updates must use the authenticated user.');
     }
     if (await requestStatus('/api/v2/user-collections/toggle', adminToken, {
         method: 'POST',
@@ -194,6 +194,13 @@ async function main() {
         throw new Error('Admin must retain permission to edit their own completion.');
     }
     const migratedStatuses = await request('/api/v2/user-collections', token);
+    if (!migratedStatuses.some(row =>
+        row.user_id === 2 && row.collection_item_id === originalItemId
+    ) || !migratedStatuses.some(row =>
+        row.user_id === 3 && row.collection_item_id === originalItemId
+    )) {
+        throw new Error('Non-master completion updates must be stored for the authenticated user.');
+    }
     if (!migratedStatuses.some(row =>
         row.user_id === 1 && row.collection_item_id === originalItemId
     )) {
