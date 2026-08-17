@@ -851,6 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let participationTargets = [];
   let participantsMap = {};
+  let participationClosedKeys = new Set();
 
   const getParticipationVoteKey = (item) =>
     `${item.type}|${item.region}|${item.boss}|${item.spawnTime}`;
@@ -945,13 +946,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fetchParticipationData = async () => {
     try {
-      const [tRes, pRes] = await Promise.all([
+      const [tRes, pRes, sRes] = await Promise.all([
         fetch('/api/participation-targets', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/participants', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('/api/participants', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/participation-states', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
-      if (tRes.status === 401 || pRes.status === 401) return handleAuthError();
+      if (tRes.status === 401 || pRes.status === 401 || sRes.status === 401) return handleAuthError();
       if (tRes.ok) participationTargets = await tRes.json();
       if (pRes.ok) participantsMap = await pRes.json();
+      if (sRes.ok) participationClosedKeys = new Set(await sRes.json());
     } catch (err) { console.error('Failed to fetch participation data', err); }
   };
 
@@ -971,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Memory Optimization: Only render if data has changed
       // We use a simple JSON hash to detect deep changes in schedules or participation
-      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + JSON.stringify(participationTargets) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
+      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + JSON.stringify(participationTargets) + JSON.stringify(Array.from(participationClosedKeys).sort()) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
       if (currentHash !== lastScheduleHash) {
         console.log('[Sync] Data changed, re-rendering schedules.');
         renderSchedules(allSchedulesCache);
@@ -1787,19 +1790,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const participationVoteKey = getParticipationVoteKey(item);
         const list = participantsMap[participationVoteKey] || [];
         const IJoined = list.includes(myNickname);
-        const timeUntilSpawn = item.spawnTime - now;
-        const isSoon = timeUntilSpawn <= 5 * 60 * 1000; // 5 mins before
-        const isLate = timeUntilSpawn < -5 * 60 * 1000; // 5 mins after
+        const isParticipationClosed = participationClosedKeys.has(participationVoteKey);
 
-        if (IJoined) {
-          // Show list (Grey unified UI)
-          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #7D7468; border:none; padding: 2px 8px; border-radius: 6px; color: var(--text-light); font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
-        } else if (isSoon && !isLate) {
-          // Within join window, not yet joined (Keep green for action)
-          participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
-        } else if (isLate) {
-          // After window, allow viewing the list even if not joined (Grey unified UI)
-          participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #7D7468; border:none; padding: 2px 8px; border-radius: 6px; color: var(--text-light); font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+        if (IJoined || !isParticipationClosed) {
+          if (IJoined) {
+            // Show list (Grey unified UI)
+            participationHtml = `<button class="p-btn joined" data-boss="${item.boss}" style="background: #7D7468; border:none; padding: 2px 8px; border-radius: 6px; color: var(--text-light); font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center;  justify-content: center; height: 22px; margin-left: 6px;">참여목록</button>`;
+          } else {
+            // Participation is available for the whole lifetime of the vote.
+            participationHtml = `<button class="p-btn not-joined" data-boss="${item.boss}" style="background: transparent; border: 1px solid #10b981; color: #10b981; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items:center; justify-content: center; height: 22px; margin-left: 6px;">참여</button>`;
+          }
+        } else {
+          participationHtml = '<span style="color: var(--text-muted); font-size: 11px; font-weight: 700; margin-left: 6px;">참여마감</span>';
         }
       }
 

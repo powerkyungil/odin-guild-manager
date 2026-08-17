@@ -322,9 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await fetchVotes();
   };
 
-  const deleteManualVote = async (vote) => {
+  const closeVote = async (vote) => {
     if (!vote || !vote.voteKey) return;
-    if (!confirm(`${vote.boss} 투표 보스를 비활성화할까요? 참여 현황과 참여율에서도 제외됩니다.`)) return;
+    if (!confirm(`${vote.boss} 참여를 마감할까요? 마감 후에는 참여 버튼이 사라지고 참여자 목록은 유지됩니다.`)) return;
 
     const res = await fetch(`/api/vote-bosses/${encodeURIComponent(vote.voteKey)}`, {
       method: 'DELETE',
@@ -341,13 +341,48 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.status === 401) return handleAuthError();
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || '투표 보스 비활성화에 실패했습니다.');
+      alert(data.error || '참여 마감에 실패했습니다.');
       return;
     }
 
     statsLoadedMonth = '';
     statsCache = null;
     ratesLoadedKey = '';
+    await fetchVotes();
+    if (isPrivileged) {
+      await fetchStats(true);
+      await fetchMemberRates(true);
+    }
+  };
+
+  const deleteVote = async (vote) => {
+    if (!vote || !vote.voteKey) return;
+    if (!confirm(vote.boss + ' 투표 항목을 삭제할까요? 참여자와 투표 이력이 함께 삭제됩니다. 보스스케줄은 유지됩니다.')) return;
+
+    const res = await fetch('/api/vote-bosses/' + encodeURIComponent(vote.voteKey) + '/permanent', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        boss: vote.boss,
+        spawnTime: vote.spawnTime
+      })
+    });
+
+    if (res.status === 401) return handleAuthError();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || '투표 항목 삭제에 실패했습니다.');
+      return;
+    }
+
+    statsLoadedMonth = '';
+    statsCache = null;
+    ratesLoadedKey = '';
+    votes = votes.filter(item => item.voteKey !== vote.voteKey);
+    renderVotes();
     await fetchVotes();
     if (isPrivileged) {
       await fetchStats(true);
@@ -368,6 +403,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const isPast = vote.spawnTime < Date.now();
       const joinLabel = vote.joined ? '참여취소' : '참여하기';
       const joinClass = vote.joined ? 'joined' : 'primary';
+      const participationButton = vote.isClosed
+        ? '<span class="vote-closed" aria-label="참여마감">참여마감</span>'
+        : '<button type="button" class="vote-btn ' + joinClass + '" data-action="toggle" data-key="' + escapeHtml(vote.voteKey) + '">' + joinLabel + '</button>';
+      const closeButton = isPrivileged && !vote.isClosed
+        ? '<button type="button" class="vote-btn" data-action="close" data-key="' + escapeHtml(vote.voteKey) + '">참여마감</button>'
+        : '';
+      const deleteButton = isPrivileged
+        ? '<button type="button" class="vote-btn" data-action="delete" data-key="' + escapeHtml(vote.voteKey) + '">삭제</button>'
+        : '';
       return `
         <article class="vote-card ${isPast ? 'past' : ''}" data-index="${index}">
           <div>
@@ -381,9 +425,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="vote-meta">참여 ${vote.participantCount || 0}명${vote.joined ? ' · 내 참여 완료' : ''}</div>
           </div>
           <div class="vote-card-actions">
-            <button type="button" class="vote-btn ${joinClass}" data-action="toggle" data-key="${escapeHtml(vote.voteKey)}">${joinLabel}</button>
+            ${participationButton}
             <button type="button" class="vote-btn" data-action="participants" data-key="${escapeHtml(vote.voteKey)}">참여자 보기</button>
-            ${isPrivileged ? `<button type="button" class="vote-btn" data-action="delete" data-key="${escapeHtml(vote.voteKey)}">삭제</button>` : ''}
+            ${closeButton}
+            ${deleteButton}
           </div>
         </article>
       `;
@@ -747,8 +792,10 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleVote(vote);
     } else if (button.dataset.action === 'participants') {
       openParticipantModal(vote);
+    } else if (button.dataset.action === 'close') {
+      closeVote(vote);
     } else if (button.dataset.action === 'delete') {
-      deleteManualVote(vote);
+      deleteVote(vote);
     }
   });
 

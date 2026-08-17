@@ -326,7 +326,7 @@ function initDB() {
 
         // Each scheduled boss occurrence is immutable history. The live
         // boss_schedules table is still used for the current schedule, while
-        // this table keeps past occurrences available for participation stats.
+        // this table keeps occurrences available for the vote list and stats.
         db.run(`CREATE TABLE IF NOT EXISTS boss_vote_event_history (
             vote_key TEXT PRIMARY KEY,
             type TEXT,
@@ -373,6 +373,41 @@ function initDB() {
                     OLD.spawnTime
                 );
             END`);
+
+        // Backfill vote events for schedules and participation rows that were
+        // created before the immutable event-history table was introduced.
+        // This keeps existing participation records visible after a schedule
+        // is deleted as well as for newly started servers.
+        db.run(`INSERT OR IGNORE INTO boss_vote_event_history
+                (vote_key, type, region, boss, spawnTime)
+            SELECT
+                type || '|' || region || '|' || boss || '|' || spawnTime,
+                type,
+                region,
+                boss,
+                spawnTime
+            FROM boss_schedules
+            WHERE type IS NOT NULL
+              AND region IS NOT NULL
+              AND boss IS NOT NULL
+              AND spawnTime IS NOT NULL`);
+        db.run(`INSERT OR IGNORE INTO boss_vote_event_history
+                (vote_key, type, region, boss, spawnTime)
+            SELECT
+                p.vote_key,
+                substr(p.vote_key, 1, instr(p.vote_key, '|') - 1),
+                substr(
+                    p.vote_key,
+                    instr(p.vote_key, '|') + 1,
+                    instr(substr(p.vote_key, instr(p.vote_key, '|') + 1), '|') - 1
+                ),
+                p.boss,
+                p.spawnTime
+            FROM (
+                SELECT DISTINCT vote_key, boss, spawnTime
+                FROM boss_vote_participants
+                WHERE vote_key LIKE '%|%|%|%'
+            ) AS p`);
 
         db.run(`CREATE TABLE IF NOT EXISTS boss_vote_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1581,6 +1616,7 @@ app.post('/api/schedules', verifyToken, (req, res) => {
         db.run("BEGIN TRANSACTION");
         schedules.forEach(s => {
             db.run("DELETE FROM boss_schedules WHERE type = ? AND region = ? AND boss = ?", [s.type, s.region, s.boss]);
+            db.run("DELETE FROM boss_vote_event_states WHERE vote_key = ?", [getScheduleVoteKey(s)]);
             db.run("INSERT INTO boss_schedules (type, region, boss, spawnTime, created_by, is_mung) VALUES (?, ?, ?, ?, ?, 0)", [s.type, s.region, s.boss, s.spawnTime, req.userId]);
         });
         db.run("COMMIT", () => res.json({ success: true }));
@@ -1758,6 +1794,20 @@ app.get('/api/participants', verifyToken, (req, res) => {
     );
 });
 
+app.get('/api/participation-states', verifyToken, (req, res) => {
+    const cutoff = Date.now() - (BOSS_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    db.all(
+        `SELECT vote_key
+         FROM boss_vote_event_states
+         WHERE state IN ('INACTIVE', 'DELETED') AND spawnTime >= ?`,
+        [cutoff],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(rows.map(row => row.vote_key));
+        }
+    );
+});
+
 app.get('/api/participation-targets', verifyToken, (req, res) => {
     db.all("SELECT boss FROM participation_targets", (err, rows) => res.json(rows.map(r => r.boss)));
 });
@@ -1839,12 +1889,16 @@ const applyInactiveVoteStates = (rows, startMs, endMs, callback) => {
         [startMs, endMs],
         (stateErr, stateRows) => {
             if (stateErr) return callback(stateErr);
-            const inactiveKeys = new Set(
-                (stateRows || [])
-                    .filter(row => String(row.state || 'ACTIVE').toUpperCase() === 'INACTIVE')
-                    .map(row => row.vote_key)
-            );
-            callback(null, rows.filter(row => !inactiveKeys.has(getVoteKey(row))));
+            const stateMap = new Map((stateRows || []).map(row => [
+                row.vote_key,
+                String(row.state || 'ACTIVE').toUpperCase()
+            ]));
+            callback(null, rows
+                .filter(row => stateMap.get(getVoteKey(row)) !== 'DELETED')
+                .map(row => ({
+                    ...row,
+                    isClosed: stateMap.get(getVoteKey(row)) === 'INACTIVE'
+                })));
         }
     );
 };
@@ -1873,10 +1927,10 @@ const buildVoteRowsForRange = (startMs, endMs, callback, options = {}) => {
                         });
                     });
 
-                    applyInactiveVoteStates(voteRows, startMs, endMs, (stateErr, filteredRows) => {
+                    applyInactiveVoteStates(voteRows, startMs, endMs, (stateErr, rowsWithState) => {
                         if (stateErr) return callback(stateErr);
-                        filteredRows.sort((a, b) => a.spawnTime - b.spawnTime);
-                        callback(null, filteredRows);
+                        rowsWithState.sort((a, b) => a.spawnTime - b.spawnTime);
+                        callback(null, rowsWithState);
                     });
                 }
             );
@@ -1986,7 +2040,7 @@ app.get('/api/vote-bosses', verifyToken, (req, res) => {
                 };
             }));
         });
-    });
+    }, { includeHistory: true });
 });
 
 app.post('/api/vote-bosses/manual', verifyToken, (req, res) => {
@@ -2021,6 +2075,44 @@ app.delete('/api/vote-bosses/manual/:id', verifyToken, (req, res) => {
             if (err) return res.status(500).json({ error: err.message });
             if (this.changes === 0) return res.status(404).json({ error: 'Vote boss not found.' });
             res.json({ success: true });
+        });
+    });
+});
+
+app.delete('/api/vote-bosses/:voteKey/permanent', verifyToken, (req, res) => {
+    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
+
+    const voteKey = String(req.params.voteKey || '');
+    const { boss, spawnTime } = req.body || {};
+    const parsedSpawnTime = Number(spawnTime);
+    if (!voteKey || !boss || !Number.isFinite(parsedSpawnTime)) {
+        return res.status(400).json({ error: 'voteKey, boss, and spawnTime are required.' });
+    }
+
+    const manualId = voteKey.startsWith('manual|') ? Number(voteKey.slice('manual|'.length)) : null;
+    const deleteManualEvent = (callback) => {
+        if (!Number.isInteger(manualId) || manualId <= 0) return callback();
+        db.run('DELETE FROM boss_vote_events WHERE id = ?', [manualId], callback);
+    };
+
+    db.run('DELETE FROM boss_vote_participants WHERE vote_key = ?', [voteKey], (participantErr) => {
+        if (participantErr) return res.status(500).json({ error: participantErr.message });
+
+        db.run('DELETE FROM boss_vote_event_history WHERE vote_key = ?', [voteKey], (historyErr) => {
+            if (historyErr) return res.status(500).json({ error: historyErr.message });
+
+            deleteManualEvent((eventErr) => {
+                if (eventErr) return res.status(500).json({ error: eventErr.message });
+
+                db.run(
+                    "INSERT INTO boss_vote_event_states (vote_key, boss, spawnTime, state, updated_by, updated_at) VALUES (?, ?, ?, 'DELETED', ?, CURRENT_TIMESTAMP) ON CONFLICT(vote_key) DO UPDATE SET boss = excluded.boss, spawnTime = excluded.spawnTime, state = 'DELETED', updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP",
+                    [voteKey, String(boss).trim(), parsedSpawnTime, req.userId],
+                    (stateErr) => {
+                        if (stateErr) return res.status(500).json({ error: stateErr.message });
+                        res.json({ success: true, state: 'DELETED' });
+                    }
+                );
+            });
         });
     });
 });
