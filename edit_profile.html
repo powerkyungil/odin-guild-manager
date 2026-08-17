@@ -290,6 +290,15 @@
             for(let i=1; i<=2; i++) injectSkill(`전설 ${i}`);
         });
 
+        function parseStructuredData(value) {
+            if (value === null || value === undefined || value === '') return {};
+            if (typeof value === 'string') {
+                const parsed = JSON.parse(value);
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            }
+            return typeof value === 'object' ? value : {};
+        }
+
         // --- LOAD DATA ---
         async function loadProfile() {
             try {
@@ -321,7 +330,7 @@
 
                     // Pre-fill equipment
                     if (data.equipment) {
-                        const equip = JSON.parse(data.equipment);
+                        const equip = parseStructuredData(data.equipment);
                         document.querySelectorAll('.equip-input').forEach(el => {
                             const name = el.dataset.name;
                             const item = equip[name];
@@ -340,7 +349,7 @@
 
                     // Pre-fill skills
                     if (data.skills) {
-                        const skills = JSON.parse(data.skills);
+                        const skills = parseStructuredData(data.skills);
                         document.querySelectorAll('.skill-select').forEach(el => {
                             const group = el.dataset.group;
                             const name = el.dataset.name;

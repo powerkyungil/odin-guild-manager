@@ -604,6 +604,15 @@
             return '';
         }
 
+        function parseStructuredData(value) {
+            if (value === null || value === undefined || value === '') return {};
+            if (typeof value === 'string') {
+                const parsed = JSON.parse(value);
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            }
+            return typeof value === 'object' ? value : {};
+        }
+
         function renderTable(users) {
             const body = document.getElementById('memberTableBody');
             body.innerHTML = '';
@@ -647,7 +656,7 @@
                 ];
                 let equipHtml = '<div class="equip-strip">';
                 try {
-                    const equip = JSON.parse(u.equipment);
+                    const equip = parseStructuredData(u.equipment);
                     fields.forEach(f => {
                         const item = equip[f.k];
                         let val = '-';
@@ -679,7 +688,7 @@
                 // --- Skill Strip ---
                 let skillHtml = '<div class="skill-strip">';
                 try {
-                    const skills = JSON.parse(u.skills);
+                    const skills = parseStructuredData(u.skills);
                     const drawLine = (type, label) => {
                         let inner = `<div class="skill-line"><span style="width:30px; font-size:9px; color:var(--text-muted); padding-top:4px;">${label}</span>`;
                         const group = skills[type] || {};
