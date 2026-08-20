@@ -94,43 +94,80 @@
             align-items: center;
             gap: 16px;
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 14px;
+            border-radius: 10px;
+            padding: 15px 16px;
             margin-bottom: 14px;
             background: rgba(255,255,255,0.04);
+            transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease;
+        }
+        .toggle-row:hover {
+            border-color: color-mix(in srgb, var(--primary-color) 40%, var(--border-color));
+            background: rgba(255,255,255,0.06);
+        }
+        .toggle-row > div { min-width: 0; }
+        .toggle-row:has(.switch input:checked) {
+            border-color: color-mix(in srgb, #10b981 48%, var(--border-color));
+            background: rgba(16, 185, 129, 0.06);
         }
         .toggle-row strong { display: block; font-size: 14px; }
         .toggle-row span { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
         .toggle-row.locked {
             opacity: 0.7;
         }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; flex: 0 0 auto; }
-        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch {
+            position: relative;
+            display: inline-flex;
+            width: 54px;
+            height: 30px;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+        .switch input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+        }
         .switch input:disabled + .slider {
             cursor: not-allowed;
-            background-color: #6b7280;
+            background-color: #6b7280 !important;
+            border-color: transparent;
+            box-shadow: none;
         }
         .slider {
             position: absolute;
             cursor: pointer;
             inset: 0;
             background-color: #8D8373;
-            transition: .25s;
-            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.18);
+            box-sizing: border-box;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.22);
+            transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
+            border-radius: 999px;
         }
         .slider:before {
             position: absolute;
             content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
+            height: 24px;
+            width: 24px;
+            left: 2px;
+            top: 50%;
             background-color: var(--text-light);
-            transition: .25s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.28);
+            transform: translateY(-50%);
+            transition: transform .2s ease;
             border-radius: 50%;
         }
-        input:checked + .slider { background-color: #10b981; }
-        input:checked + .slider:before { transform: translateX(26px); }
+        .switch input:checked + .slider {
+            background-color: #10b981;
+            border-color: rgba(16,185,129,0.85);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.16), 0 0 0 3px rgba(16,185,129,0.12);
+        }
+        .switch input:checked + .slider:before { transform: translate(24px, -50%); }
+        .switch input:focus-visible + .slider {
+            outline: 3px solid color-mix(in srgb, var(--primary-color) 50%, transparent);
+            outline-offset: 3px;
+        }
         .save-settings-btn {
             background: var(--primary-color);
             color: var(--text-light);
@@ -204,6 +241,7 @@
             .settings-layout { grid-template-columns: 1fr; }
             .settings-tabs { flex-direction: row; overflow-x: auto; }
             .settings-tab { white-space: nowrap; }
+            .toggle-row { padding: 14px; gap: 12px; }
         }
     </style>
 </head>
@@ -247,6 +285,16 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row" id="maintenanceControl" hidden>
+                        <div>
+                            <strong>임시 점검 모드</strong>
+                            <span id="maintenanceStatusHint">점검 상태를 불러오는 중입니다.</span>
+                        </div>
+                        <label class="switch" for="maintenanceModeInput">
+                            <input type="checkbox" id="maintenanceModeInput" onchange="toggleMaintenanceMode(this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <button class="save-settings-btn" type="button" onclick="saveGuildSettings()">길드 설정 저장</button>
                 </section>
 
@@ -273,10 +321,7 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="button-row">
-                        <button class="save-settings-btn" type="button" onclick="saveGuildSettings()">디스코드 설정 저장</button>
-                        <button class="save-settings-btn" type="button" style="background:#7D7468;" onclick="testDiscord()">테스트 알림</button>
-                    </div>
+                    <button class="save-settings-btn" type="button" onclick="saveGuildSettings()">디스코드 설정 저장</button>
                 </section>
 
                 <section id="section-invites" class="settings-section">
@@ -388,22 +433,60 @@
             }
         }
 
-        async function testDiscord() {
-            if (role !== 'MASTER' && role !== 'ADMIN') return;
+        async function loadMaintenanceStatus() {
+            if (!isMaster) return;
             try {
-                const res = await fetch('/api/test-discord', {
-                    method: 'POST',
+                const res = await fetch('/maintenance/status', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
+                if (!res.ok) return;
+                const { enabled } = await res.json();
+                const control = document.getElementById('maintenanceControl');
+                const hint = document.getElementById('maintenanceStatusHint');
+                const toggle = document.getElementById('maintenanceModeInput');
+                control.hidden = false;
+                control.dataset.enabled = String(enabled);
+                hint.textContent = enabled
+                    ? '현재 일반 사용자의 웹 접속이 차단되어 있습니다.'
+                    : '현재 모든 사용자가 웹에 정상 접속할 수 있습니다.';
+                toggle.checked = enabled;
+                toggle.disabled = false;
+            } catch (_) {
+                // The regular guild settings can still be used if this optional control is unavailable.
+            }
+        }
+
+        async function toggleMaintenanceMode(nextEnabled) {
+            if (!isMaster) return;
+            const toggle = document.getElementById('maintenanceModeInput');
+            const action = nextEnabled ? 'ON' : 'OFF';
+            if (!window.confirm(`임시 점검 모드를 ${action} 하시겠습니까?`)) {
+                toggle.checked = !nextEnabled;
+                return;
+            }
+
+            toggle.disabled = true;
+            try {
+                const res = await fetch('/maintenance/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ enabled: nextEnabled })
+                });
                 if (res.status === 401) return handleAuthError();
-                const data = await res.json();
-                if (res.ok) {
-                    alert('디스코드로 테스트 메시지를 보냈습니다! 채널을 확인하세요.');
-                } else {
-                    alert('테스트 실패: ' + data.error);
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    toggle.checked = !nextEnabled;
+                    return alert(data.error || '점검 모드를 변경하지 못했습니다.');
                 }
-            } catch (err) {
+                await loadMaintenanceStatus();
+            } catch (_) {
+                toggle.checked = !nextEnabled;
                 alert('서버 통신 오류');
+            } finally {
+                toggle.disabled = false;
             }
         }
 
@@ -480,6 +563,7 @@
 
         syncCombatPowerTogglePermission();
         loadSettings();
+        loadMaintenanceStatus();
     </script>
 </body>
 </html>

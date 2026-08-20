@@ -200,15 +200,6 @@
                 <p>접속이 어려운 길드원과 지원자를 매칭</p>
             </a>
 
-            <a href="janken.html" class="menu-card" id="jankenMenu" hidden>
-                <h3>짱깸보 <span class="new-badge">NEW</span></h3>
-                <p>운영진이 참가자를 정해 진행하는 아이템 추첨</p>
-                <div class="menu-sub">
-                    <span>아이템 추첨</span>
-                    <span>결과 기록</span>
-                </div>
-            </a>
-
             <a href="collections.html" class="menu-card" id="legacyCollectionsMenu">
                 <h3>길드원 아이템 현황</h3>
                 <p>기존 아이템 컬렉션 달성 상태 관리</p>
@@ -263,7 +254,6 @@
 
         const currentUsername = activeStorage.getItem('username');
         document.getElementById('userNameDisplay').textContent = currentUsername;
-        document.getElementById('jankenMenu').hidden = currentUsername !== '움매';
         const role = activeStorage.getItem('role');
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;

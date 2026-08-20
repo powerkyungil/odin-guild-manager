@@ -36,6 +36,12 @@ const startHttpServer = () => {
     });
 };
 const JWT_SECRET = process.env.JWT_SECRET || 'odin-guild-secret-kyeongil';
+let maintenanceMode = process.env.MAINTENANCE_MODE === '1';
+const MAINTENANCE_ALLOWED_USERNAME = '움매';
+const MAINTENANCE_API_URL = process.env.MAINTENANCE_API_URL || 'http://127.0.0.1:3001';
+const MAINTENANCE_COOKIE_NAME = 'odin_maintenance_access';
+const MAINTENANCE_COOKIE_VERSION = 'v3';
+const MAINTENANCE_ACCESS_TTL_MS = 12 * 60 * 60 * 1000;
 const CLOVA_OCR_INVOKE_URL = process.env.CLOVA_OCR_INVOKE_URL;
 const CLOVA_OCR_SECRET = process.env.CLOVA_OCR_SECRET;
 const CLOVA_OCR_TEMPLATE_ID = process.env.CLOVA_OCR_TEMPLATE_ID;
@@ -59,6 +65,165 @@ if (CLOVA_OCR_TEMPLATES.length === 0) {
 
 app.use(cors());
 app.use(express.json());
+
+const parseCookies = (header = '') => Object.fromEntries(
+    header.split(';').map(part => part.trim()).filter(Boolean).map(part => {
+        const separatorIndex = part.indexOf('=');
+        if (separatorIndex < 0) return [part, ''];
+        const rawValue = part.slice(separatorIndex + 1);
+        try {
+            return [part.slice(0, separatorIndex), decodeURIComponent(rawValue)];
+        } catch {
+            return [part.slice(0, separatorIndex), rawValue];
+        }
+    })
+);
+
+const createMaintenanceAccessCookie = () => {
+    const expiresAt = Date.now() + MAINTENANCE_ACCESS_TTL_MS;
+    const payload = `${MAINTENANCE_COOKIE_VERSION}:${MAINTENANCE_ALLOWED_USERNAME}:${expiresAt}`;
+    const signature = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('base64url');
+    return `${expiresAt}.${signature}`;
+};
+
+const hasMaintenanceAccess = (req) => {
+    const cookieValue = parseCookies(req.headers.cookie)[MAINTENANCE_COOKIE_NAME];
+    if (!cookieValue) return false;
+    const separatorIndex = cookieValue.indexOf('.');
+    if (separatorIndex < 1) return false;
+    const expiresAt = Number(cookieValue.slice(0, separatorIndex));
+    const providedSignature = cookieValue.slice(separatorIndex + 1);
+    if (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now()) return false;
+    const payload = `${MAINTENANCE_COOKIE_VERSION}:${MAINTENANCE_ALLOWED_USERNAME}:${expiresAt}`;
+    const expectedSignature = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('base64url');
+    const providedBuffer = Buffer.from(providedSignature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    return providedBuffer.length === expectedBuffer.length
+        && crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+};
+
+const clearMaintenanceAccessCookie = (res) => {
+    res.setHeader('Set-Cookie', [
+        `${MAINTENANCE_COOKIE_NAME}=`,
+        'Max-Age=0',
+        'Path=/',
+        'HttpOnly',
+        'Secure',
+        'SameSite=Lax'
+    ].join('; '));
+};
+
+const authenticateMaintenanceMaster = async (req) => {
+    const token = typeof req.headers.authorization === 'string'
+        ? req.headers.authorization.replace(/^Bearer\s+/i, '').trim()
+        : '';
+    if (!token) return null;
+
+    try {
+        const response = await fetch(`${MAINTENANCE_API_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok) return null;
+        const responseBody = await response.json();
+        const user = responseBody?.data || responseBody;
+        return user?.role === 'MASTER' ? user : null;
+    } catch {
+        return null;
+    }
+};
+
+app.post('/maintenance/access', async (req, res) => {
+    if (!maintenanceMode) return res.json({ allowed: true });
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    if (!token) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    try {
+        const response = await fetch(`${MAINTENANCE_API_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok) return res.status(401).json({ error: '로그인 정보가 만료되었습니다.' });
+        const responseBody = await response.json();
+        const user = responseBody?.data || responseBody;
+        const isMaintenanceOperator = user?.role === 'MASTER'
+            || user?.username === MAINTENANCE_ALLOWED_USERNAME;
+        if (!isMaintenanceOperator) {
+            return res.status(403).json({ error: '현재 임시 점검 중입니다.' });
+        }
+
+        res.setHeader('Set-Cookie', [
+            `${MAINTENANCE_COOKIE_NAME}=${encodeURIComponent(createMaintenanceAccessCookie())}`,
+            `Max-Age=${Math.floor(MAINTENANCE_ACCESS_TTL_MS / 1000)}`,
+            'Path=/',
+            'HttpOnly',
+            'Secure',
+            'SameSite=Lax'
+        ].join('; '));
+        res.json({ allowed: true });
+    } catch {
+        res.status(503).json({ error: '점검 인증 서버에 연결할 수 없습니다.' });
+    }
+});
+
+app.get('/maintenance/status', async (req, res) => {
+    const user = await authenticateMaintenanceMaster(req);
+    if (!user) return res.status(403).json({ error: '길드장만 점검 상태를 확인할 수 있습니다.' });
+    res.json({ enabled: maintenanceMode });
+});
+
+app.post('/maintenance/toggle', async (req, res) => {
+    const user = await authenticateMaintenanceMaster(req);
+    if (!user) return res.status(403).json({ error: '길드장만 점검 모드를 변경할 수 있습니다.' });
+    if (typeof req.body?.enabled !== 'boolean') {
+        return res.status(400).json({ error: '점검 상태 값이 올바르지 않습니다.' });
+    }
+
+    const enabled = req.body.enabled;
+    db.run(
+        `INSERT INTO runtime_settings (key, value, updated_at)
+         VALUES ('maintenance_mode', ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+        [enabled ? '1' : '0'],
+        (error) => {
+            if (error) return res.status(500).json({ error: '점검 상태를 저장하지 못했습니다.' });
+            maintenanceMode = enabled;
+            if (enabled) {
+                res.setHeader('Set-Cookie', [
+                    `${MAINTENANCE_COOKIE_NAME}=${encodeURIComponent(createMaintenanceAccessCookie())}`,
+                    `Max-Age=${Math.floor(MAINTENANCE_ACCESS_TTL_MS / 1000)}`,
+                    'Path=/',
+                    'HttpOnly',
+                    'Secure',
+                    'SameSite=Lax'
+                ].join('; '));
+            } else {
+                clearMaintenanceAccessCookie(res);
+            }
+            res.json({ enabled: maintenanceMode });
+        }
+    );
+});
+
+app.use((req, res, next) => {
+    if (!maintenanceMode
+        || req.path === '/maintenance.html'
+        || req.path === '/maintenance/access'
+        || req.path === '/maintenance/status'
+        || req.path === '/maintenance/toggle') {
+        return next();
+    }
+    if (req.path === '/login.html') {
+        clearMaintenanceAccessCookie(res);
+        return res.status(503).sendFile(path.join(__dirname, 'maintenance.html'));
+    }
+    if (hasMaintenanceAccess(req)) return next();
+    if (parseCookies(req.headers.cookie)[MAINTENANCE_COOKIE_NAME]) {
+        clearMaintenanceAccessCookie(res);
+    }
+    res.status(503).sendFile(path.join(__dirname, 'maintenance.html'));
+});
+
 app.use(express.static(__dirname));
 
 // --- Discord Client Setup ---
@@ -160,6 +325,23 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initDB() {
     db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS runtime_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.get("SELECT value FROM runtime_settings WHERE key = 'maintenance_mode'", (error, row) => {
+            if (error) return;
+            if (row) {
+                maintenanceMode = row.value === '1';
+                return;
+            }
+            db.run(
+                "INSERT INTO runtime_settings (key, value) VALUES ('maintenance_mode', ?)",
+                [maintenanceMode ? '1' : '0']
+            );
+        });
+
         // Users Table
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -507,40 +689,6 @@ function initDB() {
             FOREIGN KEY (request_id) REFERENCES support_requests(id) ON DELETE CASCADE,
             FOREIGN KEY (applicant_id) REFERENCES users(id) ON DELETE CASCADE
         )`);
-
-        // Jjankkaembo item draws: admins define the complete participant list.
-        // Participant nicknames are snapshotted so completed draw history remains
-        // readable even when a guild member later changes their profile.
-        db.run(`CREATE TABLE IF NOT EXISTS janken_draws (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            item_name TEXT NOT NULL,
-            participant_count INTEGER NOT NULL,
-            status TEXT NOT NULL DEFAULT 'READY' CHECK (status IN ('READY', 'DRAWN')),
-            created_by INTEGER,
-            created_by_nickname TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            drawn_at DATETIME,
-            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-        )`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS janken_draw_participants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            draw_id INTEGER NOT NULL,
-            user_id INTEGER,
-            nickname TEXT NOT NULL,
-            sort_order INTEGER NOT NULL DEFAULT 0,
-            is_winner INTEGER NOT NULL DEFAULT 0 CHECK (is_winner IN (0, 1)),
-            FOREIGN KEY (draw_id) REFERENCES janken_draws(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-            UNIQUE(draw_id, user_id)
-        )`);
-        db.run(`CREATE INDEX IF NOT EXISTS idx_janken_draws_created_at
-            ON janken_draws(created_at DESC)`);
-        db.run(`CREATE INDEX IF NOT EXISTS idx_janken_draw_participants_draw
-            ON janken_draw_participants(draw_id, sort_order, id)`);
-        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_janken_draw_single_winner
-            ON janken_draw_participants(draw_id)
-            WHERE is_winner = 1`);
 
         // Settings Table (Renamed to odin_settings to avoid conflict with existing tables)
         db.run(`CREATE TABLE IF NOT EXISTS odin_settings (
@@ -1182,216 +1330,6 @@ app.get('/api/users', verifyToken, async (req, res) => {
 
 // --- HAND SUPPORT API ---
 const isAdminRole = (role) => role === 'MASTER' || role === 'ADMIN';
-
-const jankenDrawSelect = `
-    SELECT
-        id,
-        item_name AS itemName,
-        participant_count AS participantCount,
-        status,
-        created_by AS createdBy,
-        created_by_nickname AS createdByNickname,
-        created_at AS createdAt,
-        drawn_at AS drawnAt
-    FROM janken_draws
-`;
-
-async function getJankenDraws(drawId = null) {
-    const draws = drawId
-        ? await dbAll(`${jankenDrawSelect} WHERE id = ?`, [drawId])
-        : await dbAll(`${jankenDrawSelect} ORDER BY id DESC LIMIT 50`);
-
-    if (draws.length === 0) return [];
-
-    const placeholders = draws.map(() => '?').join(',');
-    const participants = await dbAll(
-        `SELECT
-            id,
-            draw_id AS drawId,
-            user_id AS userId,
-            nickname,
-            sort_order AS sortOrder,
-            is_winner AS isWinner
-         FROM janken_draw_participants
-         WHERE draw_id IN (${placeholders})
-         ORDER BY draw_id DESC, sort_order ASC, id ASC`,
-        draws.map(draw => draw.id)
-    );
-    const participantsByDraw = new Map();
-    participants.forEach(participant => {
-        participant.isWinner = participant.isWinner === 1;
-        if (!participantsByDraw.has(participant.drawId)) participantsByDraw.set(participant.drawId, []);
-        participantsByDraw.get(participant.drawId).push(participant);
-    });
-
-    return draws.map(draw => ({
-        ...draw,
-        participants: participantsByDraw.get(draw.id) || []
-    }));
-}
-
-app.get('/api/janken/draws', verifyToken, async (req, res) => {
-    try {
-        res.json(await getJankenDraws());
-    } catch (err) {
-        res.status(500).json({ error: '짱깸보 기록을 불러오지 못했습니다.' });
-    }
-});
-
-app.post('/api/janken/draws', verifyToken, async (req, res) => {
-    if (!isAdminRole(req.userRole)) {
-        return res.status(403).json({ error: '길드장과 운영진만 짱깸보를 만들 수 있습니다.' });
-    }
-
-    const itemName = String(req.body.itemName || '').trim();
-    const participantCount = Number(req.body.participantCount);
-    const rawParticipantIds = Array.isArray(req.body.participantIds) ? req.body.participantIds : [];
-    const participantIds = [...new Set(rawParticipantIds.map(Number))]
-        .filter(id => Number.isInteger(id) && id > 0);
-
-    if (!itemName || itemName.length > 80) {
-        return res.status(400).json({ error: '아이템명은 1자 이상 80자 이내로 입력해 주세요.' });
-    }
-    if (!Number.isInteger(participantCount) || participantCount < 2 || participantCount > 200) {
-        return res.status(400).json({ error: '참여 인원은 2명 이상 200명 이하로 설정해 주세요.' });
-    }
-    if (participantIds.length !== participantCount || rawParticipantIds.length !== participantCount) {
-        return res.status(400).json({ error: '설정한 참여 인원 수와 선택한 길드원 수가 일치해야 합니다.' });
-    }
-
-    const placeholders = participantIds.map(() => '?').join(',');
-    try {
-        const [members, creator] = await Promise.all([
-            dbAll(
-                `SELECT id, nickname
-                 FROM users
-                 WHERE id IN (${placeholders})
-                 ORDER BY COALESCE(nickname, ''), id`,
-                participantIds
-            ),
-            dbGet("SELECT nickname FROM users WHERE id = ?", [req.userId])
-        ]);
-
-        if (members.length !== participantCount) {
-            return res.status(400).json({ error: '선택한 길드원 중 현재 존재하지 않는 계정이 있습니다.' });
-        }
-
-        const memberById = new Map(members.map(member => [member.id, member]));
-        await dbRun("BEGIN TRANSACTION");
-        try {
-            const created = await dbRun(
-                `INSERT INTO janken_draws
-                    (item_name, participant_count, status, created_by, created_by_nickname)
-                 VALUES (?, ?, 'READY', ?, ?)`,
-                [itemName, participantCount, req.userId, creator?.nickname || req.userNickname || '운영진']
-            );
-
-            for (let index = 0; index < participantIds.length; index += 1) {
-                const userId = participantIds[index];
-                const member = memberById.get(userId);
-                await dbRun(
-                    `INSERT INTO janken_draw_participants
-                        (draw_id, user_id, nickname, sort_order)
-                     VALUES (?, ?, ?, ?)`,
-                    [created.lastID, userId, member.nickname || `길드원 #${userId}`, index]
-                );
-            }
-            await dbRun("COMMIT");
-
-            const [draw] = await getJankenDraws(created.lastID);
-            res.status(201).json(draw);
-        } catch (txErr) {
-            try { await dbRun("ROLLBACK"); } catch (_) { }
-            throw txErr;
-        }
-    } catch (err) {
-        res.status(500).json({ error: '짱깸보를 만드는 중 오류가 발생했습니다.' });
-    }
-});
-
-app.post('/api/janken/draws/:id/draw', verifyToken, async (req, res) => {
-    if (!isAdminRole(req.userRole)) {
-        return res.status(403).json({ error: '길드장과 운영진만 추첨을 시작할 수 있습니다.' });
-    }
-
-    const drawId = Number(req.params.id);
-    if (!Number.isInteger(drawId) || drawId <= 0) {
-        return res.status(400).json({ error: '올바르지 않은 짱깸보 번호입니다.' });
-    }
-
-    try {
-        const participants = await dbAll(
-            `SELECT id
-             FROM janken_draw_participants
-             WHERE draw_id = ?
-             ORDER BY sort_order ASC, id ASC`,
-            [drawId]
-        );
-        if (participants.length < 2) {
-            return res.status(409).json({ error: '추첨할 참가자가 부족합니다.' });
-        }
-
-        const locked = await dbRun(
-            `UPDATE janken_draws
-             SET status = 'DRAWN', drawn_at = CURRENT_TIMESTAMP
-             WHERE id = ? AND status = 'READY'`,
-            [drawId]
-        );
-        if (locked.changes !== 1) {
-            return res.status(409).json({ error: '이미 추첨이 끝났거나 존재하지 않는 짱깸보입니다.' });
-        }
-
-        const winner = participants[crypto.randomInt(participants.length)];
-        try {
-            await dbRun(
-                `UPDATE janken_draw_participants
-                 SET is_winner = 1
-                 WHERE id = ? AND draw_id = ?`,
-                [winner.id, drawId]
-            );
-        } catch (winnerErr) {
-            await dbRun(
-                `UPDATE janken_draws
-                 SET status = 'READY', drawn_at = NULL
-                 WHERE id = ? AND NOT EXISTS (
-                    SELECT 1 FROM janken_draw_participants
-                    WHERE draw_id = ? AND is_winner = 1
-                 )`,
-                [drawId, drawId]
-            );
-            throw winnerErr;
-        }
-
-        const [draw] = await getJankenDraws(drawId);
-        res.json(draw);
-    } catch (err) {
-        res.status(500).json({ error: '추첨 결과를 확정하는 중 오류가 발생했습니다.' });
-    }
-});
-
-app.delete('/api/janken/draws/:id', verifyToken, async (req, res) => {
-    if (!isAdminRole(req.userRole)) {
-        return res.status(403).json({ error: '길드장과 운영진만 준비 중인 짱깸보를 취소할 수 있습니다.' });
-    }
-
-    const drawId = Number(req.params.id);
-    if (!Number.isInteger(drawId) || drawId <= 0) {
-        return res.status(400).json({ error: '올바르지 않은 짱깸보 번호입니다.' });
-    }
-
-    try {
-        const removed = await dbRun(
-            "DELETE FROM janken_draws WHERE id = ? AND status = 'READY'",
-            [drawId]
-        );
-        if (removed.changes !== 1) {
-            return res.status(409).json({ error: '완료된 결과는 삭제할 수 없습니다.' });
-        }
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: '짱깸보를 취소하지 못했습니다.' });
-    }
-});
 
 const supportRequestSelect = `
     SELECT
@@ -3268,26 +3206,6 @@ app.post('/api/settings', verifyToken, (req, res) => {
                 });
         }
     });
-});
-
-app.post('/api/test-discord', verifyToken, async (req, res) => {
-    if (req.userRole !== 'MASTER' && req.userRole !== 'ADMIN') return res.status(403).json({ error: 'Unauthorized.' });
-    if (!discordClient || !discordClient.isReady() || !discordChannelId) {
-        return res.status(400).json({ error: 'Bot is not ready or channel ID is missing.' });
-    }
-    try {
-        const channel = await discordClient.channels.fetch(discordChannelId);
-        if (!channel) return res.status(400).json({ error: 'Channel not found.' });
-
-        // Fetch guild name for the message to avoid ReferenceError
-        db.get("SELECT guild_name FROM odin_settings LIMIT 1", async (err, row) => {
-            const gName = (row && row.guild_name) ? row.guild_name : '오딘 길드';
-            await channel.send({ content: `${gName} 디스코드 봇 알림이 연동되었습니다! (TTS)`, tts: true });
-            res.json({ success: true });
-        });
-    } catch (err) {
-        res.status(500).json({ error: `Discord Error: ${err.message}. Please check if the bot is in the server AND the Channel ID is correct.` });
-    }
 });
 
 app.use((req, res) => {
