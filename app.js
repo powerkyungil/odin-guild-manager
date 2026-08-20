@@ -905,7 +905,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fetchCustomBosses = async () => {
     try {
-      const res = await fetch('/api/custom-bosses');
+      const res = await fetch('/api/custom-bosses', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) return handleAuthError();
       if (res.ok) {
         customBossesList = await res.json();
         BOSS_DATA = [];
