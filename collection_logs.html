@@ -43,8 +43,19 @@
         tbody tr:hover { background: rgba(127,127,127,.045); }
         .person { font-weight: 800; }
         .muted { color: var(--text-muted); }
-        .item-name { display: grid; gap: 3px; }
-        .item-name strong { font-size: 14px; }
+        .item-name { display: grid; gap: 7px; min-width: 230px; }
+        .item-primary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .item-part { font-size: 15px; font-weight: 900; color: var(--text-light); }
+        .item-enchantment {
+            display: inline-flex; padding: 3px 8px; border-radius: 7px;
+            color: var(--primary-color); background: rgba(99,102,241,.12);
+            border: 1px solid rgba(99,102,241,.24); font-size: 12px; font-weight: 900;
+        }
+        .collection-label { color: var(--text-muted); font-size: 11px; }
+        .collection-label::before { content: '컬렉션 · '; font-weight: 800; }
+        :root:not([data-theme="dark"]) .item-enchantment {
+            color: #7B2E18; background: rgba(201,84,43,.1); border-color: rgba(201,84,43,.22);
+        }
         .state-badge { display: inline-flex; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 900; }
         .state-badge.completed { color: #059669; background: rgba(16,185,129,.14); }
         .state-badge.removed { color: #dc2626; background: rgba(239,68,68,.12); }
@@ -92,7 +103,7 @@
                         <tr>
                             <th>변경 시각</th>
                             <th>대상 인원</th>
-                            <th>컬렉션 / 아이템</th>
+                            <th>아이템 / 컬렉션</th>
                             <th>변경 내용</th>
                             <th>변경자</th>
                         </tr>
@@ -182,12 +193,22 @@
                 const itemCell = document.createElement('td');
                 const itemWrap = document.createElement('div');
                 itemWrap.className = 'item-name';
-                const collection = document.createElement('strong');
+                const itemPrimary = document.createElement('div');
+                itemPrimary.className = 'item-primary';
+                const itemPart = document.createElement('strong');
+                itemPart.className = 'item-part';
+                itemPart.textContent = log.part || '아이템 정보 없음';
+                itemPrimary.appendChild(itemPart);
+                if (log.enchantment) {
+                    const enchantment = document.createElement('span');
+                    enchantment.className = 'item-enchantment';
+                    enchantment.textContent = log.enchantment;
+                    itemPrimary.appendChild(enchantment);
+                }
+                const collection = document.createElement('span');
+                collection.className = 'collection-label';
                 collection.textContent = log.collectionName || '-';
-                const item = document.createElement('span');
-                item.className = 'muted';
-                item.textContent = [log.part, log.enchantment].filter(Boolean).join(' · ') || '-';
-                itemWrap.append(collection, item);
+                itemWrap.append(itemPrimary, collection);
                 itemCell.appendChild(itemWrap);
                 row.appendChild(itemCell);
 
