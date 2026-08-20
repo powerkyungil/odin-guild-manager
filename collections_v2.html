@@ -800,6 +800,7 @@
         <nav class="v2-topbar" aria-label="페이지 메뉴">
             <a class="v2-back" href="menu.html"><span aria-hidden="true">←</span> 메뉴로 돌아가기</a>
             <div class="v2-actions">
+                <button class="v2-btn" id="collectionLogsButton" type="button" hidden>변경 로그</button>
                 <button class="v2-btn" id="excludeButton" type="button" hidden>우선순위 제외</button>
                 <button class="v2-btn primary" id="addCollectionButton" type="button" hidden>+ 컬렉션 추가</button>
                 <button class="v2-btn" id="refreshButton" type="button">새로고침</button>
@@ -905,8 +906,10 @@
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
         const role = storage.getItem('role');
+        const username = storage.getItem('username');
         const isAdmin = role === 'MASTER' || role === 'ADMIN';
         const canEditAllMembers = role === 'MASTER';
+        const canViewCollectionLogs = role === 'MASTER' || username === '움매';
 
         let myUserId = Number.parseInt(storage.getItem('userId'), 10);
         let members = [];
@@ -918,6 +921,7 @@
         let toastTimer;
 
         const elements = {
+            collectionLogsButton: document.getElementById('collectionLogsButton'),
             refreshButton: document.getElementById('refreshButton'),
             excludeButton: document.getElementById('excludeButton'),
             addCollectionButton: document.getElementById('addCollectionButton'),
@@ -1204,7 +1208,7 @@
                     method: 'POST',
                     headers: authHeaders(true),
                     body: JSON.stringify({
-                        ...(canEditAllMembers ? { userId } : {}),
+                        userId,
                         collectionItemId: itemId,
                         completed
                     })
@@ -1452,6 +1456,10 @@
         } else {
             elements.addCollectionButton.hidden = !isAdmin;
             elements.excludeButton.hidden = !isAdmin;
+            elements.collectionLogsButton.hidden = !canViewCollectionLogs;
+            elements.collectionLogsButton.addEventListener('click', () => {
+                window.location.href = 'collection_logs.html';
+            });
             elements.refreshButton.addEventListener('click', () => loadData({ announce: true }));
             elements.searchInput.addEventListener('input', applyFilters);
             elements.collectionFilter.addEventListener('change', applyFilters);

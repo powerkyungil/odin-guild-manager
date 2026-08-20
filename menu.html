@@ -210,6 +210,11 @@
                 <p>고정 아이템 ID 기반의 안전한 달성 현황 관리</p>
             </a>
 
+            <a href="collection_logs.html" class="menu-card" id="collectionLogsMenu" hidden>
+                <h3>아이템 컬렉 변경 로그</h3>
+                <p>길드원의 컬렉션 체크 변경 내역과 변경자를 확인</p>
+            </a>
+
             <a href="content.html" class="menu-card">
                 <h3>컨텐츠 참여</h3>
                 <p>드래그 앤 드롭 그룹 빌더</p>
@@ -266,6 +271,9 @@
 
         if (role === 'MASTER' || role === 'ADMIN') {
             document.getElementById('settingsBtn').style.display = 'inline-block';
+        }
+        if (role === 'MASTER' || currentUsername === '움매') {
+            document.getElementById('collectionLogsMenu').hidden = false;
         }
 
         async function loadSettings() {

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아이템 컬렉 변경 로그</title>
+    <script>
+        document.documentElement.dataset.theme = localStorage.getItem('uiTheme') || 'dark';
+    </script>
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        body { align-items: flex-start; padding: 34px 18px; }
+        .log-container { width: min(1120px, 100%); margin: 0 auto; }
+        .log-header, .filter-bar, .log-panel {
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            box-shadow: 0 18px 42px rgba(0,0,0,.16);
+            border-radius: 16px;
+        }
+        .log-header { padding: 22px 24px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+        .log-header h1 { margin: 0 0 6px; font-size: 24px; }
+        .log-header p { margin: 0; color: var(--text-muted); font-size: 14px; }
+        .back-button, .action-button {
+            border: 1px solid var(--border-color); border-radius: 9px; padding: 10px 14px;
+            color: var(--text-light); background: rgba(255,255,255,.05); cursor: pointer;
+            text-decoration: none; font-weight: 800; white-space: nowrap;
+        }
+        .back-button:hover, .action-button:hover { border-color: var(--primary-color); }
+        .filter-bar { margin-top: 14px; padding: 16px 18px; display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+        .filter-field { display: grid; gap: 7px; flex: 1 1 250px; }
+        .filter-field label { color: var(--text-muted); font-size: 12px; font-weight: 800; }
+        .filter-field select {
+            width: 100%; min-height: 42px; border: 1px solid var(--border-color); border-radius: 9px;
+            background: rgba(15,23,42,.34); color: var(--text-light); padding: 0 12px; outline: none;
+        }
+        .filter-field select:focus { border-color: var(--primary-color); }
+        .log-panel { margin-top: 14px; overflow: hidden; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        th, td { padding: 14px 15px; border-bottom: 1px solid var(--border-color); text-align: left; font-size: 13px; }
+        th { color: var(--text-muted); font-size: 12px; background: rgba(127,127,127,.06); white-space: nowrap; }
+        tbody tr:last-child td { border-bottom: 0; }
+        tbody tr:hover { background: rgba(127,127,127,.045); }
+        .person { font-weight: 800; }
+        .muted { color: var(--text-muted); }
+        .item-name { display: grid; gap: 3px; }
+        .item-name strong { font-size: 14px; }
+        .state-badge { display: inline-flex; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 900; }
+        .state-badge.completed { color: #059669; background: rgba(16,185,129,.14); }
+        .state-badge.removed { color: #dc2626; background: rgba(239,68,68,.12); }
+        .empty-state { padding: 54px 20px; text-align: center; color: var(--text-muted); }
+        .panel-footer { padding: 14px; border-top: 1px solid var(--border-color); text-align: center; }
+        .panel-footer[hidden] { display: none; }
+        .action-button:disabled { opacity: .55; cursor: wait; }
+        .error-text { color: #ef4444; }
+        :root:not([data-theme="dark"]) .back-button,
+        :root:not([data-theme="dark"]) .action-button { background: rgba(255,252,246,.9); }
+        :root:not([data-theme="dark"]) .filter-field select { background: rgba(255,252,246,.9); }
+        @media (max-width: 620px) {
+            body { padding: 16px 10px; }
+            .log-header { align-items: flex-start; padding: 18px; }
+            .log-header h1 { font-size: 20px; }
+            .filter-bar { align-items: stretch; }
+            .filter-bar .action-button { min-height: 42px; }
+        }
+    </style>
+</head>
+<body>
+    <main class="log-container">
+        <header class="log-header">
+            <div>
+                <h1>아이템 컬렉 변경 로그</h1>
+                <p>컬렉션 체크를 누가, 누구에게 변경했는지 최신순으로 확인합니다.</p>
+            </div>
+            <a class="back-button" href="menu.html">메뉴로</a>
+        </header>
+
+        <section class="filter-bar" aria-label="로그 조회 조건">
+            <div class="filter-field">
+                <label for="memberFilter">대상 길드원</label>
+                <select id="memberFilter">
+                    <option value="">전체 인원</option>
+                </select>
+            </div>
+            <button class="action-button" id="refreshButton" type="button">새로고침</button>
+        </section>
+
+        <section class="log-panel">
+            <div class="table-wrap" id="tableWrap" hidden>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>변경 시각</th>
+                            <th>대상 인원</th>
+                            <th>컬렉션 / 아이템</th>
+                            <th>변경 내용</th>
+                            <th>변경자</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logBody"></tbody>
+                </table>
+            </div>
+            <div class="empty-state" id="emptyState">로그를 불러오는 중입니다.</div>
+            <div class="panel-footer" id="loadMoreWrap" hidden>
+                <button class="action-button" id="loadMoreButton" type="button">이전 내역 더보기</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const localToken = localStorage.getItem('token');
+        const sessionToken = sessionStorage.getItem('token');
+        const token = sessionToken || localToken;
+        const storage = sessionToken ? sessionStorage : localStorage;
+        const role = storage.getItem('role');
+        const username = storage.getItem('username');
+        const canViewLogs = role === 'MASTER' || username === '움매';
+        const pageSize = 30;
+
+        const memberFilter = document.getElementById('memberFilter');
+        const refreshButton = document.getElementById('refreshButton');
+        const loadMoreButton = document.getElementById('loadMoreButton');
+        const loadMoreWrap = document.getElementById('loadMoreWrap');
+        const tableWrap = document.getElementById('tableWrap');
+        const logBody = document.getElementById('logBody');
+        const emptyState = document.getElementById('emptyState');
+        let nextCursor = null;
+        let loading = false;
+
+        function logoutToLogin() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('username');
+            localStorage.removeItem('nickname');
+            localStorage.removeItem('userId');
+            sessionStorage.clear();
+            window.location.replace('login.html');
+        }
+
+        async function fetchJson(url) {
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            let body = {};
+            try { body = await response.json(); } catch (_) { }
+            if (response.status === 401) {
+                logoutToLogin();
+                throw new Error('로그인이 만료되었습니다.');
+            }
+            if (response.status === 403) {
+                window.location.replace('menu.html');
+                throw new Error('변경 로그 조회 권한이 없습니다.');
+            }
+            if (!response.ok) throw new Error(body.error?.message || body.error || '로그를 불러오지 못했습니다.');
+            return body;
+        }
+
+        function displayName(nickname, userId) {
+            return nickname || `회원 #${userId}`;
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(Number(timestamp));
+            if (Number.isNaN(date.getTime())) return '-';
+            return new Intl.DateTimeFormat('ko-KR', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            }).format(date);
+        }
+
+        function createCell(text, className = '') {
+            const cell = document.createElement('td');
+            cell.textContent = text;
+            if (className) cell.className = className;
+            return cell;
+        }
+
+        function appendLogs(logs) {
+            logs.forEach(log => {
+                const row = document.createElement('tr');
+                row.appendChild(createCell(formatDate(log.createdAt), 'muted'));
+                row.appendChild(createCell(displayName(log.targetNickname, log.targetUserId), 'person'));
+
+                const itemCell = document.createElement('td');
+                const itemWrap = document.createElement('div');
+                itemWrap.className = 'item-name';
+                const collection = document.createElement('strong');
+                collection.textContent = log.collectionName || '-';
+                const item = document.createElement('span');
+                item.className = 'muted';
+                item.textContent = [log.part, log.enchantment].filter(Boolean).join(' · ') || '-';
+                itemWrap.append(collection, item);
+                itemCell.appendChild(itemWrap);
+                row.appendChild(itemCell);
+
+                const stateCell = document.createElement('td');
+                const state = document.createElement('span');
+                state.className = `state-badge ${log.completed ? 'completed' : 'removed'}`;
+                state.textContent = log.completed ? '달성 체크' : '체크 해제';
+                stateCell.appendChild(state);
+                row.appendChild(stateCell);
+                row.appendChild(createCell(displayName(log.actorNickname, log.actorUserId), 'person'));
+                logBody.appendChild(row);
+            });
+        }
+
+        async function loadMembers() {
+            const response = await fetchJson('/api/users');
+            const members = Array.isArray(response) ? response : (response.data || []);
+            members
+                .filter(member => member.nickname)
+                .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ko'))
+                .forEach(member => memberFilter.add(new Option(member.nickname, String(member.id))));
+        }
+
+        async function loadLogs({ append = false } = {}) {
+            if (loading) return;
+            loading = true;
+            refreshButton.disabled = true;
+            loadMoreButton.disabled = true;
+            if (!append) {
+                nextCursor = null;
+                logBody.replaceChildren();
+                tableWrap.hidden = true;
+                emptyState.hidden = false;
+                emptyState.className = 'empty-state';
+                emptyState.textContent = '로그를 불러오는 중입니다.';
+            }
+
+            try {
+                const params = new URLSearchParams({ limit: String(pageSize) });
+                if (memberFilter.value) params.set('targetUserId', memberFilter.value);
+                if (append && nextCursor) params.set('cursor', String(nextCursor));
+                const response = await fetchJson(`/api/v1/collection-completion-logs?${params}`);
+                const logs = Array.isArray(response.data) ? response.data : [];
+                appendLogs(logs);
+                nextCursor = response.meta?.nextCursor ?? null;
+                const hasRows = logBody.children.length > 0;
+                tableWrap.hidden = !hasRows;
+                emptyState.hidden = hasRows;
+                if (!hasRows) emptyState.textContent = '선택한 인원의 변경 로그가 없습니다.';
+                loadMoreWrap.hidden = !nextCursor;
+            } catch (error) {
+                if (!logBody.children.length) {
+                    emptyState.hidden = false;
+                    emptyState.className = 'empty-state error-text';
+                    emptyState.textContent = error.message || '로그를 불러오지 못했습니다.';
+                }
+            } finally {
+                loading = false;
+                refreshButton.disabled = false;
+                loadMoreButton.disabled = false;
+            }
+        }
+
+        if (!token) {
+            logoutToLogin();
+        } else if (!canViewLogs) {
+            window.location.replace('menu.html');
+        } else {
+            Promise.all([loadMembers(), loadLogs()]).catch(error => {
+                emptyState.className = 'empty-state error-text';
+                emptyState.textContent = error.message || '데이터를 불러오지 못했습니다.';
+            });
+        }
+
+        memberFilter.addEventListener('change', () => loadLogs());
+        refreshButton.addEventListener('click', () => loadLogs());
+        loadMoreButton.addEventListener('click', () => loadLogs({ append: true }));
+    </script>
+</body>
+</html>
