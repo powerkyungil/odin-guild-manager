@@ -124,6 +124,24 @@
             </div>
             <div id="message" class="error-message"></div>
         </form>
+
+        <section class="form-section" aria-labelledby="deleteAccountTitle" style="border-color:rgba(239,68,68,.35); margin-top:36px;">
+            <div id="deleteAccountTitle" class="form-section-title" style="color:var(--danger-color);">계정 삭제</div>
+            <p style="color:var(--text-muted); line-height:1.6; font-size:13px;">계정과 계정에 직접 연결된 프로필·길드 활동 정보가 즉시 삭제되며 복구할 수 없습니다.</p>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="deletePassword">현재 비밀번호</label>
+                    <input type="password" id="deletePassword" autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="deleteConfirmation">확인을 위해 ‘계정삭제’ 입력</label>
+                    <input type="text" id="deleteConfirmation" autocomplete="off">
+                </div>
+            </div>
+            <button type="button" id="deleteAccountButton" class="auth-btn" style="background:var(--danger-color);">계정 영구 삭제</button>
+            <div id="deleteMessage" class="error-message" role="alert"></div>
+            <p style="margin-top:14px; font-size:13px;"><a href="/privacy" style="color:var(--text-muted);">개인정보처리방침 보기</a></p>
+        </section>
     </div>
 
     <script>
@@ -138,6 +156,48 @@
         };
 
         if (!token) handleAuthError();
+
+        const deleteAccountButton = document.getElementById('deleteAccountButton');
+        if ((localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER') {
+            deleteAccountButton.disabled = true;
+            document.getElementById('deleteMessage').textContent = '길드장 계정은 역할을 이전한 뒤 삭제할 수 있습니다.';
+        }
+
+        deleteAccountButton.addEventListener('click', async () => {
+            const deleteMessage = document.getElementById('deleteMessage');
+            const password = document.getElementById('deletePassword').value;
+            const confirmation = document.getElementById('deleteConfirmation').value.trim();
+            deleteMessage.textContent = '';
+            if (!password || confirmation !== '계정삭제') {
+                deleteMessage.textContent = '현재 비밀번호와 확인 문구를 정확히 입력해 주세요.';
+                return;
+            }
+            if (!window.confirm('계정을 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+
+            deleteAccountButton.disabled = true;
+            try {
+                const response = await fetch('/api/users/me', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ password })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '계정 삭제에 실패했습니다.');
+
+                ['token', 'role', 'username', 'userId', 'nickname'].forEach((key) => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                });
+                window.alert('계정과 연결 정보가 삭제되었습니다.');
+                window.location.href = 'login.html';
+            } catch (error) {
+                deleteMessage.textContent = error.message;
+                deleteAccountButton.disabled = false;
+            }
+        });
 
         const messageDiv = document.getElementById('message');
         const classMap = {

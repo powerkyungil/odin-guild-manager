@@ -206,7 +206,15 @@ app.post('/maintenance/toggle', async (req, res) => {
 });
 
 app.use((req, res, next) => {
+    const publicPaths = new Set([
+        '/privacy',
+        '/privacy.html',
+        '/delete-account',
+        '/delete-account.html',
+        '/auth.css'
+    ]);
     if (!maintenanceMode
+        || publicPaths.has(req.path)
         || req.path === '/maintenance.html'
         || req.path === '/maintenance/access'
         || req.path === '/maintenance/status'
@@ -222,6 +230,14 @@ app.use((req, res, next) => {
         clearMaintenanceAccessCookie(res);
     }
     res.status(503).sendFile(path.join(__dirname, 'maintenance.html'));
+});
+
+app.get('/privacy', (req, res) => {
+    res.sendFile('privacy.html', { root: __dirname });
+});
+
+app.get('/delete-account', (req, res) => {
+    res.sendFile('delete-account.html', { root: __dirname });
 });
 
 app.use(express.static(__dirname));
@@ -894,6 +910,61 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
     });
 });
 
+async function hardDeleteUser(userId) {
+    const user = await dbGet("SELECT id, role, nickname FROM users WHERE id = ?", [userId]);
+    if (!user) {
+        const error = new Error('User not found.');
+        error.code = 'USER_NOT_FOUND';
+        throw error;
+    }
+    if (user.role === 'MASTER') {
+        const error = new Error('길드장 계정은 역할을 이전한 뒤 삭제할 수 있습니다.');
+        error.code = 'MASTER_PROTECTED';
+        throw error;
+    }
+
+    await dbRun("BEGIN TRANSACTION");
+    try {
+        // Remove user-owned content and participation data. Foreign-key cascades
+        // cover related support applications and the remaining linked rows.
+        await dbRun(
+            `UPDATE support_requests
+             SET selected_application_id = NULL
+             WHERE selected_application_id IN (
+                 SELECT id FROM support_applications WHERE applicant_id = ?
+             )`,
+            [userId]
+        );
+        await dbRun("DELETE FROM support_applications WHERE applicant_id = ?", [userId]);
+        await dbRun("DELETE FROM support_requests WHERE requester_id = ?", [userId]);
+        await dbRun("DELETE FROM user_collections WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM user_collection_items WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM user_alternate_characters WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM group_members WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM excluded_members WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM siege_data WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM boss_vote_participants WHERE user_id = ?", [userId]);
+        await dbRun("DELETE FROM invitations WHERE created_by = ?", [userId]);
+        if (user.nickname) {
+            await dbRun("DELETE FROM boss_participants WHERE nickname = ?", [user.nickname]);
+        }
+
+        // Keep non-personal guild records while removing their link to the user.
+        await dbRun("UPDATE boss_schedules SET created_by = NULL WHERE created_by = ?", [userId]);
+        await dbRun("UPDATE boss_vote_event_states SET updated_by = NULL WHERE updated_by = ?", [userId]);
+        await dbRun("UPDATE guild_rules SET created_by = NULL WHERE created_by = ?", [userId]);
+        await dbRun("UPDATE boss_control_states SET updated_by = NULL WHERE updated_by = ?", [userId]);
+        await dbRun("UPDATE price_items SET created_by = NULL WHERE created_by = ?", [userId]);
+        await dbRun("UPDATE price_guides SET created_by = NULL WHERE created_by = ?", [userId]);
+        await dbRun("DELETE FROM users WHERE id = ?", [userId]);
+        await dbRun("COMMIT");
+        return user;
+    } catch (error) {
+        try { await dbRun("ROLLBACK"); } catch (_) { }
+        throw error;
+    }
+}
+
 const parseLegacyCollectionItems = (collection) => {
     let rawItems;
     try {
@@ -1092,11 +1163,19 @@ const verifyToken = (req, res, next) => {
     const token = header.split(' ')[1];
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.status(401).json({ error: 'Failed to authenticate token.' });
-        req.userId = decoded.id;
-        req.userRole = decoded.role;
-        req.userNickname = decoded.nickname;
-        req.userName = decoded.username;
-        next();
+        db.get(
+            "SELECT id, role, nickname, username FROM users WHERE id = ?",
+            [decoded.id],
+            (dbErr, user) => {
+                if (dbErr) return res.status(500).json({ error: 'DB Error.' });
+                if (!user) return res.status(401).json({ error: 'Account no longer exists.' });
+                req.userId = user.id;
+                req.userRole = user.role;
+                req.userNickname = user.nickname;
+                req.userName = user.username;
+                next();
+            }
+        );
     });
 };
 
@@ -1299,6 +1378,27 @@ app.put('/api/users/me', verifyToken, async (req, res) => {
         }
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/users/me', verifyToken, async (req, res) => {
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!password) return res.status(400).json({ error: '계정 삭제를 위해 현재 비밀번호를 입력해 주세요.' });
+
+    try {
+        const user = await dbGet("SELECT password_hash, role FROM users WHERE id = ?", [req.userId]);
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+        if (user.role === 'MASTER') {
+            return res.status(403).json({ error: '길드장 계정은 역할을 이전한 뒤 삭제할 수 있습니다.' });
+        }
+        if (!bcrypt.compareSync(password, user.password_hash)) {
+            return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+        }
+
+        await hardDeleteUser(req.userId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: '계정 삭제에 실패했습니다.' });
     }
 });
 
@@ -2749,39 +2849,13 @@ app.delete('/api/admin/users/:id', verifyToken, (req, res) => {
     const targetUserId = parseInt(req.params.id, 10);
     if (!targetUserId) return res.status(400).json({ error: 'Invalid user id.' });
 
-    db.get("SELECT role, nickname FROM users WHERE id = ?", [targetUserId], (err, user) => {
-        if (err) return res.status(500).json({ error: 'DB Error.' });
-        if (!user) return res.status(404).json({ error: 'User not found.' });
-        if (user.role === 'MASTER') return res.status(403).json({ error: 'Master role protected.' });
-
-        const runSql = (sql, params = []) => new Promise((resolve, reject) => {
-            db.run(sql, params, function (runErr) {
-                if (runErr) reject(runErr);
-                else resolve(this);
-            });
+    hardDeleteUser(targetUserId)
+        .then(() => res.json({ success: true }))
+        .catch((error) => {
+            if (error.code === 'USER_NOT_FOUND') return res.status(404).json({ error: 'User not found.' });
+            if (error.code === 'MASTER_PROTECTED') return res.status(403).json({ error: 'Master role protected.' });
+            res.status(500).json({ error: 'Delete transaction failed.' });
         });
-
-        (async () => {
-            try {
-                await runSql("BEGIN TRANSACTION");
-                await runSql("DELETE FROM user_collections WHERE user_id = ?", [targetUserId]);
-                await runSql("DELETE FROM user_collection_items WHERE user_id = ?", [targetUserId]);
-                await runSql("DELETE FROM user_alternate_characters WHERE user_id = ?", [targetUserId]);
-                await runSql("DELETE FROM group_members WHERE user_id = ?", [targetUserId]);
-                await runSql("DELETE FROM excluded_members WHERE user_id = ?", [targetUserId]);
-                await runSql("DELETE FROM siege_data WHERE user_id = ?", [targetUserId]);
-                if (user.nickname) {
-                    await runSql("DELETE FROM boss_participants WHERE nickname = ?", [user.nickname]);
-                }
-                await runSql("DELETE FROM users WHERE id = ?", [targetUserId]);
-                await runSql("COMMIT");
-                res.json({ success: true });
-            } catch (txErr) {
-                try { await runSql("ROLLBACK"); } catch (_) { }
-                res.status(500).json({ error: 'Delete transaction failed.' });
-            }
-        })();
-    });
 });
 
 app.put('/api/admin/users/:id/reset-password', verifyToken, (req, res) => {

@@ -1,7 +1,8 @@
 {
   "scripts": {
     "audit:collection-migration": "node scripts/audit-collection-migration.js",
-    "test:collection-migration": "node scripts/test-collection-migration.js"
+    "test:collection-migration": "node scripts/test-collection-migration.js",
+    "test:privacy": "node scripts/test-privacy.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

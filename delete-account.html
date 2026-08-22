@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>한울ON 계정 삭제</title>
+    <script>document.documentElement.dataset.theme = localStorage.getItem('uiTheme') || 'dark';</script>
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        .delete-warning { color: var(--text-muted); line-height: 1.65; padding: 14px; border: 1px solid rgba(239,68,68,.35); background: rgba(239,68,68,.08); border-radius: 10px; margin-bottom: 22px; }
+        .danger-btn { background: var(--danger-color); }
+        .danger-btn:hover { background: #b91c1c; }
+        .page-links { display: flex; justify-content: center; gap: 16px; margin-top: 20px; font-size: 13px; }
+        .page-links a { color: var(--text-muted); }
+        .confirm-label { display: flex !important; align-items: flex-start; gap: 9px; line-height: 1.5; cursor: pointer; }
+        .confirm-label input { width: 18px; margin-top: 2px; flex: 0 0 auto; }
+        .success-message { color: #22c55e; text-align: center; line-height: 1.7; }
+    </style>
+</head>
+<body>
+    <main class="auth-container">
+        <header class="auth-header">
+            <h1>한울ON 계정 삭제</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">로그인 상태가 아니어도 여기에서 삭제를 요청할 수 있습니다.</p>
+        </header>
+
+        <div class="delete-warning">
+            계정과 계정에 직접 연결된 프로필·길드 활동 정보가 운영 데이터베이스에서 즉시 삭제되며 복구할 수 없습니다. 길드장 계정은 역할을 이전한 뒤 삭제할 수 있습니다.
+        </div>
+
+        <form id="deleteAccountForm">
+            <div class="form-group">
+                <label for="username">아이디</label>
+                <input id="username" type="text" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">현재 비밀번호</label>
+                <input id="password" type="password" required autocomplete="current-password">
+            </div>
+            <div class="form-group">
+                <label class="confirm-label" for="confirmDelete">
+                    <input id="confirmDelete" type="checkbox" required>
+                    <span>삭제 결과를 확인했으며 계정을 영구 삭제하는 데 동의합니다.</span>
+                </label>
+            </div>
+            <button id="deleteButton" type="submit" class="auth-btn danger-btn">계정 영구 삭제</button>
+            <div id="message" class="error-message" role="alert"></div>
+        </form>
+        <div id="successMessage" class="success-message" role="status"></div>
+
+        <nav class="page-links">
+            <a href="/privacy">개인정보처리방침</a>
+            <a href="/login.html">로그인으로 돌아가기</a>
+        </nav>
+    </main>
+
+    <script>
+        const form = document.getElementById('deleteAccountForm');
+        const message = document.getElementById('message');
+        const successMessage = document.getElementById('successMessage');
+        const button = document.getElementById('deleteButton');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            if (!window.confirm('계정을 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+
+            button.disabled = true;
+            message.textContent = '';
+            try {
+                const loginResponse = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const loginData = await loginResponse.json();
+                if (!loginResponse.ok) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
+
+                const deleteResponse = await fetch('/api/users/me', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${loginData.token}`
+                    },
+                    body: JSON.stringify({ password })
+                });
+                const deleteData = await deleteResponse.json();
+                if (!deleteResponse.ok) throw new Error(deleteData.error || '계정 삭제에 실패했습니다.');
+
+                ['token', 'role', 'username', 'userId', 'nickname'].forEach((key) => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                });
+                form.remove();
+                successMessage.textContent = '계정과 연결 정보가 삭제되었습니다.';
+            } catch (error) {
+                message.textContent = error.message;
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
