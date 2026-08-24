@@ -211,7 +211,8 @@ app.use((req, res, next) => {
         '/privacy.html',
         '/delete-account',
         '/delete-account.html',
-        '/auth.css'
+        '/auth.css',
+        '/api-config.js'
     ]);
     if (!maintenanceMode
         || publicPaths.has(req.path)

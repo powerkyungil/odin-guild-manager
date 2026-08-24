@@ -37,4 +37,7 @@ const settingsSource = fs.readFileSync(path.join(root, 'settings.html'), 'utf8')
 assert.match(settingsSource, /id="maintenanceModeInput"/);
 assert.match(settingsSource, /fetch\('\/maintenance\/toggle'/);
 
+const serverSource = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+assert.match(serverSource, /publicPaths[\s\S]*'\/api-config\.js'/);
+
 console.log('V1 API contract scan passed.');
