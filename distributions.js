@@ -58,8 +58,23 @@
     document.querySelectorAll('[data-write-action]').forEach(button => { button.disabled = busy; });
   };
 
+  const expandScientificDecimal = value => {
+    const text = String(value ?? '0').trim();
+    const match = text.match(/^([+-]?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/);
+    if (!match) return text;
+    const sign = match[1];
+    const integer = match[2];
+    const fraction = match[3] || '';
+    const exponent = Number(match[4]);
+    if (!Number.isSafeInteger(exponent)) return text;
+    const digits = `${integer}${fraction}`;
+    const decimalIndex = integer.length + exponent;
+    if (decimalIndex <= 0) return `${sign}0.${'0'.repeat(-decimalIndex)}${digits}`;
+    if (decimalIndex >= digits.length) return `${sign}${digits}${'0'.repeat(decimalIndex - digits.length)}`;
+    return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
+  };
   const formatDecimal = value => {
-    const text = String(value ?? '0');
+    const text = expandScientificDecimal(value);
     const match = text.match(/^(-?)(\d+)(\.\d+)?$/);
     if (!match) return text;
     return `${match[1]}${match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${match[3] || ''}`;
@@ -80,7 +95,7 @@
     return `${sign}${whole}${decimals}%`;
   };
   const formatAmountByRoundingMode = (value, mode) => {
-    const text = String(value ?? '0').trim();
+    const text = expandScientificDecimal(value);
     if (mode === 'NONE') return formatDecimal(text);
     const match = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
     if (!match) return text || '-';
@@ -95,7 +110,7 @@
     return formatDecimal(`${sign}${magnitude}`);
   };
   const formatCompactDecimal = (value, fractionDigits = 2) => {
-    const text = String(value ?? '0').trim();
+    const text = expandScientificDecimal(value);
     const match = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
     if (!match || !Number.isInteger(fractionDigits) || fractionDigits < 0) return text || '-';
     const fraction = match[3] || '';
@@ -310,21 +325,21 @@
     const allocationSummary = `
       <section class="allocation-card allocation-participation"><h3>참여율 분배</h3><dl>
         ${summaryItem('배분 비중', `${formatDecimal(period.participationWeight)}%`, true)}
-        ${summaryItem('분배 재원', formatDecimal(totals.participationPool), true)}
-        ${summaryItem('실제 배분액', formatDecimal(totals.participationAllocated))}
+        ${summaryItem('분배 재원', formatAmountByRoundingMode(totals.participationPool, 'ROUND'), true)}
+        ${summaryItem('실제 배분액', formatAmountByRoundingMode(totals.participationAllocated, 'ROUND'))}
       </dl></section>
       <section class="allocation-card allocation-alliance"><h3>연합 분배</h3><dl>
         ${summaryItem('배분 비중', `${formatDecimal(period.allianceWeight)}%`, true)}
-        ${summaryItem('분배 재원', formatDecimal(totals.alliancePool), true)}
-        ${summaryItem('실제 배분액', formatDecimal(totals.allianceAllocated))}
+        ${summaryItem('분배 재원', formatAmountByRoundingMode(totals.alliancePool, 'ROUND'), true)}
+        ${summaryItem('실제 배분액', formatAmountByRoundingMode(totals.allianceAllocated, 'ROUND'))}
       </dl></section>
       <section class="allocation-card allocation-other"><h3>기타 분배·최종 지급</h3><dl>
-        ${summaryItem('전체 지원비', formatDecimal(totals.supportTotal))}
-        ${summaryItem('지원비 차감 후 기본 재원', formatDecimal(totals.baseFund))}
-        ${summaryItem('원본 최종 다이아 합계', formatDecimal(totals.finalDiamonds), true)}
-        ${summaryItem('실제 지급 다이아 합계', formatDecimal(totals.payableDiamonds), true)}
-        ${summaryItem('반올림 차액', formatDecimal(totals.roundingDifference))}
-        ${summaryItem('미분배 다이아', formatDecimal(totals.undistributedDiamonds))}
+        ${summaryItem('전체 지원비', formatAmountByRoundingMode(totals.supportTotal, 'ROUND'))}
+        ${summaryItem('지원비 차감 후 기본 재원', formatAmountByRoundingMode(totals.baseFund, 'ROUND'))}
+        ${summaryItem('원본 최종 다이아 합계', formatAmountByRoundingMode(totals.finalDiamonds, 'ROUND'), true)}
+        ${summaryItem('실제 지급 다이아 합계', formatAmountByRoundingMode(totals.payableDiamonds, 'ROUND'), true)}
+        ${summaryItem('반올림 차액', formatAmountByRoundingMode(totals.roundingDifference, 'ROUND'))}
+        ${summaryItem('미분배 다이아', formatAmountByRoundingMode(totals.undistributedDiamonds, 'ROUND'))}
         ${summaryItem('현금 환산액', roundedCashDisplay(totals.cashAmount), true)}
       </dl></section>`;
     const fundingSummary = `<section class="funding-summary"><div><h3>분배 재원 입력</h3><dl class="summary-grid funding-grid">${summaryItem('공성 다이아', formatDecimal(period.siegeDiamonds))}${summaryItem('길드 현금', formatDecimal(period.guildCash))}${summaryItem('스크롤 제작 다이아', formatDecimal(period.scrollCraftDiamonds))}${summaryItem('즉시부활 다이아', formatDecimal(period.instantReviveDiamonds))}${summaryItem('입력 재원 합계 (다이아)', formatDecimal(period.totalFund), true)}${summaryItem('입력 재원 합계 (현금)', roundedCashDisplay(totals.fundingTotalCash), true)}</dl></div><div><h3>분배 합산</h3><dl class="summary-grid funding-grid">${summaryItem('투력·참여율 분배 재원 (다이아)', formatDecimal(totals.baseFund), true)}${summaryItem('투력·참여율 분배 재원 (현금)', roundedCashDisplay(totals.baseFundCash), true)}${summaryItem('지원비 합계 (다이아)', formatDecimal(totals.supportTotal))}${summaryItem('지원비 합계 (현금)', roundedCashDisplay(totals.supportTotalCash))}</dl></div></section>`;
