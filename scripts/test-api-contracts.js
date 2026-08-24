@@ -28,4 +28,13 @@ assert.doesNotMatch(voteSource, /data-action="(?:close|delete|remove-participant
 const legacyCollections = fs.readFileSync(path.join(root, 'collections.html'), 'utf8');
 assert.match(legacyCollections, /location\.replace\('collections_v2\.html'\)/);
 
+const maintenanceSource = fs.readFileSync(path.join(root, 'maintenance.html'), 'utf8');
+assert.match(maintenanceSource, /id="loginToggle"[^>]*>관리자 로그인</);
+assert.match(maintenanceSource, /fetch\('\/api\/v1\/auth\/login'/);
+assert.match(maintenanceSource, /fetch\('\/maintenance\/access'/);
+
+const settingsSource = fs.readFileSync(path.join(root, 'settings.html'), 'utf8');
+assert.match(settingsSource, /id="maintenanceModeInput"/);
+assert.match(settingsSource, /fetch\('\/maintenance\/toggle'/);
+
 console.log('V1 API contract scan passed.');

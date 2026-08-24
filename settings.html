@@ -285,6 +285,16 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row" id="maintenanceControl" hidden>
+                        <div>
+                            <strong>임시 점검 모드</strong>
+                            <span id="maintenanceStatusHint">점검 상태를 불러오는 중입니다.</span>
+                        </div>
+                        <label class="switch" for="maintenanceModeInput">
+                            <input type="checkbox" id="maintenanceModeInput" onchange="toggleMaintenanceMode(this.checked)" disabled>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <button class="save-settings-btn" type="button" onclick="saveGuildSettings()">길드 설정 저장</button>
                 </section>
 
@@ -388,6 +398,62 @@
             }
         }
 
+        async function loadMaintenanceStatus() {
+            if (!isMaster) return;
+            try {
+                const res = await fetch('/maintenance/status', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const { enabled } = await res.json();
+                const control = document.getElementById('maintenanceControl');
+                const hint = document.getElementById('maintenanceStatusHint');
+                const toggle = document.getElementById('maintenanceModeInput');
+                control.hidden = false;
+                hint.textContent = enabled
+                    ? '현재 일반 사용자의 웹 접속이 차단되어 있습니다.'
+                    : '현재 모든 사용자가 웹에 정상 접속할 수 있습니다.';
+                toggle.checked = enabled;
+                toggle.disabled = false;
+            } catch (_) {
+                // 길드 설정은 점검 상태 API가 일시적으로 실패해도 계속 사용할 수 있습니다.
+            }
+        }
+
+        async function toggleMaintenanceMode(nextEnabled) {
+            if (!isMaster) return;
+            const toggle = document.getElementById('maintenanceModeInput');
+            const action = nextEnabled ? 'ON' : 'OFF';
+            if (!window.confirm(`임시 점검 모드를 ${action} 하시겠습니까?`)) {
+                toggle.checked = !nextEnabled;
+                return;
+            }
+
+            toggle.disabled = true;
+            try {
+                const res = await fetch('/maintenance/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ enabled: nextEnabled })
+                });
+                if (res.status === 401) return handleAuthError();
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    toggle.checked = !nextEnabled;
+                    return alert(data.error || '점검 모드를 변경하지 못했습니다.');
+                }
+                await loadMaintenanceStatus();
+            } catch (_) {
+                toggle.checked = !nextEnabled;
+                alert('서버 통신 오류');
+            } finally {
+                toggle.disabled = false;
+            }
+        }
+
         async function generateInvite(targetRole = 'MEMBER') {
             try {
                 const res = await fetch('/api/v1/auth/invites', {
@@ -461,6 +527,7 @@
 
         syncCombatPowerTogglePermission();
         loadSettings();
+        loadMaintenanceStatus();
     </script>
 </body>
 </html>
