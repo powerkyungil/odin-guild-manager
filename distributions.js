@@ -7,7 +7,7 @@
   const DISTRIBUTIONS_API = API_URL('/api/v1/distributions');
   const ALLIANCE_RATE_TIERS_API = `${DISTRIBUTIONS_API}/alliance-rate-tiers`;
   const DISTRIBUTIONS_LIST_PAGE = 'distributions-list.html';
-  const state = { token: '', role: '', view: 'list', period: null, busy: false, distributionView: 'participation', calculationDetailsVisible: false, allianceTiers: [] };
+  const state = { token: '', role: '', currentUserId: null, view: 'list', period: null, busy: false, distributionView: 'participation', calculationDetailsVisible: false, allianceTiers: [] };
   const app = document.getElementById('app');
   const loading = document.getElementById('loading');
   const notice = document.getElementById('notice');
@@ -209,11 +209,11 @@
       <div class="field field-wide"><label for="title">제목 또는 회차명</label><input id="title" maxlength="100" required value="${escapeHtml(period.title || '')}"></div>
       <div class="field"><label for="startDate">시작일</label><input id="startDate" type="date" required value="${escapeHtml(period.startDate || '')}"></div>
       <div class="field"><label for="endDate">종료일</label><input id="endDate" type="date" required value="${escapeHtml(period.endDate || '')}"></div>
-      <div class="field"><label for="siegeDiamonds">공성 다이아</label><input id="siegeDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.siegeDiamonds ?? period.totalFund ?? '0')}"></div>
-      <div class="field"><label for="guildCash">길드 현금</label><input id="guildCash" type="number" min="0" step="any" required value="${escapeHtml(period.guildCash ?? '0')}"></div>
-      <div class="field"><label for="scrollCraftDiamonds">스크롤 제작 다이아</label><input id="scrollCraftDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.scrollCraftDiamonds ?? '0')}"></div>
-      <div class="field"><label for="instantReviveDiamonds">즉시부활 다이아</label><input id="instantReviveDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.instantReviveDiamonds ?? '0')}"></div>
-      <div class="field"><label for="totalFund">전체 분배 재원 (자동 합산·반올림)</label><input id="totalFund" type="number" min="0" step="1" readonly value="${escapeHtml(formatAmountByRoundingMode(period.totalFund ?? '0', 'ROUND').replaceAll(',', ''))}"></div>
+      <div class="field"><label for="siegeDiamonds">공성 다이아 <span aria-hidden="true">💎</span></label><input id="siegeDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.siegeDiamonds ?? period.totalFund ?? '0')}"></div>
+      <div class="field"><label for="guildCash">길드 현금 <span aria-hidden="true">💰</span></label><input id="guildCash" type="number" min="0" step="any" required value="${escapeHtml(period.guildCash ?? '0')}"></div>
+      <div class="field"><label for="scrollCraftDiamonds">스크롤 제작 다이아 <span aria-hidden="true">💎</span></label><input id="scrollCraftDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.scrollCraftDiamonds ?? '0')}"></div>
+      <div class="field"><label for="instantReviveDiamonds">즉시부활 다이아 <span aria-hidden="true">💎</span></label><input id="instantReviveDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.instantReviveDiamonds ?? '0')}"></div>
+      <div class="field"><label for="totalFund">전체 분배 재원 (자동 합산·반올림) <span aria-hidden="true">💎</span></label><input id="totalFund" type="number" min="0" step="1" readonly value="${escapeHtml(formatAmountByRoundingMode(period.totalFund ?? '0', 'ROUND').replaceAll(',', ''))}"></div>
       <div class="field"><label for="participationWeight">참여율 배분 비중 (%)</label><input id="participationWeight" type="number" min="0" step="any" required value="${escapeHtml(period.participationWeight ?? '50')}"></div>
       <div class="field"><label for="allianceWeight">연합분배율 배분 비중 (%)</label><input id="allianceWeight" type="number" min="0" step="any" required value="${escapeHtml(period.allianceWeight ?? '50')}"></div>
       <div class="field"><label for="cashRate">현금 환산율</label><input id="cashRate" type="number" min="0" step="any" required value="${escapeHtml(period.cashRate ?? '4.5')}"></div>
@@ -255,7 +255,7 @@
     const rows = (Array.isArray(periods) ? periods : []).map(period => `<tr>
       <td><a href="distributions.html?id=${period.id}">${escapeHtml(period.title)}</a></td>
       <td>${escapeHtml(period.startDate)} ~ ${escapeHtml(period.endDate)}</td><td>${statusBadge(period.status)}</td>
-      <td class="numeric">${formatDecimal(period.totalFund)}</td><td>${escapeHtml(ROUNDING_LABELS[period.roundingMode] || period.roundingMode)}</td>
+      <td class="numeric">${diamondValue(formatDecimal(period.totalFund))}</td><td>${escapeHtml(ROUNDING_LABELS[period.roundingMode] || period.roundingMode)}</td>
       <td>${formatDate(period.updatedAt)}</td><td>${formatDate(period.confirmedAt)}</td></tr>`).join('');
     app.innerHTML = `<section class="panel">
       <div class="panel-header"><div><h2>분배 기간 목록</h2><p class="panel-subtitle">${state.role === 'MASTER' ? '초안과 확정 내역을 관리할 수 있습니다.' : '확정된 분배 내역만 조회할 수 있습니다.'}</p></div>
@@ -293,13 +293,16 @@
   }
 
   const summaryItem = (label, value, emphasis = false) => `<div class="summary-item${emphasis ? ' emphasis' : ''}"><dt>${label}</dt><dd>${value}</dd></div>`;
+  const currencyValue = (value, type) => `<span class="currency-value currency-${type}"><span class="currency-icon" aria-hidden="true">${type === 'diamond' ? '💎' : '💰'}</span><span>${value}</span></span>`;
+  const diamondValue = value => currencyValue(value, 'diamond');
+  const cashValue = value => currencyValue(value, 'cash');
   const groupAttribute = group => group ? ` data-distribution-group="${group}"` : '';
-  const readOnlyCell = (value, group) => `<td class="numeric"${groupAttribute(group)}>${formatDecimal(value)}</td>`;
+  const readOnlyCell = (value, group, currency = '') => `<td class="numeric"${groupAttribute(group)}>${currency === 'diamond' ? diamondValue(formatDecimal(value)) : formatDecimal(value)}</td>`;
   const shareCell = (value, group) => `<td class="numeric share-value"${groupAttribute(group)} title="계산 원본: ${escapeHtml(value)}">${formatShare(value)}</td>`;
-  const roundedAmountCell = (value, mode, group) => `<td class="numeric rounded-display-value"${groupAttribute(group)} title="계산 원본: ${escapeHtml(value)}">${formatAmountByRoundingMode(value, mode)}</td>`;
-  const roundedCashDisplay = value => `<span class="rounded-display-value" title="계산 원본: ${escapeHtml(value)}">${formatAmountByRoundingMode(value, 'ROUND')}</span>`;
-  const roundedCashCell = value => `<td class="numeric rounded-display-value" data-distribution-group="final" title="계산 원본: ${escapeHtml(value)}">${formatAmountByRoundingMode(value, 'ROUND')}</td>`;
-  const calculationDetailCell = value => `<td class="numeric calculation-detail-value" data-distribution-group="final" data-calculation-detail title="계산 원본: ${escapeHtml(value)}">${formatCompactDecimal(value)}</td>`;
+  const roundedAmountCell = (value, mode, group) => `<td class="numeric rounded-display-value"${groupAttribute(group)} title="계산 원본: ${escapeHtml(value)}">${diamondValue(formatAmountByRoundingMode(value, mode))}</td>`;
+  const roundedCashDisplay = value => `<span class="rounded-display-value" title="계산 원본: ${escapeHtml(value)}">${cashValue(formatAmountByRoundingMode(value, 'ROUND'))}</span>`;
+  const roundedCashCell = value => `<td class="numeric rounded-display-value" data-distribution-group="final" title="계산 원본: ${escapeHtml(value)}">${cashValue(formatAmountByRoundingMode(value, 'ROUND'))}</td>`;
+  const calculationDetailCell = value => `<td class="numeric calculation-detail-value" data-distribution-group="final" data-calculation-detail title="계산 원본: ${escapeHtml(value)}">${diamondValue(formatCompactDecimal(value))}</td>`;
   const payoutMultiplierCell = member => `<td data-distribution-group="input"><div class="percent-input"><input class="member-input" data-member-id="${member.id}" data-field="payoutMultiplier" type="number" min="0" max="100" step="any" value="${escapeHtml(ratioToPercent(member.payoutMultiplier))}" aria-label="${escapeHtml(member.nickname)} 지급 배율"><span aria-hidden="true">%</span></div></td>`;
   const payoutMultiplierReadOnlyCell = value => `<td class="numeric percentage-value" data-distribution-group="other" title="저장값: ${escapeHtml(value)}">${formatDecimal(ratioToPercent(value))}%</td>`;
   const inputCell = (member, name, options = {}) => `<td${groupAttribute(options.group)}><input class="member-input${options.note ? ' member-note' : ''}" data-member-id="${member.id}" data-field="${name}" ${options.note ? `maxlength="1000" type="text"` : `type="number" min="0" ${options.max !== undefined ? `max="${options.max}"` : ''} step="any"`} value="${escapeHtml(options.value !== undefined ? options.value : (member[name] ?? ''))}" aria-label="${escapeHtml(member.nickname)} ${escapeHtml(options.label || name)}"></td>`;
@@ -319,44 +322,45 @@
     const master = state.role === 'MASTER'; const totals = period.totals || {};
     const periodSummary = [
       ['제목', escapeHtml(period.title)], ['기간', `${escapeHtml(period.startDate)} ~ ${escapeHtml(period.endDate)}`], ['상태', statusBadge(period.status)],
-      ['전체 분배 재원', formatDecimal(period.totalFund)], ['현금 환산율', formatDecimal(period.cashRate)],
+      ['전체 분배 재원', diamondValue(formatDecimal(period.totalFund))], ['현금 환산율', formatDecimal(period.cashRate)],
       ['소수점 처리 방식', escapeHtml(ROUNDING_LABELS[period.roundingMode] || period.roundingMode)]
     ].map(item => summaryItem(...item)).join('');
     const allocationSummary = `
       <section class="allocation-card allocation-participation"><h3>참여율 분배</h3><dl>
         ${summaryItem('배분 비중', `${formatDecimal(period.participationWeight)}%`, true)}
-        ${summaryItem('분배 재원', formatAmountByRoundingMode(totals.participationPool, 'ROUND'), true)}
-        ${summaryItem('실제 배분액', formatAmountByRoundingMode(totals.participationAllocated, 'ROUND'))}
+        ${summaryItem('분배 재원', diamondValue(formatAmountByRoundingMode(totals.participationPool, 'ROUND')), true)}
+        ${summaryItem('실제 배분액', diamondValue(formatAmountByRoundingMode(totals.participationAllocated, 'ROUND')))}
       </dl></section>
       <section class="allocation-card allocation-alliance"><h3>연합 분배</h3><dl>
         ${summaryItem('배분 비중', `${formatDecimal(period.allianceWeight)}%`, true)}
-        ${summaryItem('분배 재원', formatAmountByRoundingMode(totals.alliancePool, 'ROUND'), true)}
-        ${summaryItem('실제 배분액', formatAmountByRoundingMode(totals.allianceAllocated, 'ROUND'))}
+        ${summaryItem('분배 재원', diamondValue(formatAmountByRoundingMode(totals.alliancePool, 'ROUND')), true)}
+        ${summaryItem('실제 배분액', diamondValue(formatAmountByRoundingMode(totals.allianceAllocated, 'ROUND')))}
       </dl></section>
       <section class="allocation-card allocation-other"><h3>기타 분배·최종 지급</h3><dl>
-        ${summaryItem('전체 지원비', formatAmountByRoundingMode(totals.supportTotal, 'ROUND'))}
-        ${summaryItem('지원비 차감 후 기본 재원', formatAmountByRoundingMode(totals.baseFund, 'ROUND'))}
-        ${summaryItem('원본 최종 다이아 합계', formatAmountByRoundingMode(totals.finalDiamonds, 'ROUND'), true)}
-        ${summaryItem('실제 지급 다이아 합계', formatAmountByRoundingMode(totals.payableDiamonds, 'ROUND'), true)}
-        ${summaryItem('반올림 차액', formatAmountByRoundingMode(totals.roundingDifference, 'ROUND'))}
-        ${summaryItem('미분배 다이아', formatAmountByRoundingMode(totals.undistributedDiamonds, 'ROUND'))}
+        ${summaryItem('전체 지원비', diamondValue(formatAmountByRoundingMode(totals.supportTotal, 'ROUND')))}
+        ${summaryItem('지원비 차감 후 기본 재원', diamondValue(formatAmountByRoundingMode(totals.baseFund, 'ROUND')))}
+        ${summaryItem('원본 최종 다이아 합계', diamondValue(formatAmountByRoundingMode(totals.finalDiamonds, 'ROUND')), true)}
+        ${summaryItem('실제 지급 다이아 합계', diamondValue(formatAmountByRoundingMode(totals.payableDiamonds, 'ROUND')), true)}
+        ${summaryItem('반올림 차액', diamondValue(formatAmountByRoundingMode(totals.roundingDifference, 'ROUND')))}
+        ${summaryItem('미분배 다이아', diamondValue(formatAmountByRoundingMode(totals.undistributedDiamonds, 'ROUND')))}
         ${summaryItem('현금 환산액', roundedCashDisplay(totals.cashAmount), true)}
       </dl></section>`;
-    const fundingSummary = `<section class="funding-summary"><div><h3>분배 재원 입력</h3><dl class="summary-grid funding-grid">${summaryItem('공성 다이아', formatDecimal(period.siegeDiamonds))}${summaryItem('길드 현금', formatDecimal(period.guildCash))}${summaryItem('스크롤 제작 다이아', formatDecimal(period.scrollCraftDiamonds))}${summaryItem('즉시부활 다이아', formatDecimal(period.instantReviveDiamonds))}${summaryItem('입력 재원 합계 (다이아)', formatDecimal(period.totalFund), true)}${summaryItem('입력 재원 합계 (현금)', roundedCashDisplay(totals.fundingTotalCash), true)}</dl></div><div><h3>분배 합산</h3><dl class="summary-grid funding-grid">${summaryItem('투력·참여율 분배 재원 (다이아)', formatDecimal(totals.baseFund), true)}${summaryItem('투력·참여율 분배 재원 (현금)', roundedCashDisplay(totals.baseFundCash), true)}${summaryItem('지원비 합계 (다이아)', formatDecimal(totals.supportTotal))}${summaryItem('지원비 합계 (현금)', roundedCashDisplay(totals.supportTotalCash))}</dl></div></section>`;
-    const inputHeaders = editable ? '<th class="numeric" data-distribution-group="input">참여율</th><th class="numeric" data-distribution-group="input">연합분배율</th><th class="numeric" data-distribution-group="input">지급 배율 (%)</th><th class="numeric" data-distribution-group="input">즉시부활비</th><th class="numeric" data-distribution-group="input">골드지원비</th><th class="numeric" data-distribution-group="input">운영비</th><th class="numeric" data-distribution-group="input">기타 지원비</th><th data-distribution-group="input">비고</th>' : '';
-    const tableHeaders = `<th class="rank-column">순위</th><th class="nickname-column">닉네임</th><th>직업</th><th>클래스</th><th class="numeric">전투력</th>${inputHeaders}<th class="numeric" data-distribution-group="participation">참여율</th><th class="numeric" data-distribution-group="participation">참여율 분배 비중</th><th class="numeric" data-distribution-group="participation">참여율 분배금</th><th class="numeric" data-distribution-group="alliance">연합분배율</th><th class="numeric" data-distribution-group="alliance">연합분배율 분배 비중</th><th class="numeric" data-distribution-group="alliance">연합분배 분배금</th><th class="numeric" data-distribution-group="other">지급 배율</th><th class="numeric" data-distribution-group="other">즉시부활비</th><th class="numeric" data-distribution-group="other">골드지원비</th><th class="numeric" data-distribution-group="other">운영비</th><th class="numeric" data-distribution-group="other">기타 지원비</th><th class="numeric" data-distribution-group="other">지원비 합계</th><th data-distribution-group="other">비고</th><th class="numeric" data-distribution-group="final" data-calculation-detail>원본 최종 다이아</th><th class="numeric" data-distribution-group="final">실제 지급 다이아</th><th class="numeric" data-distribution-group="final" data-calculation-detail>개인 반올림 조정값</th><th class="numeric" data-distribution-group="final">현금 환산액</th>`;
+    const fundingSummary = `<section class="funding-summary"><div><h3>분배 재원 입력</h3><dl class="summary-grid funding-grid">${summaryItem('공성 다이아', diamondValue(formatDecimal(period.siegeDiamonds)))}${summaryItem('길드 현금', cashValue(formatDecimal(period.guildCash)))}${summaryItem('스크롤 제작 다이아', diamondValue(formatDecimal(period.scrollCraftDiamonds)))}${summaryItem('즉시부활 다이아', diamondValue(formatDecimal(period.instantReviveDiamonds)))}${summaryItem('입력 재원 합계 (다이아)', diamondValue(formatDecimal(period.totalFund)), true)}${summaryItem('입력 재원 합계 (현금)', roundedCashDisplay(totals.fundingTotalCash), true)}</dl></div><div><h3>분배 합산</h3><dl class="summary-grid funding-grid">${summaryItem('투력·참여율 분배 재원 (다이아)', diamondValue(formatDecimal(totals.baseFund)), true)}${summaryItem('투력·참여율 분배 재원 (현금)', roundedCashDisplay(totals.baseFundCash), true)}${summaryItem('지원비 합계 (다이아)', diamondValue(formatDecimal(totals.supportTotal)))}${summaryItem('지원비 합계 (현금)', roundedCashDisplay(totals.supportTotalCash))}</dl></div></section>`;
+    const inputHeaders = editable ? '<th class="numeric" data-distribution-group="input">참여율</th><th class="numeric" data-distribution-group="input">연합분배율</th><th class="numeric" data-distribution-group="input">지급 배율 (%)</th><th class="numeric" data-distribution-group="input">즉시부활비 💎</th><th class="numeric" data-distribution-group="input">골드지원비 💎</th><th class="numeric" data-distribution-group="input">운영비 💎</th><th class="numeric" data-distribution-group="input">기타 지원비 💎</th><th data-distribution-group="input">비고</th>' : '';
+    const tableHeaders = `<th class="rank-column">순위</th><th class="nickname-column">닉네임</th><th class="numeric">전투력</th>${inputHeaders}<th class="numeric" data-distribution-group="participation">참여율</th><th class="numeric" data-distribution-group="participation">참여율 분배 비중</th><th class="numeric" data-distribution-group="participation">참여율 분배금 💎</th><th class="numeric" data-distribution-group="alliance">연합분배율</th><th class="numeric" data-distribution-group="alliance">연합분배율 분배 비중</th><th class="numeric" data-distribution-group="alliance">연합분배 분배금 💎</th><th class="numeric" data-distribution-group="other">지급 배율</th><th class="numeric" data-distribution-group="other">즉시부활비 💎</th><th class="numeric" data-distribution-group="other">골드지원비 💎</th><th class="numeric" data-distribution-group="other">운영비 💎</th><th class="numeric" data-distribution-group="other">기타 지원비 💎</th><th class="numeric" data-distribution-group="other">지원비 합계 💎</th><th data-distribution-group="other">비고</th><th class="numeric" data-distribution-group="final" data-calculation-detail>원본 최종 다이아 💎</th><th class="numeric" data-distribution-group="final">실제 지급 다이아 💎</th><th class="numeric" data-distribution-group="final" data-calculation-detail>개인 반올림 조정값 💎</th><th class="numeric" data-distribution-group="final">현금 환산액 💰</th>`;
     const rankedMembers = [...period.members].sort((left, right) => (Number(right.combatPower) || 0) - (Number(left.combatPower) || 0) || String(left.nickname).localeCompare(String(right.nickname), 'ko'));
     let previousCombatPower = null; let currentRank = 0;
     const rows = rankedMembers.map((member, index) => {
       const combatPower = Number(member.combatPower) || 0;
       if (combatPower !== previousCombatPower) { currentRank = index + 1; previousCombatPower = combatPower; }
-      return `<tr>
-      <td class="rank-column"><span class="rank-badge">${currentRank}</span></td><td class="nickname-column"><strong>${escapeHtml(member.nickname)}</strong></td><td>${escapeHtml(member.occupation || '-')}</td><td>${escapeHtml(member.mainClass || '-')}</td><td class="numeric">${formatDecimal(member.combatPower ?? 0)}</td>
+      const isCurrentMember = Number(member.userId) === state.currentUserId;
+      return `<tr${isCurrentMember ? ' class="current-member-row" aria-current="true"' : ''}>
+      <td class="rank-column"><span class="rank-badge">${currentRank}</span></td><td class="nickname-column"><strong>${escapeHtml(member.nickname)}</strong>${isCurrentMember ? '<span class="current-member-badge">나</span>' : ''}</td><td class="numeric">${formatDecimal(member.combatPower ?? 0)}</td>
       ${editable ? `${inputCell(member, 'participationRate', { max: 100, label: '참여율', group: 'input' })}${inputCell(member, 'allianceRate', { label: '연합분배율', group: 'input' })}${payoutMultiplierCell(member)}${inputCell(member, 'instantReviveCost', { label: '즉시부활비', group: 'input' })}${inputCell(member, 'goldSupportCost', { label: '골드지원비', group: 'input' })}${inputCell(member, 'operationCost', { label: '운영비', group: 'input' })}${inputCell(member, 'otherSupportCost', { label: '기타 지원비', group: 'input' })}${inputCell(member, 'note', { note: true, label: '비고', group: 'input' })}` : ''}
       ${readOnlyCell(member.participationRate ?? 0, 'participation')}${shareCell(member.participationShare, 'participation')}${roundedAmountCell(member.participationAmount, period.roundingMode, 'participation')}
       ${readOnlyCell(member.allianceRate, 'alliance')}${shareCell(member.allianceShare, 'alliance')}${roundedAmountCell(member.allianceAmount, period.roundingMode, 'alliance')}
-      ${payoutMultiplierReadOnlyCell(member.payoutMultiplier)}${readOnlyCell(member.instantReviveCost, 'other')}${readOnlyCell(member.goldSupportCost, 'other')}${readOnlyCell(member.operationCost, 'other')}${readOnlyCell(member.otherSupportCost, 'other')}${readOnlyCell(member.supportTotal, 'other')}<td data-distribution-group="other">${escapeHtml(member.note || '-')}</td>
-      ${calculationDetailCell(member.finalDiamonds)}${readOnlyCell(member.payableDiamonds, 'final')}${calculationDetailCell(member.roundingAdjustment)}${roundedCashCell(member.cashAmount)}
+      ${payoutMultiplierReadOnlyCell(member.payoutMultiplier)}${readOnlyCell(member.instantReviveCost, 'other', 'diamond')}${readOnlyCell(member.goldSupportCost, 'other', 'diamond')}${readOnlyCell(member.operationCost, 'other', 'diamond')}${readOnlyCell(member.otherSupportCost, 'other', 'diamond')}${readOnlyCell(member.supportTotal, 'other', 'diamond')}<td data-distribution-group="other">${escapeHtml(member.note || '-')}</td>
+      ${calculationDetailCell(member.finalDiamonds)}${readOnlyCell(member.payableDiamonds, 'final', 'diamond')}${calculationDetailCell(member.roundingAdjustment)}${roundedCashCell(member.cashAmount)}
       </tr>`;
     }).join('');
     app.innerHTML = `<section class="panel">
@@ -370,8 +374,8 @@
     <section class="panel"><div class="panel-header"><div><h2>길드원 분배 상세</h2><p class="panel-subtitle">${editable ? '입력 탭에서 값을 변경하고 적용하면 각 분배 탭에 다시 계산된 결과가 표시됩니다.' : '분배 유형별로 계산 결과를 나누어 확인할 수 있습니다.'}</p></div>${editable ? '<button class="btn btn-primary" id="bulkSave" data-write-action>입력값 적용</button>' : ''}</div>
       <div class="distribution-table-controls"><div class="distribution-view-switch" role="tablist" aria-label="분배 상세 보기">${editable ? `${distributionViewButton('input', '입력')}${distributionViewButton('alliance-settings', '연합분배율 설정')}` : ''}${distributionViewButton('participation', '참여율 분배')}${distributionViewButton('alliance', '연합 분배')}${distributionViewButton('other', '기타 분배')}${distributionViewButton('final', '최종 분배')}${distributionViewButton('all', '전체 보기')}</div><button type="button" class="btn calculation-detail-toggle" id="calculationDetailToggle" aria-expanded="false" hidden>계산 상세 보기</button></div>
       ${allianceTierSettings(editable)}
-      <div class="table-wrap" data-member-table-wrap><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 30 : 22}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody></table></div>
-      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}닉네임·직업·클래스·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다.</p></section>`;
+      <div class="table-wrap" data-member-table-wrap><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 28 : 20}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody></table></div>
+      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}순위·닉네임·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다.</p></section>`;
     bindDetailActions(editable);
     bindDistributionView();
   }
@@ -579,7 +583,13 @@
     if (!state.token) return logout();
     try {
       const me = await api(API_URL('/api/v1/auth/me'));
-      if (me?.role) { state.role = me.role; const storage = sessionStorage.getItem('token') ? sessionStorage : localStorage; storage.setItem('role', me.role); }
+      if (me?.role) {
+        state.role = me.role;
+        state.currentUserId = Number.isSafeInteger(Number(me.id)) ? Number(me.id) : null;
+        const storage = sessionStorage.getItem('token') ? sessionStorage : localStorage;
+        storage.setItem('role', me.role);
+        if (state.currentUserId) storage.setItem('userId', String(state.currentUserId));
+      }
       document.getElementById('roleBadge').textContent = ROLE_LABELS[state.role] || state.role;
       await renderByRoute(); app.hidden = false; loading.hidden = true;
     } catch (error) {

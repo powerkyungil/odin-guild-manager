@@ -79,6 +79,14 @@ assert.match(js, /percentToRatio\(values\.payoutMultiplier\)/);
 assert.match(js, /id="editPeriodButton"/);
 assert.match(js, /id="periodEditor" hidden/);
 assert.match(js, /id="cancelPeriodEdit"/);
+assert.match(js, /const diamondValue =/);
+assert.match(js, /const cashValue =/);
+assert.match(css, /currency-diamond/);
+assert.match(js, /current-member-row/);
+assert.match(js, /Number\(member\.userId\) === state\.currentUserId/);
+assert.doesNotMatch(js, /<th>직업<\/th><th>클래스<\/th>/);
+assert.doesNotMatch(js, /escapeHtml\(member\.occupation \|\| '-'\)/);
+assert.match(css, /current-member-badge/);
 
 const noopElement = {
   hidden: false, textContent: '', className: '', innerHTML: '',
