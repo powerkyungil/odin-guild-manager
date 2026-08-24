@@ -15,6 +15,8 @@ assert.match(html, /distributions\.js/);
 assert.match(html, /data-distribution-page="detail"/);
 assert.match(listHtml, /data-distribution-page="list"/);
 assert.match(listHtml, /distributions\.js/);
+assert.match(html, /distribution-page-header/);
+assert.match(listHtml, /distribution-page-header/);
 assert.match(menu, /href="distributions-list\.html"/);
 assert.match(css, /overflow:\s*auto/);
 assert.match(css, /position:\s*sticky/);
@@ -42,6 +44,9 @@ assert.match(js, /data-distribution-group="input"/);
 assert.match(js, /입력값을 적용하고 분배금을 다시 계산했습니다/);
 assert.match(js, /\/alliance-rate-tiers/);
 assert.match(js, /구간 설정 저장·적용/);
+assert.match(js, /distributionViewButton\('alliance-settings', '연합분배율 설정'\)/);
+assert.match(js, /data-alliance-tier-settings/);
+assert.match(js, /allianceSettingsVisible/);
 assert.match(js, /id="resetAllianceTiers"/);
 assert.match(js, /data-remove-alliance-tier/);
 assert.match(js, /renderAllianceTierRows/);
@@ -71,6 +76,9 @@ assert.match(js, /roundedCashCell/);
 assert.match(js, /formatAmountByRoundingMode\(value, 'ROUND'\)/);
 assert.match(js, /max="100"/);
 assert.match(js, /percentToRatio\(values\.payoutMultiplier\)/);
+assert.match(js, /id="editPeriodButton"/);
+assert.match(js, /id="periodEditor" hidden/);
+assert.match(js, /id="cancelPeriodEdit"/);
 
 const noopElement = {
   hidden: false, textContent: '', className: '', innerHTML: '',

@@ -9,28 +9,36 @@ body {
   box-sizing: border-box;
 }
 
-.distribution-topbar,
 .panel {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
 }
 
-.distribution-topbar {
+.distribution-page-header {
+  margin-bottom: 22px;
+}
+.distribution-page-header .back-link {
+  margin-bottom: 18px;
+}
+.distribution-heading-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
-  padding: 18px 22px;
-  margin-bottom: 16px;
 }
 
-.back-link { color: var(--text-muted); text-decoration: none; font-weight: 700; font-size: 14px; }
-.back-link:hover { color: var(--primary-color); }
-.topbar-title { display: flex; align-items: center; gap: 10px; }
-.topbar-title h1 { margin: 0; font-size: 22px; }
+.back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 14px; }
+.back-link:hover { color: var(--text-light); }
+.distribution-heading h1 {
+  margin: 0;
+  font-size: 24px;
+  background: linear-gradient(to right, var(--primary-color), var(--accent-rust));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.distribution-heading p { margin: 8px 0 0; color: var(--text-muted); font-size: 14px; }
 .role-badge { padding: 5px 9px; border-radius: 999px; background: rgba(99,102,241,.18); color: var(--primary-color); font-size: 12px; font-weight: 800; }
 
 .panel { padding: 22px; margin-bottom: 16px; }
@@ -138,6 +146,8 @@ body {
 .distribution-table-controls { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .calculation-detail-toggle { margin: 4px 0 12px; }
 .alliance-tier-settings { margin: 0 0 16px; padding: 16px; border: 1px solid rgba(168,85,247,.35); border-radius: 12px; background: rgba(168,85,247,.045); }
+.period-editor[hidden], .alliance-tier-settings[hidden], [data-member-table-wrap][hidden], [data-member-table-help][hidden] { display: none; }
+.period-editor { scroll-margin-top: 18px; }
 .alliance-tier-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
 .alliance-tier-header h3 { margin: 0; color: #c084fc; font-size: 15px; }
 .alliance-tier-header p { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; }
@@ -160,7 +170,7 @@ body {
   cursor: pointer;
 }
 .distribution-view-btn:hover { color: var(--text-light); background: rgba(255,255,255,.06); }
-.distribution-view-btn.active { color: #fff; background: var(--primary-color); box-shadow: 0 4px 12px rgba(99,102,241,.24); }
+.distribution-view-btn.active { color: #fff; background: var(--primary-color); }
 
 .members-table { min-width: 2850px; }
 .members-table[data-view="input"] { min-width: 1850px; }
@@ -208,7 +218,9 @@ body {
 }
 @media (max-width: 680px) {
   .distribution-shell { width: calc(100% - 16px); margin: 8px auto; }
-  .distribution-topbar { align-items: flex-start; flex-direction: column; padding: 15px; }
+  .distribution-page-header { padding: 7px; margin-bottom: 12px; }
+  .distribution-heading-row { align-items: flex-start; }
+  .distribution-heading h1 { font-size: 22px; }
   .panel { padding: 15px; }
   .filters, .form-grid, .summary-grid { grid-template-columns: 1fr; }
   .allocation-card dl { grid-template-columns: 1fr 1fr; }

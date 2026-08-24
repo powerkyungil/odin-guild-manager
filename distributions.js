@@ -303,11 +303,11 @@
   const payoutMultiplierCell = member => `<td data-distribution-group="input"><div class="percent-input"><input class="member-input" data-member-id="${member.id}" data-field="payoutMultiplier" type="number" min="0" max="100" step="any" value="${escapeHtml(ratioToPercent(member.payoutMultiplier))}" aria-label="${escapeHtml(member.nickname)} 지급 배율"><span aria-hidden="true">%</span></div></td>`;
   const payoutMultiplierReadOnlyCell = value => `<td class="numeric percentage-value" data-distribution-group="other" title="저장값: ${escapeHtml(value)}">${formatDecimal(ratioToPercent(value))}%</td>`;
   const inputCell = (member, name, options = {}) => `<td${groupAttribute(options.group)}><input class="member-input${options.note ? ' member-note' : ''}" data-member-id="${member.id}" data-field="${name}" ${options.note ? `maxlength="1000" type="text"` : `type="number" min="0" ${options.max !== undefined ? `max="${options.max}"` : ''} step="any"`} value="${escapeHtml(options.value !== undefined ? options.value : (member[name] ?? ''))}" aria-label="${escapeHtml(member.nickname)} ${escapeHtml(options.label || name)}"></td>`;
-  const distributionViewButton = (view, label) => `<button type="button" class="distribution-view-btn${state.distributionView === view ? ' active' : ''}" data-distribution-view="${view}" aria-pressed="${state.distributionView === view}">${label}</button>`;
+  const distributionViewButton = (view, label) => `<button type="button" role="tab" class="distribution-view-btn${state.distributionView === view ? ' active' : ''}" data-distribution-view="${view}" aria-selected="${state.distributionView === view}">${label}</button>`;
   const requiredAllianceTierCount = () => buildAllianceRateTiers(state.period?.members || [], []).length;
   const allianceTierRow = (tier, index, total) => `<tr><td><strong>${tenThousandsLabel(tier.minCombatPower)} 이상</strong></td><td>${tenThousandsLabel(tier.maxCombatPower + 1)} 미만 <span class="muted">(${formatDecimal(tier.minCombatPower)}~${formatDecimal(tier.maxCombatPower)})</span></td><td><input class="member-input tier-rate-input" data-tier-min="${tier.minCombatPower}" data-tier-max="${tier.maxCombatPower}" type="number" min="0" step="any" value="${escapeHtml(tier.allianceRate)}" aria-label="${tenThousandsLabel(tier.minCombatPower)} 구간 연합분배율"></td><td class="tier-action-cell">${index === total - 1 && total > requiredAllianceTierCount() ? '<button type="button" class="btn btn-danger tier-delete-btn" data-remove-alliance-tier>삭제</button>' : '<span class="muted">자동 생성</span>'}</td></tr>`;
   const allianceTierRows = () => state.allianceTiers.map((tier, index) => allianceTierRow(tier, index, state.allianceTiers.length)).join('');
-  const allianceTierSettings = editable => editable ? `<section class="alliance-tier-settings" data-input-settings><div class="alliance-tier-header"><div><h3>전투력 구간별 연합분배율</h3><p>저장된 설정은 다음 분배 기간에도 자동 적용됩니다. 구간 설정을 저장하면 현재 초안의 연합분배율도 함께 반영됩니다.</p></div><div class="button-row"><button type="button" class="btn" id="addAllianceTier">5천 구간 추가</button><button type="button" class="btn btn-danger" id="resetAllianceTiers" data-write-action>설정 초기화</button><button type="button" class="btn btn-primary" id="saveAllianceTiers" data-write-action>구간 설정 저장·적용</button></div></div><div class="table-wrap tier-table-wrap"><table class="data-table tier-table"><thead><tr><th>시작 전투력</th><th>종료 전투력</th><th>설정 분배율</th><th>관리</th></tr></thead><tbody id="allianceTierRows">${allianceTierRows()}</tbody></table></div><p class="help-text">자동 생성 구간은 삭제되지 않습니다. 직접 추가한 마지막 5천 구간부터 삭제할 수 있으며, 초기화하면 저장된 설정과 현재 초안의 연합분배율이 모두 0으로 변경됩니다.</p></section>` : '';
+  const allianceTierSettings = editable => editable ? `<section class="alliance-tier-settings" data-alliance-tier-settings hidden><div class="alliance-tier-header"><div><h3>전투력 구간별 연합분배율</h3><p>저장된 설정은 다음 분배 기간에도 자동 적용됩니다. 저장·적용하면 현재 초안의 길드원 연합분배율과 계산 결과가 함께 갱신됩니다.</p></div><div class="button-row"><button type="button" class="btn" id="addAllianceTier">5천 구간 추가</button><button type="button" class="btn btn-danger" id="resetAllianceTiers" data-write-action>설정 초기화</button><button type="button" class="btn btn-primary" id="saveAllianceTiers" data-write-action>구간 설정 저장·적용</button></div></div><div class="table-wrap tier-table-wrap"><table class="data-table tier-table"><thead><tr><th>시작 전투력</th><th>종료 전투력</th><th>설정 분배율</th><th>관리</th></tr></thead><tbody id="allianceTierRows">${allianceTierRows()}</tbody></table></div><p class="help-text">자동 생성 구간은 삭제되지 않습니다. 직접 추가한 마지막 5천 구간부터 삭제할 수 있으며, 초기화하면 저장된 설정과 현재 초안의 연합분배율이 모두 0으로 변경됩니다.</p></section>` : '';
 
   function renderDetail(period) {
     const sameDetail = state.view === 'detail' && state.period?.id === period.id;
@@ -361,23 +361,24 @@
     }).join('');
     app.innerHTML = `<section class="panel">
       <div class="panel-header"><div><div class="button-row"><a class="btn" href="${DISTRIBUTIONS_LIST_PAGE}">← 목록</a>${statusBadge(period.status)}</div></div>
-      <div class="button-row">${editable ? '<button class="btn btn-danger" data-action="delete" data-write-action>초안 삭제</button><button class="btn" data-action="calculate" data-write-action>계산</button><button class="btn btn-success" data-action="confirm" data-write-action>확정</button>' : ''}${master && period.status === 'CONFIRMED' ? '<button class="btn" data-action="reopen" data-write-action>재개방</button>' : ''}</div></div>
+      <div class="button-row">${editable ? '<button class="btn" id="editPeriodButton" type="button">기간 정보 수정</button><button class="btn btn-danger" data-action="delete" data-write-action>초안 삭제</button><button class="btn" data-action="calculate" data-write-action>계산</button><button class="btn btn-success" data-action="confirm" data-write-action>확정</button>' : ''}${master && period.status === 'CONFIRMED' ? '<button class="btn" data-action="reopen" data-write-action>재개방</button>' : ''}</div></div>
       <dl class="summary-grid period-summary">${periodSummary}</dl>
       ${fundingSummary}
       <div class="allocation-overview">${allocationSummary}</div>
     </section>
-    ${editable ? `<section class="panel"><div class="panel-header"><div><h2>기간 정보 수정</h2><p class="panel-subtitle">초안 상태에서만 수정할 수 있습니다.</p></div></div><form id="periodForm">${periodForm(period)}<div class="form-actions"><button class="btn btn-primary" data-write-action type="submit">기간 정보 저장</button></div></form></section>` : ''}
+    ${editable ? `<section class="panel period-editor" id="periodEditor" hidden><div class="panel-header"><div><h2>기간 정보 수정</h2><p class="panel-subtitle">초안 상태에서만 수정할 수 있습니다.</p></div><button class="btn" id="closePeriodEditor" type="button">닫기</button></div><form id="periodForm">${periodForm(period)}<div class="form-actions"><button class="btn" id="cancelPeriodEdit" type="button">취소</button><button class="btn btn-primary" data-write-action type="submit">기간 정보 저장</button></div></form></section>` : ''}
     <section class="panel"><div class="panel-header"><div><h2>길드원 분배 상세</h2><p class="panel-subtitle">${editable ? '입력 탭에서 값을 변경하고 적용하면 각 분배 탭에 다시 계산된 결과가 표시됩니다.' : '분배 유형별로 계산 결과를 나누어 확인할 수 있습니다.'}</p></div>${editable ? '<button class="btn btn-primary" id="bulkSave" data-write-action>입력값 적용</button>' : ''}</div>
+      <div class="distribution-table-controls"><div class="distribution-view-switch" role="tablist" aria-label="분배 상세 보기">${editable ? `${distributionViewButton('input', '입력')}${distributionViewButton('alliance-settings', '연합분배율 설정')}` : ''}${distributionViewButton('participation', '참여율 분배')}${distributionViewButton('alliance', '연합 분배')}${distributionViewButton('other', '기타 분배')}${distributionViewButton('final', '최종 분배')}${distributionViewButton('all', '전체 보기')}</div><button type="button" class="btn calculation-detail-toggle" id="calculationDetailToggle" aria-expanded="false" hidden>계산 상세 보기</button></div>
       ${allianceTierSettings(editable)}
-      <div class="distribution-table-controls"><div class="distribution-view-switch" role="group" aria-label="분배 상세 보기">${editable ? distributionViewButton('input', '입력') : ''}${distributionViewButton('participation', '참여율 분배')}${distributionViewButton('alliance', '연합 분배')}${distributionViewButton('other', '기타 분배')}${distributionViewButton('final', '최종 분배')}${distributionViewButton('all', '전체 보기')}</div><button type="button" class="btn calculation-detail-toggle" id="calculationDetailToggle" aria-expanded="false" hidden>계산 상세 보기</button></div>
-      <div class="table-wrap"><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 30 : 22}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody></table></div>
-      <p class="help-text">${editable ? '모든 수정은 입력 탭에서만 가능합니다. ' : ''}닉네임·직업·클래스·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다.</p></section>`;
+      <div class="table-wrap" data-member-table-wrap><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 30 : 22}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody></table></div>
+      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}닉네임·직업·클래스·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다.</p></section>`;
     bindDetailActions(editable);
     bindDistributionView();
   }
 
   function applyDistributionView(view) {
     state.distributionView = view;
+    const allianceSettingsVisible = view === 'alliance-settings';
     const table = document.querySelector('.members-table');
     if (table) table.dataset.view = view;
     document.querySelectorAll('[data-distribution-group]').forEach(cell => {
@@ -388,7 +389,7 @@
     document.querySelectorAll('[data-distribution-view]').forEach(button => {
       const active = button.dataset.distributionView === view;
       button.classList.toggle('active', active);
-      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-selected', String(active));
     });
     const detailToggle = document.getElementById('calculationDetailToggle');
     if (detailToggle) {
@@ -398,7 +399,8 @@
     }
     const bulkSave = document.getElementById('bulkSave');
     if (bulkSave) bulkSave.hidden = view !== 'input';
-    document.querySelectorAll('[data-input-settings]').forEach(element => { element.hidden = view !== 'input'; });
+    document.querySelectorAll('[data-alliance-tier-settings]').forEach(element => { element.hidden = !allianceSettingsVisible; });
+    document.querySelectorAll('[data-member-table-wrap], [data-member-table-help]').forEach(element => { element.hidden = allianceSettingsVisible; });
   }
 
   function bindDistributionView() {
@@ -464,6 +466,24 @@
   function bindDetailActions(editable) {
     if (editable) {
       bindFundingForm();
+      const periodEditor = document.getElementById('periodEditor');
+      const openPeriodEditor = () => {
+        periodEditor.hidden = false;
+        document.getElementById('editPeriodButton').setAttribute('aria-expanded', 'true');
+        periodEditor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      const closePeriodEditor = () => {
+        document.getElementById('periodForm').reset();
+        document.getElementById('formError').textContent = '';
+        updateFundingTotal();
+        periodEditor.hidden = true;
+        document.getElementById('editPeriodButton').setAttribute('aria-expanded', 'false');
+      };
+      document.getElementById('editPeriodButton').setAttribute('aria-controls', 'periodEditor');
+      document.getElementById('editPeriodButton').setAttribute('aria-expanded', 'false');
+      document.getElementById('editPeriodButton').addEventListener('click', openPeriodEditor);
+      document.getElementById('closePeriodEditor').addEventListener('click', closePeriodEditor);
+      document.getElementById('cancelPeriodEdit').addEventListener('click', closePeriodEditor);
       document.getElementById('periodForm').addEventListener('submit', async event => {
         event.preventDefault(); const values = readPeriodForm(); const error = validatePeriod(values); document.getElementById('formError').textContent = error; if (error) return;
         await runWrite('기간 정보를 저장하고 분배금을 다시 계산했습니다.', async () => {
