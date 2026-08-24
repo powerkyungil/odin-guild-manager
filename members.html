@@ -389,6 +389,7 @@
             border-color: var(--primary-color);
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -454,7 +455,7 @@
                 return;
             }
             try {
-                const res = await fetch(`/api/admin/users/${userId}/role`, {
+                const res = await fetch(`/api/v1/members/${userId}/role`, {
                     method: 'PUT',
                     headers: { 
                         'Content-Type': 'application/json',
@@ -480,7 +481,7 @@
         const resetUserPassword = async (id, nickname) => {
             if (!confirm(`[${nickname}] 님의 비밀번호를 1234로 초기화하시겠습니까?`)) return;
             try {
-                const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+                const res = await fetch(`/api/v1/members/${id}/password-reset`, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -502,7 +503,7 @@
         async function deleteUser(userId, nickname) {
             if (!confirm(`정말로 '${nickname}' 회원을 강퇴하시겠습니까?\n모든 데이터가 영구 삭제됩니다.`)) return;
             try {
-                const res = await fetch(`/api/admin/users/${userId}`, {
+                const res = await fetch(`/api/v1/members/${userId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -555,7 +556,7 @@
 
         async function fetchMembers() {
             try {
-                const res = await fetch('/api/users', {
+                const res = await fetch('/api/v1/members', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.status === 401) return handleAuthError();

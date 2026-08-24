@@ -2,7 +2,10 @@
   "scripts": {
     "audit:collection-migration": "node scripts/audit-collection-migration.js",
     "test:collection-migration": "node scripts/test-collection-migration.js",
-    "test:privacy": "node scripts/test-privacy.js"
+    "test:privacy": "node scripts/test-privacy.js",
+    "test:distributions-ui": "node scripts/test-distributions-ui.js",
+    "test:api-config": "node scripts/test-api-config.js",
+    "test:api-contracts": "node scripts/test-api-contracts.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

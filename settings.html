@@ -244,13 +244,14 @@
             .toggle-row { padding: 14px; gap: 12px; }
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <div class="auth-container">
         <div class="settings-topbar">
             <div class="settings-title">
                 <h1>길드 설정 <span id="userRoleBadge" class="role-badge">--</span></h1>
-                <p>길드장/운영진 전용 설정을 항목별로 관리합니다.</p>
+                <p>길드장 전용 설정을 관리합니다.</p>
             </div>
             <div class="top-actions">
                 <button class="plain-btn" type="button" onclick="window.location.href='menu.html'">메뉴로</button>
@@ -261,7 +262,6 @@
         <div class="settings-layout">
             <nav class="settings-tabs" aria-label="설정 분류">
                 <button class="settings-tab active" type="button" data-section="guild">길드 설정</button>
-                <button class="settings-tab" type="button" data-section="discord">디스코드</button>
                 <button class="settings-tab" type="button" data-section="invites">가입 링크</button>
             </nav>
 
@@ -285,43 +285,7 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="toggle-row" id="maintenanceControl" hidden>
-                        <div>
-                            <strong>임시 점검 모드</strong>
-                            <span id="maintenanceStatusHint">점검 상태를 불러오는 중입니다.</span>
-                        </div>
-                        <label class="switch" for="maintenanceModeInput">
-                            <input type="checkbox" id="maintenanceModeInput" onchange="toggleMaintenanceMode(this.checked)">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
                     <button class="save-settings-btn" type="button" onclick="saveGuildSettings()">길드 설정 저장</button>
-                </section>
-
-                <section id="section-discord" class="settings-section">
-                    <div class="section-head">
-                        <h2>디스코드</h2>
-                        <p>보스 알림 전송에 사용하는 봇 연동 정보를 관리합니다.</p>
-                    </div>
-                    <div class="setting-item">
-                        <label for="discordTokenInput">디스코드 봇 토큰</label>
-                        <input type="password" id="discordTokenInput" placeholder="디스코드 개발자 포털의 토큰">
-                    </div>
-                    <div class="setting-item">
-                        <label for="discordChannelIdInput">알림 전송 채널 ID</label>
-                        <input type="text" id="discordChannelIdInput" placeholder="공지 사항을 보낼 채널 ID">
-                    </div>
-                    <div class="toggle-row">
-                        <div>
-                            <strong>디스코드 메시지 알림 전송</strong>
-                            <span>OFF일 경우 봇 설정은 보관하되 알림 전송을 중지합니다.</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="discordEnabledInput" checked>
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <button class="save-settings-btn" type="button" onclick="saveGuildSettings()">디스코드 설정 저장</button>
                 </section>
 
                 <section id="section-invites" class="settings-section">
@@ -346,9 +310,6 @@
         const isMaster = role === 'MASTER';
         let currentSettings = {
             guild_name: '오딘 길드',
-            discord_token: '',
-            discord_channel_id: '',
-            discord_enabled: 1,
             allow_member_combat_power_edit: 1
         };
 
@@ -361,8 +322,8 @@
         }
 
         if (!token) handleAuthError();
-        if (role !== 'MASTER' && role !== 'ADMIN') {
-            alert('길드장/운영진 전용 메뉴입니다.');
+        if (role !== 'MASTER') {
+            alert('길드장 전용 메뉴입니다.');
             window.location.href = 'menu.html';
         }
 
@@ -390,13 +351,10 @@
 
         async function loadSettings() {
             try {
-                const res = await fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } });
+                const res = await fetch('/api/v1/guild/settings', { headers: { Authorization: `Bearer ${token}` } });
                 if (res.status === 401) return handleAuthError();
                 currentSettings = { ...currentSettings, ...await res.json() };
                 document.getElementById('guildNameInput').value = currentSettings.guild_name || '';
-                document.getElementById('discordTokenInput').value = currentSettings.discord_token || '';
-                document.getElementById('discordChannelIdInput').value = currentSettings.discord_channel_id || '';
-                document.getElementById('discordEnabledInput').checked = currentSettings.discord_enabled !== 0;
                 document.getElementById('allowCombatPowerEditInput').checked = currentSettings.allow_member_combat_power_edit !== 0;
                 syncCombatPowerTogglePermission();
                 if (currentSettings.guild_name) document.title = `${currentSettings.guild_name} - 설정`;
@@ -406,18 +364,15 @@
         }
 
         async function saveGuildSettings() {
-            if (role !== 'MASTER' && role !== 'ADMIN') return;
+            if (!isMaster) return;
             const body = {
-                guild_name: document.getElementById('guildNameInput').value,
-                discord_token: document.getElementById('discordTokenInput').value,
-                discord_channel_id: document.getElementById('discordChannelIdInput').value,
-                discord_enabled: document.getElementById('discordEnabledInput').checked ? 1 : 0,
-                allow_member_combat_power_edit: document.getElementById('allowCombatPowerEditInput').checked ? 1 : 0
+                guildName: document.getElementById('guildNameInput').value,
+                allowMemberCombatPowerEdit: document.getElementById('allowCombatPowerEditInput').checked
             };
 
             try {
-                const res = await fetch('/api/settings', {
-                    method: 'POST',
+                const res = await fetch('/api/v1/guild/settings', {
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${token}`
@@ -433,66 +388,9 @@
             }
         }
 
-        async function loadMaintenanceStatus() {
-            if (!isMaster) return;
-            try {
-                const res = await fetch('/maintenance/status', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) return;
-                const { enabled } = await res.json();
-                const control = document.getElementById('maintenanceControl');
-                const hint = document.getElementById('maintenanceStatusHint');
-                const toggle = document.getElementById('maintenanceModeInput');
-                control.hidden = false;
-                control.dataset.enabled = String(enabled);
-                hint.textContent = enabled
-                    ? '현재 일반 사용자의 웹 접속이 차단되어 있습니다.'
-                    : '현재 모든 사용자가 웹에 정상 접속할 수 있습니다.';
-                toggle.checked = enabled;
-                toggle.disabled = false;
-            } catch (_) {
-                // The regular guild settings can still be used if this optional control is unavailable.
-            }
-        }
-
-        async function toggleMaintenanceMode(nextEnabled) {
-            if (!isMaster) return;
-            const toggle = document.getElementById('maintenanceModeInput');
-            const action = nextEnabled ? 'ON' : 'OFF';
-            if (!window.confirm(`임시 점검 모드를 ${action} 하시겠습니까?`)) {
-                toggle.checked = !nextEnabled;
-                return;
-            }
-
-            toggle.disabled = true;
-            try {
-                const res = await fetch('/maintenance/toggle', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ enabled: nextEnabled })
-                });
-                if (res.status === 401) return handleAuthError();
-                if (!res.ok) {
-                    const data = await res.json().catch(() => ({}));
-                    toggle.checked = !nextEnabled;
-                    return alert(data.error || '점검 모드를 변경하지 못했습니다.');
-                }
-                await loadMaintenanceStatus();
-            } catch (_) {
-                toggle.checked = !nextEnabled;
-                alert('서버 통신 오류');
-            } finally {
-                toggle.disabled = false;
-            }
-        }
-
         async function generateInvite(targetRole = 'MEMBER') {
             try {
-                const res = await fetch('/api/invites', {
+                const res = await fetch('/api/v1/auth/invites', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -509,7 +407,7 @@
 
                 const data = await res.json();
                 if (res.ok) {
-                    const link = `${window.location.origin}/register.html?token=${data.inviteToken}`;
+                    const link = `${window.location.origin}/register.html?code=${encodeURIComponent(data.inviteCode)}`;
                     const inviteDiv = document.getElementById('inviteLink');
                     inviteDiv.style.display = 'block';
                     inviteDiv.dataset.link = link;
@@ -563,7 +461,6 @@
 
         syncCombatPowerTogglePermission();
         loadSettings();
-        loadMaintenanceStatus();
     </script>
 </body>
 </html>

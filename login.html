@@ -10,6 +10,7 @@
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
   <link rel="stylesheet" href="auth.css">
+  <script src="api-config.js"></script>
 </head>
 
 <body>
@@ -74,7 +75,7 @@
             const errorDiv = document.getElementById('errorMessage');
 
             try {
-                const res = await fetch('/api/login', {
+                const res = await fetch('/api/v1/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })

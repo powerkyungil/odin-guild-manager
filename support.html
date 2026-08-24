@@ -551,6 +551,7 @@
             .top-actions .auth-btn { width: 100%; }
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -815,7 +816,7 @@
             const memo = document.getElementById('requestMemo').value.trim();
 
             try {
-                const res = await apiFetch('/api/support-requests', {
+                const res = await apiFetch('/api/v1/support-requests', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ requestedTime, memo })
@@ -835,7 +836,7 @@
             const list = document.getElementById('requestList');
             list.innerHTML = '<div class="empty">불러오는 중입니다.</div>';
             try {
-                const res = await apiFetch('/api/support-requests');
+                const res = await apiFetch('/api/v1/support-requests');
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || '목록을 불러오지 못했습니다.');
                 renderRequests(data);
@@ -914,7 +915,7 @@
 
         async function applySupport(requestId) {
             try {
-                const res = await apiFetch(`/api/support-requests/${requestId}/applications`, {
+                const res = await apiFetch(`/api/v1/support-requests/${requestId}/applications`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ memo: '' })
@@ -932,7 +933,7 @@
             event.stopPropagation();
             if (!confirm('손지원 신청을 취소하시겠습니까?')) return;
             try {
-                const res = await apiFetch(`/api/support-requests/${requestId}/applications/${applicationId}`, { method: 'DELETE' });
+                const res = await apiFetch(`/api/v1/support-requests/${requestId}/applications/${applicationId}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || '신청 취소에 실패했습니다.');
                 await loadRequests();
@@ -944,7 +945,7 @@
         async function selectApplication(requestId, applicationId) {
             if (!confirm('이 신청자를 손지원 담당자로 선택하시겠습니까?')) return;
             try {
-                const res = await apiFetch(`/api/support-requests/${requestId}/select/${applicationId}`, { method: 'POST' });
+                const res = await apiFetch(`/api/v1/support-requests/${requestId}/select/${applicationId}`, { method: 'POST' });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || '선택에 실패했습니다.');
                 await loadRequests();
@@ -957,7 +958,7 @@
             const label = statusLabels[status] || status;
             if (!confirm(`요청 상태를 '${label}'(으)로 변경하시겠습니까?`)) return;
             try {
-                const res = await apiFetch(`/api/support-requests/${requestId}/status`, {
+                const res = await apiFetch(`/api/v1/support-requests/${requestId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
@@ -973,7 +974,7 @@
         async function deleteRequest(requestId) {
             if (!confirm('이 손지원 요청을 삭제하시겠습니까? 신청목록도 함께 삭제됩니다.')) return;
             try {
-                const res = await apiFetch(`/api/support-requests/${requestId}`, { method: 'DELETE' });
+                const res = await apiFetch(`/api/v1/support-requests/${requestId}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || '삭제에 실패했습니다.');
                 await loadRequests();

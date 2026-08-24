@@ -17,6 +17,7 @@
         .confirm-label input { width: 18px; margin-top: 2px; flex: 0 0 auto; }
         .success-message { color: #22c55e; text-align: center; line-height: 1.7; }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <main class="auth-container">
@@ -70,7 +71,7 @@
             button.disabled = true;
             message.textContent = '';
             try {
-                const loginResponse = await fetch('/api/login', {
+                const loginResponse = await fetch('/api/v1/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -78,7 +79,7 @@
                 const loginData = await loginResponse.json();
                 if (!loginResponse.ok) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
 
-                const deleteResponse = await fetch('/api/users/me', {
+                const deleteResponse = await fetch('/api/v1/auth/me', {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',

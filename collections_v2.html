@@ -794,6 +794,7 @@
             }
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <main class="v2-shell">
@@ -983,7 +984,7 @@
         }
 
         async function syncMyUserId() {
-            const me = await fetchJson('/api/users/me', { headers: authHeaders() });
+            const me = await fetchJson('/api/v1/auth/me', { headers: authHeaders() });
             myUserId = me.id;
             storage.setItem('userId', String(me.id));
         }
@@ -994,10 +995,10 @@
             try {
                 await syncMyUserId();
                 const [collectionRows, memberRows, statusRows, excludedRows] = await Promise.all([
-                    fetchJson('/api/v2/collections', { headers: authHeaders() }),
-                    fetchJson('/api/users', { headers: authHeaders() }),
-                    fetchJson('/api/v2/user-collections', { headers: authHeaders() }),
-                    fetchJson('/api/excluded-members', { headers: authHeaders() })
+                    fetchJson('/api/v1/collections', { headers: authHeaders() }),
+                    fetchJson('/api/v1/members', { headers: authHeaders() }),
+                    fetchJson('/api/v1/collection-completions', { headers: authHeaders() }),
+                    fetchJson('/api/v1/collection-exclusions', { headers: authHeaders() })
                 ]);
 
                 collections = collectionRows;
@@ -1204,8 +1205,8 @@
             const completed = checkbox.checked;
             checkbox.disabled = true;
             try {
-                await fetchJson('/api/v2/user-collections/toggle', {
-                    method: 'POST',
+                await fetchJson('/api/v1/collection-completions', {
+                    method: 'PUT',
                     headers: authHeaders(true),
                     body: JSON.stringify({
                         userId,
@@ -1319,7 +1320,7 @@
                     const part = inputs[0].value.trim();
                     const enhancement = inputs[1].value.trim();
                     return {
-                        id: itemId || null,
+                        ...(itemId ? { id: itemId } : {}),
                         part,
                         enchantment: enhancement ? `강화 ${enhancement}` : ''
                     };
@@ -1332,8 +1333,8 @@
             elements.saveCollectionButton.disabled = true;
             try {
                 const url = editingCollectionId
-                    ? `/api/v2/collections/${editingCollectionId}`
-                    : '/api/v2/collections';
+                    ? `/api/v1/collections/${editingCollectionId}`
+                    : '/api/v1/collections';
                 await fetchJson(url, {
                     method: editingCollectionId ? 'PUT' : 'POST',
                     headers: authHeaders(true),
@@ -1352,7 +1353,7 @@
         async function deleteCollection(collection) {
             if (!confirm(`'${collection.name}' 컬렉션을 삭제할까요?\n체크 기록도 함께 삭제됩니다.`)) return;
             try {
-                await fetchJson(`/api/v2/collections/${collection.id}`, {
+                await fetchJson(`/api/v1/collections/${collection.id}`, {
                     method: 'DELETE',
                     headers: authHeaders()
                 });
@@ -1384,7 +1385,7 @@
         async function toggleExclusion(userId, checkbox) {
             checkbox.disabled = true;
             try {
-                const result = await fetchJson('/api/excluded-members/toggle', {
+                const result = await fetchJson('/api/v1/collection-exclusions/toggle', {
                     method: 'POST',
                     headers: authHeaders(true),
                     body: JSON.stringify({ userId })

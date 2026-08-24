@@ -293,6 +293,7 @@
             border-color: rgba(255,255,255,0.05);
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <div class="sidebar">
@@ -334,7 +335,7 @@
         async function init() {
             try {
                 // Fetch user info to check role
-                const meRes = await fetch('/api/users/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                const meRes = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (meRes.status === 401) return logout();
                 if (meRes.ok) {
                     const me = await meRes.json();
@@ -347,13 +348,13 @@
                 }
 
                 // Fetch members
-                const mRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                const mRes = await fetch('/api/v1/members', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!mRes.ok) throw new Error(`멤버 목록 로드 실패 (${mRes.status})`);
                 allMembers = await mRes.json();
                 allMembers = allMembers.filter(m => m.nickname).sort((a,b) => b.combat_power - a.combat_power);
 
                 // Fetch groups
-                const gRes = await fetch('/api/groups', { headers: { 'Authorization': `Bearer ${token}` } });
+                const gRes = await fetch('/api/v1/content-groups', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!gRes.ok) throw new Error(`그룹 정보 로드 실패 (${gRes.status})`);
                 groups = await gRes.json();
 
@@ -496,7 +497,7 @@
             const name = prompt('그룹 이름을 입력하세요:', '새 그룹');
             if (!name) return;
             try {
-                const res = await fetch('/api/groups', {
+                const res = await fetch('/api/v1/content-groups', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ name })
@@ -513,7 +514,7 @@
         async function updateGroupName(id, newName) {
             if (!isAdmin) return;
             try {
-                const res = await fetch(`/api/groups/${id}`, {
+                const res = await fetch(`/api/v1/content-groups/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ name: newName })
@@ -526,7 +527,7 @@
             if (!isAdmin) return;
             if (!confirm('그룹을 삭제하시겠습니까?')) return;
             try {
-                const res = await fetch(`/api/groups/${id}`, {
+                const res = await fetch(`/api/v1/content-groups/${id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -574,8 +575,8 @@
 
         async function saveGroupMembersSilently(groupId, userIds) {
             try {
-                const res = await fetch(`/api/groups/${groupId}/members`, {
-                    method: 'POST',
+                const res = await fetch(`/api/v1/content-groups/${groupId}/members`, {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ userIds })
                 });

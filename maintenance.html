@@ -85,6 +85,7 @@
         .submit:disabled { opacity: .55; cursor: wait; }
         .message { min-height: 20px; margin: 2px 0 0; color: #fca5a5; font-size: 13px; text-align: center; }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <main class="card">
@@ -92,68 +93,7 @@
         <h1>잠시만 기다려 주세요</h1>
         <p class="description">더 안정적인 서비스를 위해 시스템을 점검하고 있습니다.<br>점검이 끝나는 대로 정상적으로 이용하실 수 있습니다.</p>
 
-        <button id="loginToggle" class="login-toggle" type="button">점검 담당자 접속</button>
-        <form id="accessForm">
-            <label>아이디<input id="username" type="text" autocomplete="username" required></label>
-            <label>비밀번호<input id="password" type="password" autocomplete="current-password" required></label>
-            <button id="submitButton" class="submit" type="submit">접속하기</button>
-            <p id="message" class="message"></p>
-        </form>
+        <p class="description">긴급한 문의는 길드 운영진에게 전달해 주세요.</p>
     </main>
-
-    <script>
-        const form = document.getElementById('accessForm');
-        const message = document.getElementById('message');
-        const submitButton = document.getElementById('submitButton');
-
-        const requestMaintenanceAccess = async (token) => {
-            const response = await fetch('/maintenance/access', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token })
-            });
-            if (!response.ok) throw new Error((await response.json()).error || '접속할 수 없습니다.');
-        };
-
-        const existingToken = sessionStorage.getItem('token') || localStorage.getItem('token');
-        if (existingToken) {
-            requestMaintenanceAccess(existingToken)
-                .then(() => window.location.replace('/menu.html'))
-                .catch(() => {});
-        }
-
-        document.getElementById('loginToggle').addEventListener('click', () => {
-            form.classList.toggle('visible');
-            if (form.classList.contains('visible')) document.getElementById('username').focus();
-        });
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            message.textContent = '';
-            submitButton.disabled = true;
-            try {
-                const loginResponse = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: document.getElementById('username').value,
-                        password: document.getElementById('password').value
-                    })
-                });
-                const session = await loginResponse.json();
-                if (!loginResponse.ok) throw new Error(session.error || '로그인에 실패했습니다.');
-                await requestMaintenanceAccess(session.token);
-                localStorage.setItem('token', session.token);
-                localStorage.setItem('role', session.role);
-                localStorage.setItem('username', session.username);
-                localStorage.setItem('userId', session.userId);
-                if (session.nickname) localStorage.setItem('nickname', session.nickname);
-                window.location.replace('/menu.html');
-            } catch (error) {
-                message.textContent = error.message || '접속할 수 없습니다.';
-                submitButton.disabled = false;
-            }
-        });
-    </script>
 </body>
 </html>

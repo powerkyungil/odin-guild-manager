@@ -216,6 +216,7 @@
       .auth-container { width: min(97vw, 1360px); }
     }
   </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
   <div class="auth-container">
@@ -484,7 +485,7 @@ function renderRules(){
 }
 
 async function saveRuleOrder(){
-  await api('/api/notices/rule-order',{method:'PUT',body:JSON.stringify({ids: rules.map(r => r.id)})});
+  await api('/api/v1/notices/rules/order',{method:'PUT',body:JSON.stringify({ids: rules.map(r => r.id)})});
 }
 
 async function moveRule(index, dir){
@@ -537,8 +538,8 @@ function renderBossControls(){
   wrap.innerHTML=`<div class="control-table-wrap"><table class="control-table"><thead><tr><th style="width:180px;">챕터</th><th>보스</th></tr></thead><tbody>${chapters.map(ch=>`<tr><td class="chapter-cell">${escapeHtml(ch.chapter)}</td><td><div class="boss-chip-wrap">${ch.bosses.map(b=>{const s=normalizeStatus(b.status);const c=s==='CONTROL'?'status-control':(s==='ALLY_ONLY'?'status-ally':'status-none');return `<button type="button" class="boss-chip ${c} ${isAdmin?'is-clickable':''}" data-chapter="${escapeHtml(ch.chapter)}" data-boss="${escapeHtml(b.name)}" data-status="${s}" ${isAdmin?'':'disabled'}>${escapeHtml(b.name)}</button>`;}).join('')}</div></td></tr>`).join('')}</tbody></table></div>`;
   if(isAdmin){ wrap.querySelectorAll('.boss-chip').forEach(btn=>btn.addEventListener('click',()=>cycleBossControl(btn.dataset.chapter,btn.dataset.boss,btn.dataset.status))); }
 }
-async function loadBossControls(){ bossControls = await api('/api/notices/boss-controls'); renderBossControls(); }
-async function cycleBossControl(chapter,boss,current){ const order=['NONE','ALLY_ONLY','CONTROL']; const next=order[(order.indexOf(normalizeStatus(current))+1)%order.length]; await api('/api/notices/boss-controls',{method:'PUT',body:JSON.stringify({chapter,boss,status:next})}); await loadBossControls(); }
+async function loadBossControls(){ bossControls = await api('/api/v1/notices/boss-controls'); renderBossControls(); }
+async function cycleBossControl(chapter,boss,current){ const order=['NONE','ALLY_ONLY','CONTROL']; const next=order[(order.indexOf(normalizeStatus(current))+1)%order.length]; await api('/api/v1/notices/boss-controls',{method:'PUT',body:JSON.stringify({chapter,boss,status:next})}); await loadBossControls(); }
 
 function setColorSwatch(selectId, swatchId){ const c=document.getElementById(selectId).value||'#f8fafc'; document.getElementById(swatchId).style.background=c; }
 
@@ -616,18 +617,18 @@ function updateRowValue(type,sIdx,rIdx,val){ getDraft(type)[sIdx].rows[rIdx].val
 function openRuleModal(id=null){ editingRuleId=id; if(id){ const r=rules.find(x=>x.id===id); if(!r) return; document.getElementById('ruleModalTitle').textContent='길드룰 수정'; document.getElementById('ruleTitle').value=r.title; document.getElementById('ruleColor').value=r.color||'#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); renderRuleSimpleEditor(splitRuleDraft(r.content)); } else { document.getElementById('ruleModalTitle').textContent='길드룰 등록'; document.getElementById('ruleTitle').value='길드 운영 내규'; document.getElementById('ruleColor').value='#f8fafc'; setColorSwatch('ruleColor','ruleColorSwatch'); renderRuleSimpleEditor({ intro: '', sections: [{ title: '', body: '' }], footer: '' }); }
 editingRuleSection=-1; document.getElementById('ruleModal').style.display='flex'; }
 function closeRuleModal(){ document.getElementById('ruleModal').style.display='none'; }
-async function saveRule(){ const title=document.getElementById('ruleTitle').value.trim(); const color=document.getElementById('ruleColor').value||'#f8fafc'; const content=buildRuleContentFromForm().trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(!content) return alert('상단 안내나 섹션 내용을 입력해주세요.'); if(editingRuleId) await api(`/api/notices/rules/${editingRuleId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/notices/rules',{method:'POST',body:JSON.stringify({title,content,color})}); closeRuleModal(); await loadAll(); }
-async function deleteRule(id){ if(!confirm('이 길드룰을 삭제할까요?')) return; await api(`/api/notices/rules/${id}`,{method:'DELETE'}); await loadAll(); }
+async function saveRule(){ const title=document.getElementById('ruleTitle').value.trim(); const color=document.getElementById('ruleColor').value||'#f8fafc'; const content=buildRuleContentFromForm().trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(!content) return alert('상단 안내나 섹션 내용을 입력해주세요.'); if(editingRuleId) await api(`/api/v1/notices/rules/${editingRuleId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/v1/notices/rules',{method:'POST',body:JSON.stringify({title,content,color})}); closeRuleModal(); await loadAll(); }
+async function deleteRule(id){ if(!confirm('이 길드룰을 삭제할까요?')) return; await api(`/api/v1/notices/rules/${id}`,{method:'DELETE'}); await loadAll(); }
 
 function openPriceModal(id=null){ editingPriceGuideId=id; if(id){ const p=priceGuides.find(x=>x.id===id); if(!p) return; document.getElementById('priceModalTitle').textContent='가격표 수정'; document.getElementById('priceTitle').value=p.title; document.getElementById('priceColor').value=normalizePriceTierColor(p.color); setColorSwatch('priceColor','priceColorSwatch'); priceDraft=parseStructuredContent(p.content); } else { document.getElementById('priceModalTitle').textContent='가격표 등록'; document.getElementById('priceTitle').value=''; document.getElementById('priceColor').value='#f8fafc'; setColorSwatch('priceColor','priceColorSwatch'); priceDraft=[]; }
 editingPriceSection=-1; renderEditor('price'); document.getElementById('priceModal').style.display='flex'; }
 function closePriceModal(){ document.getElementById('priceModal').style.display='none'; }
-async function savePriceGuide(){ const title=document.getElementById('priceTitle').value.trim(); const color=document.getElementById('priceColor').value||'#f8fafc'; const content=buildContentFromDraft(priceDraft).trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(editingPriceGuideId) await api(`/api/notices/price-guides/${editingPriceGuideId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/notices/price-guides',{method:'POST',body:JSON.stringify({title,content,color})}); closePriceModal(); await loadAll(); }
-async function deletePriceGuide(id){ if(!confirm('이 가격표를 삭제할까요?')) return; await api(`/api/notices/price-guides/${id}`,{method:'DELETE'}); await loadAll(); }
+async function savePriceGuide(){ const title=document.getElementById('priceTitle').value.trim(); const color=document.getElementById('priceColor').value||'#f8fafc'; const content=buildContentFromDraft(priceDraft).trim(); if(!title) return alert('타이틀을 입력해주세요.'); if(editingPriceGuideId) await api(`/api/v1/notices/price-guides/${editingPriceGuideId}`,{method:'PUT',body:JSON.stringify({title,content,color})}); else await api('/api/v1/notices/price-guides',{method:'POST',body:JSON.stringify({title,content,color})}); closePriceModal(); await loadAll(); }
+async function deletePriceGuide(id){ if(!confirm('이 가격표를 삭제할까요?')) return; await api(`/api/v1/notices/price-guides/${id}`,{method:'DELETE'}); await loadAll(); }
 
 async function loadAll(){
   try {
-    [rules, priceGuides, users] = await Promise.all([api('/api/notices/rules'), api('/api/notices/price-guides'), api('/api/users')]);
+    [rules, priceGuides, users] = await Promise.all([api('/api/v1/notices/rules'), api('/api/v1/notices/price-guides'), api('/api/v1/members')]);
     await loadBossControls();
     renderRules(); renderPrices(); renderStaffSummary();
   } catch(e) { alert('공지 데이터를 불러오지 못했습니다: ' + e.message); }

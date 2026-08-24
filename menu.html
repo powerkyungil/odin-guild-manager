@@ -148,6 +148,7 @@
             text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -200,13 +201,8 @@
                 <p>접속이 어려운 길드원과 지원자를 매칭</p>
             </a>
 
-            <a href="collections.html" class="menu-card" id="legacyCollectionsMenu">
-                <h3>길드원 아이템 현황</h3>
-                <p>기존 아이템 컬렉션 달성 상태 관리</p>
-            </a>
-
             <a href="collections_v2.html" class="menu-card">
-                <h3>길드원 아이템 현황 <span class="new-badge">V2</span></h3>
+                <h3>길드원 아이템 현황</h3>
                 <p>고정 아이템 ID 기반의 안전한 달성 현황 관리</p>
             </a>
 
@@ -223,6 +219,11 @@
             <a href="members.html" class="menu-card">
                 <h3>길드원 관리</h3>
                 <p>회원 목록 및 성과 관리</p>
+            </a>
+
+            <a href="distributions-list.html" class="menu-card">
+                <h3>길드원 분배금 <span class="new-badge">NEW</span></h3>
+                <p>기간별 분배금 계산과 확정 내역 확인</p>
             </a>
         </div>
 
@@ -262,20 +263,13 @@
         const role = activeStorage.getItem('role');
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
-        document.getElementById('legacyCollectionsMenu').addEventListener('click', event => {
-            if (role === 'MASTER') return;
-            event.preventDefault();
-            alert('기존 길드원 아이템 현황(V1)은 길드장 전용입니다. V2를 이용해 주세요.');
-            window.location.href = 'collections_v2.html';
-        });
-
-        if (role === 'MASTER' || role === 'ADMIN') {
+        if (role === 'MASTER') {
             document.getElementById('settingsBtn').style.display = 'inline-block';
         }
 
         async function loadSettings() {
             try {
-                const res = await fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch('/api/v1/guild/settings', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) return handleAuthError();
                 const settings = await res.json();
                 if (settings.guild_name) {

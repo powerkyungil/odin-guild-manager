@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadOcrTemplates = async () => {
     try {
-      const response = await fetch('/api/ocr/templates', {
+      const response = await fetch('/api/v1/ocr/templates', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.status === 401) return handleAuthError();
@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ocrResultList.replaceChildren();
 
     try {
-      const response = await fetch('/api/ocr/boss-schedule', {
+      const response = await fetch('/api/v1/ocr/boss-schedule', {
         method: 'POST',
         headers: {
           'Content-Type': optimizedScreenshotFile.type,
@@ -518,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function syncServerTime() {
     try {
       const start = Date.now();
-      const res = await fetch('/api/time');
+      const res = await fetch('/api/v1/time');
       const data = await res.json();
       const end = Date.now();
       const rtt = end - start;
@@ -905,7 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fetchCustomBosses = async () => {
     try {
-      const res = await fetch('/api/custom-bosses', {
+      const res = await fetch('/api/v1/bosses', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) return handleAuthError();
@@ -950,12 +950,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchParticipationData = async () => {
     try {
       const [tRes, pRes, sRes] = await Promise.all([
-        fetch('/api/participation-targets', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/participants', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/participation-states', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('/api/v1/participation-targets', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/v1/participants', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/v1/participation-states', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       if (tRes.status === 401 || pRes.status === 401 || sRes.status === 401) return handleAuthError();
-      if (tRes.ok) participationTargets = await tRes.json();
+      if (tRes.ok) {
+        const targetData = await tRes.json();
+        const targetIds = new Set(targetData.bossDefinitionIds || []);
+        participationTargets = customBossesList.filter(boss => targetIds.has(boss.id)).map(boss => boss.boss);
+      }
       if (pRes.ok) participantsMap = await pRes.json();
       if (sRes.ok) participationClosedKeys = new Set(await sRes.json());
     } catch (err) { console.error('Failed to fetch participation data', err); }
@@ -964,7 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchSchedules = async () => {
     try {
       await fetchParticipationData();
-      const res = await fetch('/api/schedules', {
+      const res = await fetch('/api/v1/schedules', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.status === 401) return handleAuthError();
@@ -992,13 +996,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const uploadSchedules = async (newItems) => {
     try {
-      const res = await fetch('/api/schedules', {
+      const schedules = newItems.map(item => {
+        const definition = customBossesList.find(boss =>
+          boss.type === item.type && boss.region === item.region && boss.boss === item.boss
+        );
+        return definition ? { ...item, bossDefinitionId: definition.id } : null;
+      });
+      if (schedules.some(item => item === null)) {
+        alert('등록할 보스 정의를 찾지 못했습니다. 보스 목록을 새로고침해 주세요.');
+        return false;
+      }
+      const res = await fetch('/api/v1/schedules', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(newItems)
+        body: JSON.stringify({ schedules })
       });
       if (res.status === 401) return handleAuthError();
       if (res.ok) {
@@ -1019,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearServerSchedules = async () => {
     if (!confirm('공유된 모든 데이터를 초기화하시겠습니까?')) return;
     try {
-      const res = await fetch('/api/schedules-all', {
+      const res = await fetch('/api/v1/schedules', {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1032,7 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const deleteScheduleOnServer = async (id) => {
     try {
-      const res = await fetch(`/api/schedules/${id}`, {
+      const res = await fetch(`/api/v1/schedules/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1045,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const cutBoss = async (item) => {
     try {
-      const res = await fetch('/api/schedules/cut', {
+      const res = await fetch('/api/v1/schedules/cut', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1159,16 +1173,22 @@ document.addEventListener('DOMContentLoaded', () => {
             disabled: true,
             onEnd: async () => {
               const rows = Array.from(listContainer.querySelectorAll('.boss-row'));
-              const orderList = rows.map((row, index) => ({
-                boss: row.dataset.bossName,
-                sort_order: index
-              }));
+              const reorderedGroupIds = rows
+                .map(row => customBossesList.find(boss =>
+                  boss.type === category.type && boss.region === region.name && boss.boss === row.dataset.bossName
+                )?.id)
+                .filter(Boolean);
+              const groupIds = new Set(reorderedGroupIds);
+              let groupIndex = 0;
+              const bossIds = customBossesList.map(boss =>
+                groupIds.has(boss.id) ? reorderedGroupIds[groupIndex++] : boss.id
+              );
 
               try {
-                const res = await fetch('/api/custom-bosses/reorder', {
-                  method: 'POST',
+                const res = await fetch('/api/v1/bosses/order', {
+                  method: 'PUT',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                  body: JSON.stringify({ orderList })
+                  body: JSON.stringify({ bossIds })
                 });
                 if (!res.ok) console.error('Failed to save order');
               } catch (e) {
@@ -1269,10 +1289,14 @@ document.addEventListener('DOMContentLoaded', () => {
       adminContent.querySelector('#save-participation-btn').addEventListener('click', async () => {
         const checkedBoxes = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked')).map(cb => cb.value);
         try {
-          const r = await fetch('/api/participation-targets', {
-            method: 'POST',
+          const selectedNames = new Set(checkedBoxes);
+          const bossDefinitionIds = customBossesList
+            .filter(boss => selectedNames.has(boss.boss))
+            .map(boss => boss.id);
+          const r = await fetch('/api/v1/participation-targets', {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ bosses: checkedBoxes })
+            body: JSON.stringify({ bossDefinitionIds })
           });
           if (r.status === 401) return handleAuthError();
           if (r.ok) {
@@ -1369,9 +1393,9 @@ document.addEventListener('DOMContentLoaded', () => {
             type: isFixed ? '고정' : addContent.querySelector('#cb-cat-input').value.trim(),
             region: isFixed ? '공통' : addContent.querySelector('#cb-region-input').value.trim(),
             boss: addContent.querySelector('#cb-boss-input').value.trim(),
-            cooldown: isFixed ? 0 : parseInt(addContent.querySelector('#cb-cd-input').value) || 0,
-            timeStr: isFixed ? addContent.querySelector('#cb-time-input').value.trim() : null,
-            days: isFixed ? addContent.querySelector('#cb-days-input').value.trim() : null,
+            cooldownHours: isFixed ? 0 : parseInt(addContent.querySelector('#cb-cd-input').value) || 0,
+            timeText: isFixed ? addContent.querySelector('#cb-time-input').value.trim() : null,
+            days: isFixed ? addContent.querySelector('#cb-days-input').value.split(',').map(day => day.trim()).filter(Boolean) : [],
             color: isFixed ? null : addContent.querySelector('#cb-color-input').value
           };
 
@@ -1380,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           try {
-            const r = await fetch('/api/custom-bosses', {
+            const r = await fetch('/api/v1/bosses', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify(payload)
@@ -1463,7 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         delContent.querySelector('#reset-bosses-btn').addEventListener('click', async () => {
             if (!confirm('기존 보스 목록을 삭제하고 기본값(본섭, 침공, 고정)으로 초기화하시겠습니까? (커스텀 보스 및 모든 스케줄 삭제됨)')) return;
             try {
-                const r = await fetch('/api/admin/reset-bosses', {
+                const r = await fetch('/api/v1/bosses/reset', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -1480,7 +1504,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm('해당 보스를 영구히 삭제하시겠습니까? (기존 스케줄도 삭제됨)')) return;
             const id = btn.dataset.id;
             try {
-              const r = await fetch(`/api/custom-bosses/${id}`, {
+              const r = await fetch(`/api/v1/bosses/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
               });
@@ -1851,8 +1875,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (pBtn.classList.contains('joined')) {
             showParticipantModal(item.boss, participantsMap[getParticipationVoteKey(item)] || []);
           } else {
-            fetch('/api/participants/' + encodeURIComponent(item.boss), {
-              method: 'POST',
+            fetch('/api/v1/participants/' + encodeURIComponent(item.boss), {
+              method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -1885,7 +1909,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mungBtn) {
         mungBtn.addEventListener('click', async () => {
           try {
-            const res = await fetch('/api/schedules/mung', {
+            const res = await fetch('/api/v1/schedules/mung', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -1980,7 +2004,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/api/v1/guild/settings', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const settings = await res.json();
       if (settings.guild_name) {
         // We only update the browser tab title, as requested to remove from the page header

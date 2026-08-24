@@ -75,6 +75,7 @@
             .filter-bar .action-button { min-height: 42px; }
         }
     </style>
+  <script src="api-config.js"></script>
 </head>
 <body>
     <main class="log-container">
@@ -224,7 +225,7 @@
         }
 
         async function loadMembers() {
-            const response = await fetchJson('/api/users');
+            const response = await fetchJson('/api/v1/members');
             const members = Array.isArray(response) ? response : (response.data || []);
             members
                 .filter(member => member.nickname)

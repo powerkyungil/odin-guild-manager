@@ -9,6 +9,7 @@
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
   <link rel="stylesheet" href="auth.css">
+  <script src="api-config.js"></script>
 </head>
 <body>
     <div class="auth-container expanded">
@@ -176,7 +177,7 @@
 
             deleteAccountButton.disabled = true;
             try {
-                const response = await fetch('/api/users/me', {
+                const response = await fetch('/api/v1/auth/me', {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
@@ -287,7 +288,7 @@
 
         async function applyCombatPowerEditSetting() {
             try {
-                const res = await fetch('/api/settings', {
+                const res = await fetch('/api/v1/guild/settings', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.status === 401) return handleAuthError();
@@ -362,7 +363,7 @@
         // --- LOAD DATA ---
         async function loadProfile() {
             try {
-                const res = await fetch('/api/users/me', {
+                const res = await fetch('/api/v1/auth/me', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.status === 401) return handleAuthError();
@@ -466,20 +467,22 @@
 
             const body = {
                 nickname: document.getElementById('nickname').value,
-                combat_power: parseInt(document.getElementById('combat_power').value.replace(/,/g, '')) || 0,
+                combatPower: parseInt(document.getElementById('combat_power').value.replace(/,/g, '')) || 0,
                 occupation: document.getElementById('occupation').value,
-                main_class: document.getElementById('main_class').value,
-                max_crit_rate: parseFloat(document.getElementById('max_crit_rate').value) || 0,
-                max_crit_resist: parseFloat(document.getElementById('max_crit_resist').value) || 0,
-                status_effect_acc: parseFloat(document.getElementById('status_effect_acc').value) || 0,
-                alternate_characters: alternateCharacters.filter(character => character.character_name && character.main_class),
+                mainClass: document.getElementById('main_class').value,
+                maxCritRate: parseFloat(document.getElementById('max_crit_rate').value) || 0,
+                maxCritResist: parseFloat(document.getElementById('max_crit_resist').value) || 0,
+                statusEffectAcc: parseFloat(document.getElementById('status_effect_acc').value) || 0,
+                alternateCharacters: alternateCharacters
+                    .filter(character => character.character_name && character.main_class)
+                    .map(character => ({ characterName: character.character_name, mainClass: character.main_class })),
                 equipment,
                 skills
             };
             if (password) body.password = password;
             
             try {
-                const res = await fetch('/api/users/me', {
+                const res = await fetch('/api/v1/auth/me', {
                     method: 'PUT',
                     headers: { 
                         'Content-Type': 'application/json',

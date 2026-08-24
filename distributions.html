@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>길드원 분배금 상세</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script>document.documentElement.dataset.theme = localStorage.getItem('uiTheme') || 'dark';</script>
+  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="distributions.css">
+  <script src="api-config.js"></script>
+</head>
+<body data-distribution-page="detail">
+  <main class="distribution-shell">
+    <header class="distribution-topbar">
+      <a href="menu.html" class="back-link">← 메뉴로 돌아가기</a>
+      <div class="topbar-title">
+        <h1>길드원 분배금 상세</h1>
+        <span id="roleBadge" class="role-badge">--</span>
+      </div>
+    </header>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <div id="loading" class="loading-card">분배 내역을 불러오는 중입니다.</div>
+    <section id="app" hidden></section>
+  </main>
+  <script src="distributions.js"></script>
+</body>
+</html>
