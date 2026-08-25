@@ -42,6 +42,7 @@ assert.match(js, /distributionViewButton\('input', '입력'\)/);
 assert.match(js, /입력값 적용/);
 assert.match(js, /id="pasteParticipationButton"/);
 assert.match(js, /id="participationPasteDialog"/);
+assert.match(js, /id="participationPasteUnknownList"/);
 assert.match(js, /1위부터 적용/);
 assert.match(js, /닉네임 기준 적용/);
 assert.match(js, /mapParticipationPasteByNickname/);
@@ -115,6 +116,7 @@ assert.doesNotMatch(js, /<span class="muted">제외<\/span>/);
 assert.match(js, /전투력과 지급 배율을 제외한 수치형 컬럼/);
 assert.match(css, /members-table tfoot/);
 assert.match(css, /participation-paste-overlay/);
+assert.match(css, /participation-paste-unknown/);
 
 const noopElement = {
   hidden: false, textContent: '', className: '', innerHTML: '',

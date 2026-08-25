@@ -531,6 +531,7 @@
         <textarea id="participationPasteInput" rows="9" placeholder="축제	그냥대지	득꼬
 18%	61%	63%"></textarea>
         <p class="participation-paste-preview" id="participationPastePreview" aria-live="polite">참여율 값을 붙여 넣어 주세요.</p>
+        <div class="participation-paste-unknown" id="participationPasteUnknown" hidden><strong>찾지 못한 닉네임 전체 목록</strong><div id="participationPasteUnknownList"></div></div>
         <p class="help-text">세로형: 한 줄에 하나의 참여율 · 가로형: 첫 행 닉네임, 다음 행 참여율. 입력 후 저장하려면 상세 화면의 입력값 적용 버튼을 눌러 주세요.</p>
         <div class="participation-paste-actions"><button type="button" class="btn" data-paste-close>취소</button><button type="button" class="btn btn-primary" id="applyParticipationPaste" disabled>1위부터 적용</button></div>
       </section>
@@ -595,7 +596,8 @@
   }
 
   const participationInputs = () => [...document.querySelectorAll('.member-input[data-field="participationRate"]')];
-  const formatParticipationPasteNames = names => `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}명` : ''}`;
+  const formatParticipationPasteNames = names => names.join(', ');
+  const formatParticipationPasteNameSummary = names => `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}명` : ''}`;
   const validateParticipationPasteValues = (values, startIndex, inputCount) => {
     if (!values.length) return '붙여 넣을 참여율 값이 없습니다.';
     if (startIndex < 0 || startIndex + values.length > inputCount) return `참여율 ${values.length}개를 붙여 넣을 공간이 부족합니다. 순위 ${inputCount}위까지 입력할 수 있습니다.`;
@@ -615,13 +617,13 @@
     const mapping = mapParticipationPasteByNickname(parsed.entries, state.period?.members || []);
     let error = '';
     if (emptyNicknameEntries.length) error = '닉네임이 없는 열에 참여율이 입력되어 있습니다.';
-    if (!error && mapping.duplicateNicknames.length) error = `닉네임이 중복되었습니다: ${formatParticipationPasteNames(mapping.duplicateNicknames)}`;
-    if (!error && mapping.missingValueNicknames.length) error = `참여율 값이 없는 닉네임이 있습니다: ${formatParticipationPasteNames(mapping.missingValueNicknames)}`;
+    if (!error && mapping.duplicateNicknames.length) error = `닉네임이 중복되었습니다: ${formatParticipationPasteNameSummary(mapping.duplicateNicknames)}`;
+    if (!error && mapping.missingValueNicknames.length) error = `참여율 값이 없는 닉네임이 있습니다: ${formatParticipationPasteNameSummary(mapping.missingValueNicknames)}`;
     if (!error && !mapping.mappedEntries.length) error = '현재 분배 대상에서 일치하는 닉네임을 찾지 못했습니다.';
     const invalidEntry = mapping.mappedEntries.find(entry => entry.value !== '' && (normalizeDecimal(entry.value) === null || Number(entry.value) > 100));
     if (!error && invalidEntry) error = `${invalidEntry.nickname}의 참여율이 올바르지 않습니다. 0 이상 100 이하의 숫자를 사용해 주세요.`;
-    const warning = mapping.unknownNicknames.length ? `찾지 못한 닉네임은 건너뜁니다: ${formatParticipationPasteNames(mapping.unknownNicknames)}` : '';
-    return { mode: 'nickname', values: [], entries: mapping.mappedEntries, warning, error };
+    const warning = mapping.unknownNicknames.length ? `찾지 못한 닉네임 ${mapping.unknownNicknames.length}명은 아래 전체 목록에서 확인할 수 있습니다.` : '';
+    return { mode: 'nickname', values: [], entries: mapping.mappedEntries, unknownNicknames: mapping.unknownNicknames, warning, error };
   };
   const applyParticipationPasteValues = (values, inputs, startIndex) => {
     values.forEach((value, offset) => {
@@ -668,9 +670,16 @@
 
     const updatePreview = () => {
       const plan = createParticipationPastePlan(textarea.value, inputs.length, 0);
+      const unknownNicknames = document.getElementById('participationPasteUnknown');
+      const unknownNicknameList = document.getElementById('participationPasteUnknownList');
       preview.textContent = plan.error || `${participationPasteSuccessMessage(plan, 0)}${plan.warning ? ` ${plan.warning}` : ''}`;
       preview.classList.toggle('is-error', Boolean(plan.error));
       preview.classList.toggle('is-warning', !plan.error && Boolean(plan.warning));
+      if (unknownNicknames && unknownNicknameList) {
+        const names = plan.unknownNicknames || [];
+        unknownNicknames.hidden = names.length === 0;
+        unknownNicknameList.textContent = names.join(', ');
+      }
       applyButton.disabled = Boolean(plan.error);
       applyButton.textContent = plan.mode === 'nickname' ? '닉네임 기준 적용' : '1위부터 적용';
     };
