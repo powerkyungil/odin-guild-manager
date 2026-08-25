@@ -159,6 +159,20 @@
     const [integer, fraction] = text.split('.');
     return `${integer.replace(/^0+(?=\d)/, '')}${fraction === undefined ? '' : `.${fraction}`}`;
   };
+  const parseParticipationPaste = value => {
+    const text = String(value ?? '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    const rows = text.split('\n');
+    while (rows.length && rows[rows.length - 1].trim() === '') rows.pop();
+    return rows.map(row => {
+      let cell = row.split('\t')[0].trim();
+      if (cell.startsWith('|')) {
+        cell = cell.split('|').map(part => part.trim()).find(part => part !== '') || '';
+      }
+      if (/^:?-{2,}:?$/.test(cell)) return null;
+      return cell.replace(/,/g, '').replace(/%$/, '').trim();
+    }).filter(cell => cell !== null);
+  };
+  const isBulkParticipationPaste = value => /[\r\n\t]/.test(String(value ?? ''));
   const decimalSumEqualsHundred = (left, right) => {
     const normalizedLeft = normalizeDecimal(left); const normalizedRight = normalizeDecimal(right);
     if (normalizedLeft === null || normalizedRight === null) return false;
@@ -458,6 +472,18 @@
       ${calculationDetailCell(member.finalDiamonds)}${readOnlyCell(member.payableDiamonds, 'final', 'diamond')}${calculationDetailCell(member.roundingAdjustment)}${roundedCashCell(member.cashAmount)}
       </tr>`;
     }).join('');
+    const participationPasteDialog = editable ? `<div class="participation-paste-overlay" id="participationPasteDialog" hidden>
+      <section class="participation-paste-dialog" role="dialog" aria-modal="true" aria-labelledby="participationPasteTitle">
+        <div class="participation-paste-dialog-header"><div><h2 id="participationPasteTitle">엑셀 참여율 붙여넣기</h2><p>엑셀에서 복사한 참여율 열을 붙여 넣으면 현재 순위 1위부터 차례대로 입력합니다.</p></div><button type="button" class="participation-paste-close" data-paste-close aria-label="닫기">×</button></div>
+        <label class="participation-paste-label" for="participationPasteInput">참여율 데이터</label>
+        <textarea id="participationPasteInput" rows="9" placeholder="85.12
+85.12
+85.12"></textarea>
+        <p class="participation-paste-preview" id="participationPastePreview" aria-live="polite">참여율 값을 붙여 넣어 주세요.</p>
+        <p class="help-text">한 줄에 하나의 참여율을 입력합니다. 입력 후 저장하려면 상세 화면의 입력값 적용 버튼을 눌러 주세요.</p>
+        <div class="participation-paste-actions"><button type="button" class="btn" data-paste-close>취소</button><button type="button" class="btn btn-primary" id="applyParticipationPaste" disabled>1위부터 적용</button></div>
+      </section>
+    </div>` : '';
     app.innerHTML = `<section class="panel">
       <div class="panel-header"><div><div class="button-row"><a class="btn" href="${DISTRIBUTIONS_LIST_PAGE}">← 목록</a>${statusBadge(period.status)}</div></div>
       <div class="button-row">${editable ? '<button class="btn" id="editPeriodButton" type="button">기간 정보 수정</button><button class="btn btn-danger" data-action="delete" data-write-action>초안 삭제</button><button class="btn" data-action="calculate" data-write-action>계산</button><button class="btn btn-success" data-action="confirm" data-write-action>확정</button>' : ''}${master && period.status === 'CONFIRMED' ? '<button class="btn" data-action="reopen" data-write-action>재개방</button>' : ''}</div></div>
@@ -467,12 +493,13 @@
       <div class="allocation-overview">${allocationSummary}</div>
     </section>
     ${editable ? `<section class="panel period-editor" id="periodEditor" hidden><div class="panel-header"><div><h2>기간 정보 수정</h2><p class="panel-subtitle">초안 상태에서만 수정할 수 있습니다.</p></div><button class="btn" id="closePeriodEditor" type="button">닫기</button></div><form id="periodForm">${periodForm(period)}<div class="form-actions"><button class="btn" id="cancelPeriodEdit" type="button">취소</button><button class="btn btn-primary" data-write-action type="submit">기간 정보 저장</button></div></form></section>` : ''}
-    <section class="panel"><div class="panel-header"><div><h2>길드원 분배 상세</h2><p class="panel-subtitle">${editable ? '입력 탭에서 값을 변경하고 적용하면 각 분배 탭에 다시 계산된 결과가 표시됩니다.' : '분배 유형별로 계산 결과를 나누어 확인할 수 있습니다.'}</p></div>${editable ? '<button class="btn btn-primary" id="bulkSave" data-write-action>입력값 적용</button>' : ''}</div>
+    <section class="panel"><div class="panel-header"><div><h2>길드원 분배 상세</h2><p class="panel-subtitle">${editable ? '입력 탭에서 값을 변경하고 적용하면 각 분배 탭에 다시 계산된 결과가 표시됩니다. 엑셀 참여율은 상단 버튼에서 순위 1위부터 적용할 수 있습니다.' : '분배 유형별로 계산 결과를 나누어 확인할 수 있습니다.'}</p></div>${editable ? '<div class="button-row"><button class="btn" id="pasteParticipationButton" type="button">엑셀 참여율 붙여넣기</button><button class="btn btn-primary" id="bulkSave" data-write-action>입력값 적용</button></div>' : ''}</div>
       <div class="distribution-table-controls"><div class="distribution-view-switch" role="tablist" aria-label="분배 상세 보기">${editable ? `${distributionViewButton('input', '입력')}${distributionViewButton('alliance-settings', '연합분배율 설정')}` : ''}${distributionViewButton('participation', '참여율 분배')}${distributionViewButton('alliance', '연합 분배')}${distributionViewButton('other', '기타 분배')}${distributionViewButton('final', '최종 분배')}${distributionViewButton('all', '전체 보기')}</div><button type="button" class="btn calculation-detail-toggle" id="calculationDetailToggle" aria-expanded="false" hidden>계산 상세 보기</button></div>
       ${allianceTierSettings(editable)}
       <div class="table-wrap" data-member-table-wrap><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 28 : 20}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody><tfoot>${totalRow}</tfoot></table></div>
-      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}순위·닉네임·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다. 하단 합계 행은 전투력과 지급 배율을 제외한 수치형 컬럼을 합산합니다.</p></section>`;
+      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}순위·닉네임·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다. 하단 합계 행은 전투력과 지급 배율을 제외한 수치형 컬럼을 합산합니다.</p></section>${participationPasteDialog}`;
     bindDetailActions(editable);
+    if (editable) bindParticipationPaste();
     bindDistributionView();
   }
 
@@ -499,6 +526,8 @@
     }
     const bulkSave = document.getElementById('bulkSave');
     if (bulkSave) bulkSave.hidden = view !== 'input';
+    const pasteParticipationButton = document.getElementById('pasteParticipationButton');
+    if (pasteParticipationButton) pasteParticipationButton.hidden = view !== 'input';
     document.querySelectorAll('[data-alliance-tier-settings]').forEach(element => { element.hidden = !allianceSettingsVisible; });
     document.querySelectorAll('[data-member-table-wrap], [data-member-table-help]').forEach(element => { element.hidden = allianceSettingsVisible; });
   }
@@ -512,6 +541,72 @@
       applyDistributionView(state.distributionView);
     });
     applyDistributionView(state.distributionView);
+  }
+
+  const participationInputs = () => [...document.querySelectorAll('.member-input[data-field="participationRate"]')];
+  const validateParticipationPasteValues = (values, startIndex, inputCount) => {
+    if (!values.length) return '붙여 넣을 참여율 값이 없습니다.';
+    if (startIndex < 0 || startIndex + values.length > inputCount) return `참여율 ${values.length}개를 붙여 넣을 공간이 부족합니다. 순위 ${inputCount}위까지 입력할 수 있습니다.`;
+    const invalidIndex = values.findIndex(value => value !== '' && (normalizeDecimal(value) === null || Number(value) > 100));
+    if (invalidIndex >= 0) return `붙여 넣은 ${invalidIndex + 1}번째 참여율이 올바르지 않습니다. 0 이상 100 이하의 숫자를 사용해 주세요.`;
+    return '';
+  };
+  const applyParticipationPasteValues = (values, inputs, startIndex) => {
+    values.forEach((value, offset) => {
+      const target = inputs[startIndex + offset];
+      target.value = value === '' ? '' : normalizeDecimal(value);
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  function bindParticipationPaste() {
+    const inputs = participationInputs();
+    inputs.forEach(input => input.addEventListener('paste', event => {
+      const pastedText = event.clipboardData?.getData('text/plain') || '';
+      if (!isBulkParticipationPaste(pastedText)) return;
+
+      event.preventDefault();
+      const values = parseParticipationPaste(pastedText);
+      const startIndex = inputs.indexOf(input);
+      const error = validateParticipationPasteValues(values, startIndex, inputs.length);
+      if (error) return showNotice(error, 'error');
+      applyParticipationPasteValues(values, inputs, startIndex);
+      showNotice(`순위 ${startIndex + 1}위부터 참여율 ${values.length}개를 입력했습니다. 저장하려면 입력값 적용을 눌러 주세요.`, 'success');
+    }));
+
+    const openButton = document.getElementById('pasteParticipationButton');
+    const dialog = document.getElementById('participationPasteDialog');
+    const textarea = document.getElementById('participationPasteInput');
+    const preview = document.getElementById('participationPastePreview');
+    const applyButton = document.getElementById('applyParticipationPaste');
+    if (!openButton || !dialog || !textarea || !preview || !applyButton) return;
+
+    const updatePreview = () => {
+      const values = parseParticipationPaste(textarea.value);
+      const error = validateParticipationPasteValues(values, 0, inputs.length);
+      preview.textContent = error || `참여율 ${values.length}개를 순위 1위부터 적용할 수 있습니다.`;
+      preview.classList.toggle('is-error', Boolean(error));
+      applyButton.disabled = Boolean(error);
+    };
+    const closeDialog = () => { dialog.hidden = true; };
+    openButton.addEventListener('click', () => {
+      textarea.value = '';
+      updatePreview();
+      dialog.hidden = false;
+      textarea.focus();
+    });
+    textarea.addEventListener('input', updatePreview);
+    dialog.querySelectorAll('[data-paste-close]').forEach(button => button.addEventListener('click', closeDialog));
+    dialog.addEventListener('click', event => { if (event.target === dialog) closeDialog(); });
+    dialog.addEventListener('keydown', event => { if (event.key === 'Escape') closeDialog(); });
+    applyButton.addEventListener('click', () => {
+      const values = parseParticipationPaste(textarea.value);
+      const error = validateParticipationPasteValues(values, 0, inputs.length);
+      if (error) return updatePreview();
+      applyParticipationPasteValues(values, inputs, 0);
+      closeDialog();
+      showNotice(`순위 1위부터 참여율 ${values.length}개를 입력했습니다. 저장하려면 입력값 적용을 눌러 주세요.`, 'success');
+    });
   }
 
   function validateMemberValues(values) {
@@ -693,6 +788,6 @@
     }
   }
 
-  window.DistributionUtils = { formatDecimal, formatShare, formatAmountByRoundingMode, formatCompactDecimal, ratioToPercent, percentToRatio, buildAllianceRateTiers, allianceRateForCombatPower, formatDate, validDate, normalizeDecimal, decimalSumEqualsHundred, validatePeriod };
+  window.DistributionUtils = { formatDecimal, formatShare, formatAmountByRoundingMode, formatCompactDecimal, ratioToPercent, percentToRatio, buildAllianceRateTiers, allianceRateForCombatPower, formatDate, validDate, normalizeDecimal, parseParticipationPaste, isBulkParticipationPaste, decimalSumEqualsHundred, validatePeriod };
   init();
 })();

@@ -40,6 +40,9 @@ assert.match(js, /연합 분배/);
 assert.match(js, /기타 분배/);
 assert.match(js, /distributionViewButton\('input', '입력'\)/);
 assert.match(js, /입력값 적용/);
+assert.match(js, /id="pasteParticipationButton"/);
+assert.match(js, /id="participationPasteDialog"/);
+assert.match(js, /1위부터 적용/);
 assert.match(js, /data-distribution-group="input"/);
 assert.match(js, /입력값을 적용하고 분배금을 다시 계산했습니다/);
 assert.match(js, /\/alliance-rate-tiers/);
@@ -109,6 +112,7 @@ assert.match(js, /<tfoot>/);
 assert.doesNotMatch(js, /<span class="muted">제외<\/span>/);
 assert.match(js, /전투력과 지급 배율을 제외한 수치형 컬럼/);
 assert.match(css, /members-table tfoot/);
+assert.match(css, /participation-paste-overlay/);
 
 const noopElement = {
   hidden: false, textContent: '', className: '', innerHTML: '',
@@ -128,6 +132,11 @@ assert.equal(utils.validDate('2024-02-29'), true);
 assert.equal(utils.validDate('2023-02-29'), false);
 assert.equal(utils.validDate('2024-2-09'), false);
 assert.equal(utils.normalizeDecimal('00012.50'), '12.50');
+assert.equal(JSON.stringify(utils.parseParticipationPaste('85.12\r\n85.12\r\n')), JSON.stringify(['85.12', '85.12']));
+assert.equal(JSON.stringify(utils.parseParticipationPaste('85.12\tignored\n1,234.5%')), JSON.stringify(['85.12', '1234.5']));
+assert.equal(JSON.stringify(utils.parseParticipationPaste('| 85.12 |\n| ----: |\n| 80 |')), JSON.stringify(['85.12', '80']));
+assert.equal(utils.isBulkParticipationPaste('85.12\n80'), true);
+assert.equal(utils.isBulkParticipationPaste('85.12'), false);
 assert.equal(utils.normalizeDecimal('-1'), null);
 assert.equal(utils.formatDecimal('12345.67'), '12,345.67');
 assert.equal(utils.formatShare('0.43493389004871259568545581071677105080027835768963'), '43.49%');
