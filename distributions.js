@@ -159,18 +159,70 @@
     const [integer, fraction] = text.split('.');
     return `${integer.replace(/^0+(?=\d)/, '')}${fraction === undefined ? '' : `.${fraction}`}`;
   };
-  const parseParticipationPaste = value => {
+  const normalizeNickname = value => {
+    const text = String(value ?? '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '').trim();
+    return typeof text.normalize === 'function' ? text.normalize('NFKC') : text;
+  };
+  const normalizeParticipationPasteCell = value => {
+    let cell = String(value ?? '').trim();
+    cell = cell.replace(/^\*\*(.*?)\*\*$/, '$1').replace(/^__(.*?)__$/, '$1').trim();
+    if (/^:?-{2,}:?$/.test(cell)) return null;
+    return cell.replace(/,/g, '').replace(/%$/, '').trim();
+  };
+  const parseParticipationPasteRows = value => {
     const text = String(value ?? '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
     const rows = text.split('\n');
     while (rows.length && rows[rows.length - 1].trim() === '') rows.pop();
     return rows.map(row => {
-      let cell = row.split('\t')[0].trim();
-      if (cell.startsWith('|')) {
-        cell = cell.split('|').map(part => part.trim()).find(part => part !== '') || '';
+      const trimmedRow = row.trim();
+      const cells = trimmedRow.startsWith('|') && trimmedRow.endsWith('|')
+        ? trimmedRow.slice(1, -1).split('|')
+        : trimmedRow.includes('\t') ? trimmedRow.split('\t') : trimmedRow.split(/\s+/);
+      return cells.map(normalizeParticipationPasteCell);
+    }).filter(row => !row.every(cell => cell === null));
+  };
+  const parseParticipationPasteData = value => {
+    const rows = parseParticipationPasteRows(value);
+    const firstRowLooksLikeNicknameHeaders = rows.length >= 2 && rows[0].length > 1 && rows[1].length > 1 && !rows[0].every(cell => cell === '' || normalizeDecimal(cell) !== null);
+    if (firstRowLooksLikeNicknameHeaders) {
+      return {
+        mode: 'nickname',
+        entries: rows[0].map((nickname, index) => ({ nickname: nickname || '', value: rows[1][index] ?? null })),
+      };
+    }
+    return { mode: 'rank', values: rows.map(row => row[0] ?? '') };
+  };
+  const parseParticipationPaste = value => {
+    const parsed = parseParticipationPasteData(value);
+    return parsed.mode === 'rank' ? parsed.values : [];
+  };
+  const mapParticipationPasteByNickname = (entries, members = []) => {
+    const membersByNickname = new Map(members.map(member => [normalizeNickname(member.nickname), member]));
+    const seen = new Set();
+    const mappedEntries = [];
+    const unknownNicknames = [];
+    const duplicateNicknames = [];
+    const missingValueNicknames = [];
+    entries.forEach(entry => {
+      const nickname = normalizeNickname(entry.nickname);
+      if (!nickname) return;
+      if (seen.has(nickname)) {
+        duplicateNicknames.push(nickname);
+        return;
       }
-      if (/^:?-{2,}:?$/.test(cell)) return null;
-      return cell.replace(/,/g, '').replace(/%$/, '').trim();
-    }).filter(cell => cell !== null);
+      seen.add(nickname);
+      const member = membersByNickname.get(nickname);
+      if (!member) {
+        unknownNicknames.push(nickname);
+        return;
+      }
+      if (entry.value === null) {
+        missingValueNicknames.push(nickname);
+        return;
+      }
+      mappedEntries.push({ memberId: member.id, nickname: member.nickname, value: entry.value });
+    });
+    return { mappedEntries, unknownNicknames, duplicateNicknames, missingValueNicknames };
   };
   const isBulkParticipationPaste = value => /[\r\n\t]/.test(String(value ?? ''));
   const decimalSumEqualsHundred = (left, right) => {
@@ -474,13 +526,12 @@
     }).join('');
     const participationPasteDialog = editable ? `<div class="participation-paste-overlay" id="participationPasteDialog" hidden>
       <section class="participation-paste-dialog" role="dialog" aria-modal="true" aria-labelledby="participationPasteTitle">
-        <div class="participation-paste-dialog-header"><div><h2 id="participationPasteTitle">엑셀 참여율 붙여넣기</h2><p>엑셀에서 복사한 참여율 열을 붙여 넣으면 현재 순위 1위부터 차례대로 입력합니다.</p></div><button type="button" class="participation-paste-close" data-paste-close aria-label="닫기">×</button></div>
+        <div class="participation-paste-dialog-header"><div><h2 id="participationPasteTitle">엑셀 참여율 붙여넣기</h2><p>세로형은 순위순으로, 가로형은 첫 행의 닉네임을 기준으로 참여율을 입력합니다.</p></div><button type="button" class="participation-paste-close" data-paste-close aria-label="닫기">×</button></div>
         <label class="participation-paste-label" for="participationPasteInput">참여율 데이터</label>
-        <textarea id="participationPasteInput" rows="9" placeholder="85.12
-85.12
-85.12"></textarea>
+        <textarea id="participationPasteInput" rows="9" placeholder="축제	그냥대지	득꼬
+18%	61%	63%"></textarea>
         <p class="participation-paste-preview" id="participationPastePreview" aria-live="polite">참여율 값을 붙여 넣어 주세요.</p>
-        <p class="help-text">한 줄에 하나의 참여율을 입력합니다. 입력 후 저장하려면 상세 화면의 입력값 적용 버튼을 눌러 주세요.</p>
+        <p class="help-text">세로형: 한 줄에 하나의 참여율 · 가로형: 첫 행 닉네임, 다음 행 참여율. 입력 후 저장하려면 상세 화면의 입력값 적용 버튼을 눌러 주세요.</p>
         <div class="participation-paste-actions"><button type="button" class="btn" data-paste-close>취소</button><button type="button" class="btn btn-primary" id="applyParticipationPaste" disabled>1위부터 적용</button></div>
       </section>
     </div>` : '';
@@ -544,12 +595,33 @@
   }
 
   const participationInputs = () => [...document.querySelectorAll('.member-input[data-field="participationRate"]')];
+  const formatParticipationPasteNames = names => `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}명` : ''}`;
   const validateParticipationPasteValues = (values, startIndex, inputCount) => {
     if (!values.length) return '붙여 넣을 참여율 값이 없습니다.';
     if (startIndex < 0 || startIndex + values.length > inputCount) return `참여율 ${values.length}개를 붙여 넣을 공간이 부족합니다. 순위 ${inputCount}위까지 입력할 수 있습니다.`;
     const invalidIndex = values.findIndex(value => value !== '' && (normalizeDecimal(value) === null || Number(value) > 100));
     if (invalidIndex >= 0) return `붙여 넣은 ${invalidIndex + 1}번째 참여율이 올바르지 않습니다. 0 이상 100 이하의 숫자를 사용해 주세요.`;
     return '';
+  };
+  const createParticipationPastePlan = (value, inputCount, startIndex = 0) => {
+    const parsed = parseParticipationPasteData(value);
+    if (parsed.mode === 'rank') {
+      return {
+        mode: 'rank', values: parsed.values, entries: [], warning: '',
+        error: validateParticipationPasteValues(parsed.values, startIndex, inputCount),
+      };
+    }
+    const emptyNicknameEntries = parsed.entries.filter(entry => !normalizeNickname(entry.nickname) && entry.value !== null && entry.value !== '');
+    const mapping = mapParticipationPasteByNickname(parsed.entries, state.period?.members || []);
+    let error = '';
+    if (emptyNicknameEntries.length) error = '닉네임이 없는 열에 참여율이 입력되어 있습니다.';
+    if (!error && mapping.duplicateNicknames.length) error = `닉네임이 중복되었습니다: ${formatParticipationPasteNames(mapping.duplicateNicknames)}`;
+    if (!error && mapping.missingValueNicknames.length) error = `참여율 값이 없는 닉네임이 있습니다: ${formatParticipationPasteNames(mapping.missingValueNicknames)}`;
+    if (!error && !mapping.mappedEntries.length) error = '현재 분배 대상에서 일치하는 닉네임을 찾지 못했습니다.';
+    const invalidEntry = mapping.mappedEntries.find(entry => entry.value !== '' && (normalizeDecimal(entry.value) === null || Number(entry.value) > 100));
+    if (!error && invalidEntry) error = `${invalidEntry.nickname}의 참여율이 올바르지 않습니다. 0 이상 100 이하의 숫자를 사용해 주세요.`;
+    const warning = mapping.unknownNicknames.length ? `찾지 못한 닉네임은 건너뜁니다: ${formatParticipationPasteNames(mapping.unknownNicknames)}` : '';
+    return { mode: 'nickname', values: [], entries: mapping.mappedEntries, warning, error };
   };
   const applyParticipationPasteValues = (values, inputs, startIndex) => {
     values.forEach((value, offset) => {
@@ -558,6 +630,19 @@
       target.dispatchEvent(new Event('input', { bubbles: true }));
     });
   };
+  const applyParticipationPastePlan = (plan, inputs, startIndex) => {
+    if (plan.mode === 'rank') return applyParticipationPasteValues(plan.values, inputs, startIndex);
+    const inputsByMemberId = new Map(inputs.map(input => [String(input.dataset.memberId), input]));
+    plan.entries.forEach(entry => {
+      const target = inputsByMemberId.get(String(entry.memberId));
+      if (!target) return;
+      target.value = entry.value === '' ? '' : normalizeDecimal(entry.value);
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+  const participationPasteSuccessMessage = (plan, startIndex) => plan.mode === 'nickname'
+    ? `닉네임 기준으로 참여율 ${plan.entries.length}명을 입력했습니다.`
+    : `순위 ${startIndex + 1}위부터 참여율 ${plan.values.length}개를 입력했습니다.`;
 
   function bindParticipationPaste() {
     const inputs = participationInputs();
@@ -566,12 +651,12 @@
       if (!isBulkParticipationPaste(pastedText)) return;
 
       event.preventDefault();
-      const values = parseParticipationPaste(pastedText);
       const startIndex = inputs.indexOf(input);
-      const error = validateParticipationPasteValues(values, startIndex, inputs.length);
+      const plan = createParticipationPastePlan(pastedText, inputs.length, startIndex);
+      const error = plan.error;
       if (error) return showNotice(error, 'error');
-      applyParticipationPasteValues(values, inputs, startIndex);
-      showNotice(`순위 ${startIndex + 1}위부터 참여율 ${values.length}개를 입력했습니다. 저장하려면 입력값 적용을 눌러 주세요.`, 'success');
+      applyParticipationPastePlan(plan, inputs, startIndex);
+      showNotice(`${participationPasteSuccessMessage(plan, startIndex)} 저장하려면 입력값 적용을 눌러 주세요.`, 'success');
     }));
 
     const openButton = document.getElementById('pasteParticipationButton');
@@ -582,11 +667,12 @@
     if (!openButton || !dialog || !textarea || !preview || !applyButton) return;
 
     const updatePreview = () => {
-      const values = parseParticipationPaste(textarea.value);
-      const error = validateParticipationPasteValues(values, 0, inputs.length);
-      preview.textContent = error || `참여율 ${values.length}개를 순위 1위부터 적용할 수 있습니다.`;
-      preview.classList.toggle('is-error', Boolean(error));
-      applyButton.disabled = Boolean(error);
+      const plan = createParticipationPastePlan(textarea.value, inputs.length, 0);
+      preview.textContent = plan.error || `${participationPasteSuccessMessage(plan, 0)}${plan.warning ? ` ${plan.warning}` : ''}`;
+      preview.classList.toggle('is-error', Boolean(plan.error));
+      preview.classList.toggle('is-warning', !plan.error && Boolean(plan.warning));
+      applyButton.disabled = Boolean(plan.error);
+      applyButton.textContent = plan.mode === 'nickname' ? '닉네임 기준 적용' : '1위부터 적용';
     };
     const closeDialog = () => { dialog.hidden = true; };
     openButton.addEventListener('click', () => {
@@ -600,12 +686,11 @@
     dialog.addEventListener('click', event => { if (event.target === dialog) closeDialog(); });
     dialog.addEventListener('keydown', event => { if (event.key === 'Escape') closeDialog(); });
     applyButton.addEventListener('click', () => {
-      const values = parseParticipationPaste(textarea.value);
-      const error = validateParticipationPasteValues(values, 0, inputs.length);
-      if (error) return updatePreview();
-      applyParticipationPasteValues(values, inputs, 0);
+      const plan = createParticipationPastePlan(textarea.value, inputs.length, 0);
+      if (plan.error) return updatePreview();
+      applyParticipationPastePlan(plan, inputs, 0);
       closeDialog();
-      showNotice(`순위 1위부터 참여율 ${values.length}개를 입력했습니다. 저장하려면 입력값 적용을 눌러 주세요.`, 'success');
+      showNotice(`${participationPasteSuccessMessage(plan, 0)} 저장하려면 입력값 적용을 눌러 주세요.`, 'success');
     });
   }
 
@@ -788,6 +873,6 @@
     }
   }
 
-  window.DistributionUtils = { formatDecimal, formatShare, formatAmountByRoundingMode, formatCompactDecimal, ratioToPercent, percentToRatio, buildAllianceRateTiers, allianceRateForCombatPower, formatDate, validDate, normalizeDecimal, parseParticipationPaste, isBulkParticipationPaste, decimalSumEqualsHundred, validatePeriod };
+  window.DistributionUtils = { formatDecimal, formatShare, formatAmountByRoundingMode, formatCompactDecimal, ratioToPercent, percentToRatio, buildAllianceRateTiers, allianceRateForCombatPower, formatDate, validDate, normalizeDecimal, parseParticipationPaste, parseParticipationPasteData, mapParticipationPasteByNickname, isBulkParticipationPaste, decimalSumEqualsHundred, validatePeriod };
   init();
 })();

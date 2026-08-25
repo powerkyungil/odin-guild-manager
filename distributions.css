@@ -285,6 +285,7 @@ body {
 .participation-paste-dialog textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(99,102,241,.16); }
 .participation-paste-preview { margin: 10px 0 0; color: #60a5fa; font-size: 13px; font-weight: 800; }
 .participation-paste-preview.is-error { color: #f87171; }
+.participation-paste-preview.is-warning { color: #fbbf24; }
 .participation-paste-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .loading-card { padding: 46px; text-align: center; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; }
 .help-text { color: var(--text-muted); font-size: 12px; margin: 10px 0 0; }
