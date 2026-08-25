@@ -53,15 +53,31 @@ assert.match(js, /renderAllianceTierRows/);
 assert.doesNotMatch(js, /insertAdjacentHTML\('beforeend', allianceTierRow/);
 assert.match(js, /buildAllianceRateTiers/);
 assert.match(js, /allianceRateForCombatPower/);
-assert.match(js, /id="siegeDiamonds"/);
-assert.match(js, /id="guildCash"/);
-assert.match(js, /id="scrollCraftDiamonds"/);
-assert.match(js, /id="instantReviveDiamonds"/);
+assert.match(js, /id="heldDiamonds"/);
+assert.match(js, /id="heldCash"/);
+assert.match(js, /id="allianceReceivedDiamonds"/);
+assert.match(js, /id="allianceReceivedCash"/);
+assert.match(js, /id="distributionDiamonds"/);
+assert.match(js, /id="distributionCash"/);
+assert.match(js, /id="remainingDiamonds"/);
+assert.match(js, /id="remainingCash"/);
+assert.match(js, /period-form-grid/);
+assert.match(js, /현재 보유 재화/);
+assert.match(js, /이번에 받은 재화/);
+assert.match(js, /이번에 분배할 재화/);
+assert.match(js, /남은 재화/);
+assert.doesNotMatch(js, /id="siegeDiamonds"/);
+assert.doesNotMatch(js, /id="guildCash"/);
+assert.doesNotMatch(js, /id="scrollCraftDiamonds"/);
+assert.doesNotMatch(js, /id="instantReviveDiamonds"/);
+assert.doesNotMatch(js, /id="totalFund"/);
+assert.match(js, /fundingSummary/);
+assert.match(js, /currency-reconciliation-summary/);
 assert.match(js, /fundingTotalCash/);
 assert.match(js, /baseFundCash/);
 assert.match(js, /supportTotalCash/);
-assert.match(js, /자동 합산·반올림/);
-assert.match(js, /Math\.round\(total\)/);
+assert.match(js, /재화 소수점 처리/);
+assert.match(js, /!period\.roundingMode && value === 'ROUND'/);
 assert.match(js, /rankedMembers/);
 assert.match(js, /class="rank-column"/);
 assert.match(js, /nicknameColumnWidth\(period\.members\)/);
@@ -87,6 +103,12 @@ assert.match(js, /Number\(member\.userId\) === state\.currentUserId/);
 assert.doesNotMatch(js, /<th>직업<\/th><th>클래스<\/th>/);
 assert.doesNotMatch(js, /escapeHtml\(member\.occupation \|\| '-'\)/);
 assert.match(css, /current-member-badge/);
+assert.match(js, /totals-row/);
+assert.match(js, /길드원 분배 상세 합계/);
+assert.match(js, /<tfoot>/);
+assert.doesNotMatch(js, /<span class="muted">제외<\/span>/);
+assert.match(js, /전투력과 지급 배율을 제외한 수치형 컬럼/);
+assert.match(css, /members-table tfoot/);
 
 const noopElement = {
   hidden: false, textContent: '', className: '', innerHTML: '',
@@ -145,5 +167,6 @@ assert.equal(utils.decimalSumEqualsHundred('33.333333333333333333', '66.66666666
 assert.equal(utils.validatePeriod({ title: '1회차', startDate: '2026-08-01', endDate: '2026-08-31', totalFund: '1000', participationWeight: '50', allianceWeight: '50', cashRate: '4.5' }), '');
 assert.match(utils.validatePeriod({ title: '1회차', startDate: '2026-09-01', endDate: '2026-08-31', totalFund: '1000', participationWeight: '50', allianceWeight: '50', cashRate: '4.5' }), /늦을 수 없습니다/);
 assert.match(utils.validatePeriod({ title: '1회차', startDate: '2026-08-01', endDate: '2026-08-31', totalFund: '1000', participationWeight: '40', allianceWeight: '50', cashRate: '4.5' }), /합은 100/);
+assert.match(utils.validatePeriod({ title: '1회차', startDate: '2026-08-01', endDate: '2026-08-31', totalFund: '1000', participationWeight: '50', allianceWeight: '50', cashRate: '4.5', heldDiamonds: '100', allianceReceivedDiamonds: '20', distributionDiamonds: '121', heldCash: '0', allianceReceivedCash: '0', distributionCash: '0' }), /사용 가능한 다이아/);
 
 console.log('Distribution UI tests passed.');

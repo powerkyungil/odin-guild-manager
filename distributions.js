@@ -168,13 +168,56 @@
     const scaled = (integer, fraction) => BigInt(`${integer}${fraction.padEnd(scale, '0')}`);
     return scaled(leftInteger, leftFraction) + scaled(rightInteger, rightFraction) === 100n * (10n ** BigInt(scale));
   };
+  const numericValue = value => {
+    const number = Number(value ?? 0);
+    return Number.isFinite(number) ? number : 0;
+  };
+  const legacyDistributionDiamonds = period => String(Math.max(0, numericValue(period.siegeDiamonds) + numericValue(period.scrollCraftDiamonds) + numericValue(period.instantReviveDiamonds)));
+  const decimalCompare = (left, right) => {
+    const normalizedLeft = normalizeDecimal(left); const normalizedRight = normalizeDecimal(right);
+    if (normalizedLeft === null || normalizedRight === null) return null;
+    const [leftInteger, leftFraction = ''] = normalizedLeft.split('.');
+    const [rightInteger, rightFraction = ''] = normalizedRight.split('.');
+    const scale = Math.max(leftFraction.length, rightFraction.length);
+    const leftScaled = BigInt(`${leftInteger}${leftFraction.padEnd(scale, '0')}`);
+    const rightScaled = BigInt(`${rightInteger}${rightFraction.padEnd(scale, '0')}`);
+    return leftScaled === rightScaled ? 0 : leftScaled > rightScaled ? 1 : -1;
+  };
+  const decimalAdd = (left, right) => {
+    const normalizedLeft = normalizeDecimal(left) || '0'; const normalizedRight = normalizeDecimal(right) || '0';
+    const [leftInteger, leftFraction = ''] = normalizedLeft.split('.');
+    const [rightInteger, rightFraction = ''] = normalizedRight.split('.');
+    const scale = Math.max(leftFraction.length, rightFraction.length);
+    const scaled = BigInt(`${leftInteger}${leftFraction.padEnd(scale, '0')}`) + BigInt(`${rightInteger}${rightFraction.padEnd(scale, '0')}`);
+    const text = scaled.toString().padStart(scale + 1, '0');
+    return scale ? `${text.slice(0, -scale)}.${text.slice(-scale).replace(/0+$/, '') || '0'}` : text;
+  };
+  const decimalSubtract = (left, right) => {
+    const normalizedLeft = normalizeDecimal(left) || '0'; const normalizedRight = normalizeDecimal(right) || '0';
+    const [leftInteger, leftFraction = ''] = normalizedLeft.split('.');
+    const [rightInteger, rightFraction = ''] = normalizedRight.split('.');
+    const scale = Math.max(leftFraction.length, rightFraction.length);
+    const scaled = BigInt(`${leftInteger}${leftFraction.padEnd(scale, '0')}`) - BigInt(`${rightInteger}${rightFraction.padEnd(scale, '0')}`);
+    const negative = scaled < 0n; const magnitude = (negative ? -scaled : scaled).toString().padStart(scale + 1, '0');
+    return `${negative ? '-' : ''}${scale ? `${magnitude.slice(0, -scale)}.${magnitude.slice(-scale).replace(/0+$/, '') || '0'}` : magnitude}`;
+  };
+  const reconciliationValues = period => ({
+    heldDiamonds: period.heldDiamonds ?? legacyDistributionDiamonds(period),
+    heldCash: period.heldCash ?? period.guildCash ?? '0',
+    allianceReceivedDiamonds: period.allianceReceivedDiamonds ?? '0',
+    allianceReceivedCash: period.allianceReceivedCash ?? '0',
+    distributionDiamonds: period.distributionDiamonds ?? legacyDistributionDiamonds(period),
+    distributionCash: period.distributionCash ?? period.guildCash ?? '0',
+  });
   const validatePeriod = values => {
     if (!values.title.trim()) return '제목 또는 회차명을 입력해 주세요.';
     if (!validDate(values.startDate) || !validDate(values.endDate)) return '날짜는 실제 존재하는 YYYY-MM-DD 형식이어야 합니다.';
     if (values.startDate > values.endDate) return '시작일은 종료일보다 늦을 수 없습니다.';
-    const decimals = ['totalFund', 'participationWeight', 'allianceWeight', 'cashRate', 'siegeDiamonds', 'guildCash', 'scrollCraftDiamonds', 'instantReviveDiamonds'].filter(key => values[key] !== undefined);
+    const decimals = ['totalFund', 'participationWeight', 'allianceWeight', 'cashRate', 'siegeDiamonds', 'guildCash', 'scrollCraftDiamonds', 'instantReviveDiamonds', 'heldDiamonds', 'heldCash', 'allianceReceivedDiamonds', 'allianceReceivedCash', 'distributionDiamonds', 'distributionCash'].filter(key => values[key] !== undefined);
     if (decimals.some(key => normalizeDecimal(values[key]) === null)) return '분배 재원, 비중, 환산율은 0 이상의 숫자여야 합니다.';
-    if (Number(values.guildCash || 0) > 0 && Number(values.cashRate) <= 0) return '길드 현금이 있으면 현금 환산율은 0보다 커야 합니다.';
+    if (Number(values.distributionCash || values.guildCash || 0) > 0 && Number(values.cashRate) <= 0) return '분배할 현금이 있으면 현금 환산율은 0보다 커야 합니다.';
+    if (decimalCompare(values.distributionDiamonds, decimalAdd(values.heldDiamonds, values.allianceReceivedDiamonds)) > 0) return '실제 분배 다이아가 사용 가능한 다이아를 초과합니다.';
+    if (decimalCompare(values.distributionCash, decimalAdd(values.heldCash, values.allianceReceivedCash)) > 0) return '실제 분배 현금이 사용 가능한 현금을 초과합니다.';
     if (!decimalSumEqualsHundred(values.participationWeight, values.allianceWeight)) return '참여율 비중과 연합분배율 비중의 합은 100이어야 합니다.';
     return '';
   };
@@ -204,45 +247,73 @@
   const tenThousandsLabel = value => `${formatCompactDecimal(Number(value) / 10000, 1)}만`;
   const statusBadge = status => `<span class="status-badge status-${status === 'CONFIRMED' ? 'confirmed' : 'draft'}">${status === 'CONFIRMED' ? '확정' : '초안'}</span>`;
 
-  const periodForm = (period = {}) => `
-    <div class="form-grid">
+  const periodForm = (period = {}) => {
+    const reconciliation = reconciliationValues(period);
+    return `
+    <div class="form-grid period-form-grid">
       <div class="field field-wide"><label for="title">제목 또는 회차명</label><input id="title" maxlength="100" required value="${escapeHtml(period.title || '')}"></div>
       <div class="field"><label for="startDate">시작일</label><input id="startDate" type="date" required value="${escapeHtml(period.startDate || '')}"></div>
       <div class="field"><label for="endDate">종료일</label><input id="endDate" type="date" required value="${escapeHtml(period.endDate || '')}"></div>
-      <div class="field"><label for="siegeDiamonds">공성 다이아 <span aria-hidden="true">💎</span></label><input id="siegeDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.siegeDiamonds ?? period.totalFund ?? '0')}"></div>
-      <div class="field"><label for="guildCash">길드 현금 <span aria-hidden="true">💰</span></label><input id="guildCash" type="number" min="0" step="any" required value="${escapeHtml(period.guildCash ?? '0')}"></div>
-      <div class="field"><label for="scrollCraftDiamonds">스크롤 제작 다이아 <span aria-hidden="true">💎</span></label><input id="scrollCraftDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.scrollCraftDiamonds ?? '0')}"></div>
-      <div class="field"><label for="instantReviveDiamonds">즉시부활 다이아 <span aria-hidden="true">💎</span></label><input id="instantReviveDiamonds" type="number" min="0" step="any" required value="${escapeHtml(period.instantReviveDiamonds ?? '0')}"></div>
-      <div class="field"><label for="totalFund">전체 분배 재원 (자동 합산·반올림) <span aria-hidden="true">💎</span></label><input id="totalFund" type="number" min="0" step="1" readonly value="${escapeHtml(formatAmountByRoundingMode(period.totalFund ?? '0', 'ROUND').replaceAll(',', ''))}"></div>
-      <div class="field"><label for="participationWeight">참여율 배분 비중 (%)</label><input id="participationWeight" type="number" min="0" step="any" required value="${escapeHtml(period.participationWeight ?? '50')}"></div>
-      <div class="field"><label for="allianceWeight">연합분배율 배분 비중 (%)</label><input id="allianceWeight" type="number" min="0" step="any" required value="${escapeHtml(period.allianceWeight ?? '50')}"></div>
-      <div class="field"><label for="cashRate">현금 환산율</label><input id="cashRate" type="number" min="0" step="any" required value="${escapeHtml(period.cashRate ?? '4.5')}"></div>
-      <div class="field"><label for="roundingMode">다이아 소수점 처리</label><select id="roundingMode">${Object.entries(ROUNDING_LABELS).map(([value, label]) => `<option value="${value}" ${period.roundingMode === value || (!period.roundingMode && value === 'NONE') ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
+      <section class="period-section resource-section field-wide"><div class="period-section-heading"><h3>현재 보유 재화</h3><p>분배 기간 시작 전에 길드가 보유한 재화입니다.</p></div><div class="resource-grid">
+        <div class="field"><label for="heldDiamonds">보유 다이아 <span aria-hidden="true">💎</span></label><input id="heldDiamonds" type="number" min="0" step="any" required value="${escapeHtml(reconciliation.heldDiamonds)}"></div>
+        <div class="field"><label for="heldCash">보유 현금 <span aria-hidden="true">💰</span></label><input id="heldCash" type="number" min="0" step="any" required value="${escapeHtml(reconciliation.heldCash)}"></div>
+      </div></section>
+      <section class="period-section resource-section field-wide"><div class="period-section-heading"><h3>이번에 받은 재화</h3><p>이번 분배 기간에 연합으로부터 받은 재화입니다.</p></div><div class="resource-grid">
+        <div class="field"><label for="allianceReceivedDiamonds">받은 다이아 <span aria-hidden="true">💎</span></label><input id="allianceReceivedDiamonds" type="number" min="0" step="any" required value="${escapeHtml(reconciliation.allianceReceivedDiamonds)}"></div>
+        <div class="field"><label for="allianceReceivedCash">받은 현금 <span aria-hidden="true">💰</span></label><input id="allianceReceivedCash" type="number" min="0" step="any" required value="${escapeHtml(reconciliation.allianceReceivedCash)}"></div>
+      </div></section>
+      <section class="period-section resource-section field-wide"><div class="period-section-heading"><h3>이번에 분배할 재화</h3><p>보유 재화와 이번에 받은 재화 중 실제로 분배할 금액입니다.</p></div><div class="resource-grid">
+        <div class="field"><label for="distributionDiamonds">분배할 다이아 <span aria-hidden="true">💎</span></label><input id="distributionDiamonds" type="number" min="0" step="any" required value="${escapeHtml(reconciliation.distributionDiamonds)}"></div>
+        <div class="field"><label for="distributionCash">분배할 현금 <span aria-hidden="true">💰</span></label><input id="distributionCash" type="number" min="0" step="any" required value="${escapeHtml(reconciliation.distributionCash)}"></div>
+      </div></section>
+      <section class="period-section resource-section field-wide"><div class="period-section-heading"><h3>남은 재화</h3><p>보유 재화와 이번에 받은 재화의 합계에서 분배할 재화를 뺀 금액입니다.</p></div><div class="resource-grid">
+        <div class="field"><label for="remainingDiamonds">남은 다이아 <span aria-hidden="true">💎</span></label><input id="remainingDiamonds" type="text" readonly></div>
+        <div class="field"><label for="remainingCash">남은 현금 <span aria-hidden="true">💰</span></label><input id="remainingCash" type="text" readonly></div>
+      </div></section>
+      <section class="period-section settings-section field-wide"><div class="period-section-heading"><h3>분배 설정</h3></div><div class="settings-grid">
+        <div class="field"><label for="participationWeight">참여 분배비율 (%)</label><input id="participationWeight" type="number" min="0" step="any" required value="${escapeHtml(period.participationWeight ?? '50')}"></div>
+        <div class="field"><label for="allianceWeight">연합 분배비율 (%)</label><input id="allianceWeight" type="number" min="0" step="any" required value="${escapeHtml(period.allianceWeight ?? '50')}"></div>
+        <div class="field"><label for="cashRate">현금 환산율</label><input id="cashRate" type="number" min="0" step="any" required value="${escapeHtml(period.cashRate ?? '4.5')}"></div>
+        <div class="field"><label for="roundingMode">재화 소수점 처리</label><select id="roundingMode">${Object.entries(ROUNDING_LABELS).map(([value, label]) => `<option value="${value}" ${period.roundingMode === value || (!period.roundingMode && value === 'ROUND') ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
+      </div></section>
     </div>
     <p id="formError" class="field-error" role="alert"></p>`;
+  };
 
   const readPeriodForm = () => ({
     title: document.getElementById('title').value.trim(), startDate: document.getElementById('startDate').value,
-    endDate: document.getElementById('endDate').value, totalFund: document.getElementById('totalFund').value,
-    siegeDiamonds: document.getElementById('siegeDiamonds').value, guildCash: document.getElementById('guildCash').value,
-    scrollCraftDiamonds: document.getElementById('scrollCraftDiamonds').value, instantReviveDiamonds: document.getElementById('instantReviveDiamonds').value,
+    endDate: document.getElementById('endDate').value, totalFund: '0',
+    heldDiamonds: document.getElementById('heldDiamonds').value, heldCash: document.getElementById('heldCash').value,
+    allianceReceivedDiamonds: document.getElementById('allianceReceivedDiamonds').value, allianceReceivedCash: document.getElementById('allianceReceivedCash').value,
+    distributionDiamonds: document.getElementById('distributionDiamonds').value, distributionCash: document.getElementById('distributionCash').value,
     participationWeight: document.getElementById('participationWeight').value, allianceWeight: document.getElementById('allianceWeight').value,
     cashRate: document.getElementById('cashRate').value, roundingMode: document.getElementById('roundingMode').value
   });
-  const normalizedPeriodPayload = values => ({ ...values,
-    totalFund: normalizeDecimal(values.totalFund), participationWeight: normalizeDecimal(values.participationWeight),
+  const normalizedPeriodPayload = values => {
+    const distributionDiamonds = normalizeDecimal(values.distributionDiamonds) || '0';
+    const distributionCash = normalizeDecimal(values.distributionCash) || '0';
+    return { ...values,
+    totalFund: '0', participationWeight: normalizeDecimal(values.participationWeight),
     allianceWeight: normalizeDecimal(values.allianceWeight), cashRate: normalizeDecimal(values.cashRate),
-    siegeDiamonds: normalizeDecimal(values.siegeDiamonds), guildCash: normalizeDecimal(values.guildCash),
-    scrollCraftDiamonds: normalizeDecimal(values.scrollCraftDiamonds), instantReviveDiamonds: normalizeDecimal(values.instantReviveDiamonds)
-  });
+    siegeDiamonds: distributionDiamonds, guildCash: distributionCash,
+    scrollCraftDiamonds: '0', instantReviveDiamonds: '0',
+    heldDiamonds: normalizeDecimal(values.heldDiamonds), heldCash: normalizeDecimal(values.heldCash),
+    allianceReceivedDiamonds: normalizeDecimal(values.allianceReceivedDiamonds), allianceReceivedCash: normalizeDecimal(values.allianceReceivedCash),
+    distributionDiamonds, distributionCash
+    };
+  };
   const updateFundingTotal = () => {
-    const rate = Number(document.getElementById('cashRate')?.value || 0); const guildCash = Number(document.getElementById('guildCash')?.value || 0);
-    const diamonds = ['siegeDiamonds', 'scrollCraftDiamonds', 'instantReviveDiamonds'].reduce((sum, id) => sum + Number(document.getElementById(id)?.value || 0), 0);
-    const total = diamonds + (rate > 0 ? guildCash / rate : 0);
-    const field = document.getElementById('totalFund'); if (field) field.value = Number.isFinite(total) ? String(Math.round(total)) : '0';
+    const heldDiamonds = document.getElementById('heldDiamonds')?.value || '0'; const receivedDiamonds = document.getElementById('allianceReceivedDiamonds')?.value || '0';
+    const heldCash = document.getElementById('heldCash')?.value || '0'; const receivedCash = document.getElementById('allianceReceivedCash')?.value || '0';
+    const distributionDiamonds = document.getElementById('distributionDiamonds')?.value || '0'; const distributionCash = document.getElementById('distributionCash')?.value || '0';
+    const mode = document.getElementById('roundingMode')?.value || 'ROUND';
+    const setReadonly = (id, value) => { const target = document.getElementById(id); if (target) target.value = formatAmountByRoundingMode(value, mode).replaceAll(',', ''); };
+    setReadonly('remainingDiamonds', decimalSubtract(decimalAdd(heldDiamonds, receivedDiamonds), distributionDiamonds)); setReadonly('remainingCash', decimalSubtract(decimalAdd(heldCash, receivedCash), distributionCash));
   };
   const bindFundingForm = () => {
-    ['siegeDiamonds', 'guildCash', 'scrollCraftDiamonds', 'instantReviveDiamonds', 'cashRate'].forEach(id => document.getElementById(id)?.addEventListener('input', updateFundingTotal)); updateFundingTotal();
+    ['heldDiamonds', 'heldCash', 'allianceReceivedDiamonds', 'allianceReceivedCash', 'distributionDiamonds', 'distributionCash'].forEach(id => document.getElementById(id)?.addEventListener('input', updateFundingTotal));
+    document.getElementById('roundingMode')?.addEventListener('change', updateFundingTotal);
+    updateFundingTotal();
   };
 
   async function renderList() {
@@ -346,8 +417,32 @@
         ${summaryItem('현금 환산액', roundedCashDisplay(totals.cashAmount), true)}
       </dl></section>`;
     const fundingSummary = `<section class="funding-summary"><div><h3>분배 재원 입력</h3><dl class="summary-grid funding-grid">${summaryItem('공성 다이아', diamondValue(formatDecimal(period.siegeDiamonds)))}${summaryItem('길드 현금', cashValue(formatDecimal(period.guildCash)))}${summaryItem('스크롤 제작 다이아', diamondValue(formatDecimal(period.scrollCraftDiamonds)))}${summaryItem('즉시부활 다이아', diamondValue(formatDecimal(period.instantReviveDiamonds)))}${summaryItem('입력 재원 합계 (다이아)', diamondValue(formatDecimal(period.totalFund)), true)}${summaryItem('입력 재원 합계 (현금)', roundedCashDisplay(totals.fundingTotalCash), true)}</dl></div><div><h3>분배 합산</h3><dl class="summary-grid funding-grid">${summaryItem('투력·참여율 분배 재원 (다이아)', diamondValue(formatDecimal(totals.baseFund)), true)}${summaryItem('투력·참여율 분배 재원 (현금)', roundedCashDisplay(totals.baseFundCash), true)}${summaryItem('지원비 합계 (다이아)', diamondValue(formatDecimal(totals.supportTotal)))}${summaryItem('지원비 합계 (현금)', roundedCashDisplay(totals.supportTotalCash))}</dl></div></section>`;
+    const reconciliationValuesForSummary = reconciliationValues(period);
+    const reconciliation = period.fundingSummary || (() => {
+      const values = reconciliationValuesForSummary;
+      return {
+        availableDiamonds: String(numericValue(values.heldDiamonds) + numericValue(values.allianceReceivedDiamonds)),
+        availableCash: String(numericValue(values.heldCash) + numericValue(values.allianceReceivedCash)),
+        distributionDiamonds: values.distributionDiamonds,
+        distributionCash: values.distributionCash,
+        remainingDiamonds: String(numericValue(values.heldDiamonds) + numericValue(values.allianceReceivedDiamonds) - numericValue(values.distributionDiamonds)),
+        remainingCash: String(numericValue(values.heldCash) + numericValue(values.allianceReceivedCash) - numericValue(values.distributionCash)),
+      };
+    })();
+    const currencyReconciliationSummary = `<section class="currency-reconciliation-summary"><div><h3>보유·수령 재화</h3><dl class="summary-grid funding-grid">${summaryItem('현재 보유 다이아', diamondValue(formatDecimal(reconciliationValuesForSummary.heldDiamonds)))}${summaryItem('현재 보유 현금', cashValue(formatDecimal(reconciliationValuesForSummary.heldCash)))}${summaryItem('이번 연합 수령 다이아', diamondValue(formatDecimal(reconciliationValuesForSummary.allianceReceivedDiamonds)))}${summaryItem('이번 연합 수령 현금', cashValue(formatDecimal(reconciliationValuesForSummary.allianceReceivedCash)))}${summaryItem('총 분배 가능 다이아', diamondValue(formatDecimal(reconciliation.availableDiamonds)), true)}${summaryItem('총 분배 가능 현금', cashValue(formatDecimal(reconciliation.availableCash)), true)}</dl></div><div><h3>이번 분배 및 잔액</h3><dl class="summary-grid funding-grid">${summaryItem('이번에 분배한 다이아', diamondValue(formatDecimal(reconciliation.distributionDiamonds)))}${summaryItem('이번에 분배한 현금', cashValue(formatDecimal(reconciliation.distributionCash)))}${summaryItem('분배 후 잔여 다이아', diamondValue(formatDecimal(reconciliation.remainingDiamonds)), true)}${summaryItem('분배 후 잔여 현금', cashValue(formatDecimal(reconciliation.remainingCash)), true)}</dl></div></section>`;
     const inputHeaders = editable ? '<th class="numeric" data-distribution-group="input">참여율</th><th class="numeric" data-distribution-group="input">연합분배율</th><th class="numeric" data-distribution-group="input">지급 배율 (%)</th><th class="numeric" data-distribution-group="input">즉시부활비 💎</th><th class="numeric" data-distribution-group="input">골드지원비 💎</th><th class="numeric" data-distribution-group="input">운영비 💎</th><th class="numeric" data-distribution-group="input">기타 지원비 💎</th><th data-distribution-group="input">비고</th>' : '';
     const tableHeaders = `<th class="rank-column">순위</th><th class="nickname-column">닉네임</th><th class="numeric">전투력</th>${inputHeaders}<th class="numeric" data-distribution-group="participation">참여율</th><th class="numeric" data-distribution-group="participation">참여율 분배 비중</th><th class="numeric" data-distribution-group="participation">참여율 분배금 💎</th><th class="numeric" data-distribution-group="alliance">연합분배율</th><th class="numeric" data-distribution-group="alliance">연합분배율 분배 비중</th><th class="numeric" data-distribution-group="alliance">연합분배 분배금 💎</th><th class="numeric" data-distribution-group="other">지급 배율</th><th class="numeric" data-distribution-group="other">즉시부활비 💎</th><th class="numeric" data-distribution-group="other">골드지원비 💎</th><th class="numeric" data-distribution-group="other">운영비 💎</th><th class="numeric" data-distribution-group="other">기타 지원비 💎</th><th class="numeric" data-distribution-group="other">지원비 합계 💎</th><th data-distribution-group="other">비고</th><th class="numeric" data-distribution-group="final" data-calculation-detail>원본 최종 다이아 💎</th><th class="numeric" data-distribution-group="final">실제 지급 다이아 💎</th><th class="numeric" data-distribution-group="final" data-calculation-detail>개인 반올림 조정값 💎</th><th class="numeric" data-distribution-group="final">현금 환산액 💰</th>`;
+    const sumMemberValues = key => period.members.reduce((total, member) => decimalAdd(total, member[key] ?? '0'), '0');
+    const totalDiamond = (value, group) => `<td class="numeric totals-cell" data-distribution-group="${group}">${diamondValue(formatDecimal(value))}</td>`;
+    const totalRoundedDiamond = (value, group) => `<td class="numeric totals-cell" data-distribution-group="${group}">${diamondValue(formatAmountByRoundingMode(value, period.roundingMode))}</td>`;
+    const totalRow = `<tr class="totals-row" aria-label="길드원 분배 상세 합계">
+      <td class="rank-column"></td><td class="nickname-column"><strong>합계</strong></td><td class="numeric"></td>
+      ${editable ? `<td class="numeric totals-cell" data-distribution-group="input">${formatDecimal(sumMemberValues('participationRate'))}</td><td class="numeric totals-cell" data-distribution-group="input">${formatDecimal(sumMemberValues('allianceRate'))}</td><td class="numeric totals-cell" data-distribution-group="input"></td>${totalDiamond(sumMemberValues('instantReviveCost'), 'input')}${totalDiamond(sumMemberValues('goldSupportCost'), 'input')}${totalDiamond(sumMemberValues('operationCost'), 'input')}${totalDiamond(sumMemberValues('otherSupportCost'), 'input')}<td data-distribution-group="input">-</td>` : ''}
+      <td class="numeric totals-cell" data-distribution-group="participation">${formatDecimal(sumMemberValues('participationRate'))}</td><td class="numeric totals-cell share-value" data-distribution-group="participation">${formatShare(sumMemberValues('participationShare'))}</td>${totalRoundedDiamond(totals.participationAllocated ?? sumMemberValues('participationAmount'), 'participation')}
+      <td class="numeric totals-cell" data-distribution-group="alliance">${formatDecimal(sumMemberValues('allianceRate'))}</td><td class="numeric totals-cell share-value" data-distribution-group="alliance">${formatShare(sumMemberValues('allianceShare'))}</td>${totalRoundedDiamond(totals.allianceAllocated ?? sumMemberValues('allianceAmount'), 'alliance')}
+      <td class="numeric totals-cell" data-distribution-group="other"></td>${totalDiamond(sumMemberValues('instantReviveCost'), 'other')}${totalDiamond(sumMemberValues('goldSupportCost'), 'other')}${totalDiamond(sumMemberValues('operationCost'), 'other')}${totalDiamond(sumMemberValues('otherSupportCost'), 'other')}${totalDiamond(totals.supportTotal ?? sumMemberValues('supportTotal'), 'other')}<td data-distribution-group="other">-</td>
+      ${calculationDetailCell(totals.finalDiamonds ?? sumMemberValues('finalDiamonds'))}${totalDiamond(totals.payableDiamonds ?? sumMemberValues('payableDiamonds'), 'final')}${calculationDetailCell(totals.roundingDifference ?? '0')}${roundedCashCell(totals.cashAmount ?? sumMemberValues('cashAmount'))}
+    </tr>`;
     const rankedMembers = [...period.members].sort((left, right) => (Number(right.combatPower) || 0) - (Number(left.combatPower) || 0) || String(left.nickname).localeCompare(String(right.nickname), 'ko'));
     let previousCombatPower = null; let currentRank = 0;
     const rows = rankedMembers.map((member, index) => {
@@ -367,6 +462,7 @@
       <div class="panel-header"><div><div class="button-row"><a class="btn" href="${DISTRIBUTIONS_LIST_PAGE}">← 목록</a>${statusBadge(period.status)}</div></div>
       <div class="button-row">${editable ? '<button class="btn" id="editPeriodButton" type="button">기간 정보 수정</button><button class="btn btn-danger" data-action="delete" data-write-action>초안 삭제</button><button class="btn" data-action="calculate" data-write-action>계산</button><button class="btn btn-success" data-action="confirm" data-write-action>확정</button>' : ''}${master && period.status === 'CONFIRMED' ? '<button class="btn" data-action="reopen" data-write-action>재개방</button>' : ''}</div></div>
       <dl class="summary-grid period-summary">${periodSummary}</dl>
+      ${currencyReconciliationSummary}
       ${fundingSummary}
       <div class="allocation-overview">${allocationSummary}</div>
     </section>
@@ -374,8 +470,8 @@
     <section class="panel"><div class="panel-header"><div><h2>길드원 분배 상세</h2><p class="panel-subtitle">${editable ? '입력 탭에서 값을 변경하고 적용하면 각 분배 탭에 다시 계산된 결과가 표시됩니다.' : '분배 유형별로 계산 결과를 나누어 확인할 수 있습니다.'}</p></div>${editable ? '<button class="btn btn-primary" id="bulkSave" data-write-action>입력값 적용</button>' : ''}</div>
       <div class="distribution-table-controls"><div class="distribution-view-switch" role="tablist" aria-label="분배 상세 보기">${editable ? `${distributionViewButton('input', '입력')}${distributionViewButton('alliance-settings', '연합분배율 설정')}` : ''}${distributionViewButton('participation', '참여율 분배')}${distributionViewButton('alliance', '연합 분배')}${distributionViewButton('other', '기타 분배')}${distributionViewButton('final', '최종 분배')}${distributionViewButton('all', '전체 보기')}</div><button type="button" class="btn calculation-detail-toggle" id="calculationDetailToggle" aria-expanded="false" hidden>계산 상세 보기</button></div>
       ${allianceTierSettings(editable)}
-      <div class="table-wrap" data-member-table-wrap><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 28 : 20}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody></table></div>
-      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}순위·닉네임·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다.</p></section>`;
+      <div class="table-wrap" data-member-table-wrap><table class="data-table members-table" data-view="${state.distributionView}" style="--nickname-column-width:${nicknameColumnWidth(period.members)}px"><thead><tr>${tableHeaders}</tr></thead><tbody>${rows || `<tr><td colspan="${editable ? 28 : 20}" class="empty-cell">분배 대상 길드원이 없습니다.</td></tr>`}</tbody><tfoot>${totalRow}</tfoot></table></div>
+      <p class="help-text" data-member-table-help>${editable ? '모든 길드원 입력값 수정은 입력 탭에서만 가능합니다. ' : ''}순위·닉네임·전투력은 항상 표시되며 계산 결과 탭은 조회 전용입니다. 하단 합계 행은 전투력과 지급 배율을 제외한 수치형 컬럼을 합산합니다.</p></section>`;
     bindDetailActions(editable);
     bindDistributionView();
   }
