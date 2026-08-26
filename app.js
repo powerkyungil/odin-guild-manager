@@ -522,8 +522,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       const end = Date.now();
       const rtt = end - start;
+      const serverTime = Number(data?.serverTime);
+      if (!res.ok || !Number.isFinite(serverTime)) {
+        throw new Error(`Invalid server time response (${res.status})`);
+      }
       // Offset = (ServerTime + RTT/2) - ClientTime
-      serverTimeOffset = (data.serverTime + (rtt / 2)) - end;
+      const nextOffset = (serverTime + (rtt / 2)) - end;
+      if (!Number.isFinite(nextOffset)) {
+        throw new Error('Invalid server time offset');
+      }
+      serverTimeOffset = nextOffset;
     } catch (e) {
       console.warn("Failed to sync server time, using local time.");
     }
@@ -533,7 +541,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(syncServerTime, 5 * 60 * 1000);
 
   function getNow() {
-    return new Date(Date.now() + serverTimeOffset);
+    const offset = Number.isFinite(serverTimeOffset) ? serverTimeOffset : 0;
+    return new Date(Date.now() + offset);
   }
 
   const SEOUL_TIME_ZONE = 'Asia/Seoul';
@@ -549,8 +558,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const getSeoulDateParts = (timestamp = getNow().getTime()) => {
+    const date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime())) {
+      console.warn('[Time] Invalid timestamp; using current time.', timestamp);
+      date.setTime(getNow().getTime());
+    }
     const parts = {};
-    seoulDateTimeFormatter.formatToParts(new Date(timestamp)).forEach(part => {
+    seoulDateTimeFormatter.formatToParts(date).forEach(part => {
       if (part.type !== 'literal') parts[part.type] = Number(part.value);
     });
     return {
