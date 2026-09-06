@@ -353,11 +353,13 @@
         }
 
         .v2-table-wrap {
-            overflow: auto;
+            overflow-x: auto;
+            overflow-y: auto;
             max-height: calc(100vh - 230px);
             min-height: 280px;
             cursor: grab;
             touch-action: pan-x pan-y;
+            -webkit-overflow-scrolling: touch;
         }
 
         .v2-table-wrap.is-dragging {
@@ -787,6 +789,18 @@
                 width: max-content;
                 min-width: 140px;
                 max-width: none;
+            }
+
+            /* Keep only the item name visible while the member columns scroll. */
+            .v2-table .sticky-two,
+            .v2-table .sticky-three {
+                left: auto;
+            }
+
+            .v2-table-wrap {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .v2-exclusion-list {
