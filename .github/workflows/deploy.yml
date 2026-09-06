@@ -24,6 +24,9 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             npm ci --omit=dev
-            npx pm2 restart odin-guild-manager || npx pm2 start server.js --name odin-guild-manager
-            npx pm2 restart all
+            if npx pm2 describe odin-guild-manager >/dev/null 2>&1; then
+              npx pm2 restart odin-guild-manager --update-env
+            else
+              npx pm2 start server.js --name odin-guild-manager
+            fi
             npx pm2 save
