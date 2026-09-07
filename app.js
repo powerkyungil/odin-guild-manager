@@ -863,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let FIXED_EVENTS = [];
 
 
-  let participationTargets = [];
+  let participationTargetIds = new Set();
   let participantsMap = {};
   let participationClosedKeys = new Set();
 
@@ -917,6 +917,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Backend Sync Functions ---
   let customBossesList = [];
 
+  const normalizeBossDefinitionId = (value) => {
+    const id = Number(value);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  };
+
+  const getBossDefinitionId = (item) => {
+    const directId = normalizeBossDefinitionId(item?.bossDefinitionId ?? item?.boss_definition_id);
+    if (directId !== null) return directId;
+
+    const definition = customBossesList.find(boss =>
+      boss.type === item?.type && boss.region === item?.region && boss.boss === item?.boss
+    );
+    return definition ? normalizeBossDefinitionId(definition.id) : null;
+  };
+
   const fetchCustomBosses = async () => {
     try {
       const res = await fetch('/api/v1/bosses', {
@@ -949,6 +964,8 @@ document.addEventListener('DOMContentLoaded', () => {
         customBossesList.filter(b => b.type === '고정').forEach(cb => {
           if (!FIXED_EVENTS.find(f => f.boss === cb.boss && f.timeStr === cb.timeStr)) {
             FIXED_EVENTS.push({
+              id: cb.id,
+              bossDefinitionId: cb.id,
               type: '고정',
               region: cb.region,
               boss: cb.boss,
@@ -971,8 +988,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tRes.status === 401 || pRes.status === 401 || sRes.status === 401) return handleAuthError();
       if (tRes.ok) {
         const targetData = await tRes.json();
-        const targetIds = new Set(targetData.bossDefinitionIds || []);
-        participationTargets = customBossesList.filter(boss => targetIds.has(boss.id)).map(boss => boss.boss);
+        const targetIds = Array.isArray(targetData)
+          ? targetData
+          : (targetData?.bossDefinitionIds || []);
+        participationTargetIds = new Set(
+          targetIds.map(normalizeBossDefinitionId).filter(id => id !== null)
+        );
       }
       if (pRes.ok) participantsMap = await pRes.json();
       if (sRes.ok) participationClosedKeys = new Set(await sRes.json());
@@ -995,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Memory Optimization: Only render if data has changed
       // We use a simple JSON hash to detect deep changes in schedules or participation
-      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + JSON.stringify(participationTargets) + JSON.stringify(Array.from(participationClosedKeys).sort()) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
+      const currentHash = JSON.stringify(fixedAndShared) + JSON.stringify(participantsMap) + JSON.stringify(Array.from(participationTargetIds).sort((a, b) => a - b)) + JSON.stringify(Array.from(participationClosedKeys).sort()) + viewMode + JSON.stringify(Array.from(selectedRenderTypes).sort());
       if (currentHash !== lastScheduleHash) {
         console.log('[Sync] Data changed, re-rendering schedules.');
         renderSchedules(allSchedulesCache);
@@ -1254,30 +1275,33 @@ document.addEventListener('DOMContentLoaded', () => {
       const adminContent = document.createElement('div');
       adminContent.className = 'accordion-content';
 
-      let allBosses = [];
-      BOSS_DATA.forEach(g => {
-        g.regions.forEach(r => {
-          r.bosses.forEach(b => {
-            if (!allBosses.includes(b)) allBosses.push(b);
-          });
+      const participationDefinitions = customBossesList
+        .filter(boss => boss && boss.boss && normalizeBossDefinitionId(boss.id) !== null)
+        .slice()
+        .sort((a, b) => {
+          const typeOrder = ['공통', '본섭', '침공', '고정'];
+          const typeDiff = (typeOrder.indexOf(a.type) === -1 ? typeOrder.length : typeOrder.indexOf(a.type))
+            - (typeOrder.indexOf(b.type) === -1 ? typeOrder.length : typeOrder.indexOf(b.type));
+          if (typeDiff !== 0) return typeDiff;
+          return String(a.boss).localeCompare(String(b.boss), 'ko');
         });
-      });
-      FIXED_EVENTS.forEach(fe => { if (!allBosses.includes(fe.boss)) allBosses.push(fe.boss); });
-      allBosses.sort();
 
-      let checkboxesHtml = allBosses.map(b => {
-        const checked = participationTargets.includes(b) ? 'checked' : '';
+      let checkboxesHtml = participationDefinitions.map(definition => {
+        const definitionId = normalizeBossDefinitionId(definition.id);
+        const checked = participationTargetIds.has(definitionId) ? 'checked' : '';
+        const typeLabel = definition.type || '공통';
+        const regionLabel = definition.region ? ` · ${definition.region}` : '';
         return `
           <div class="form-row" style="display:flex; align-items:center; justify-content: flex-start; gap:8px;">
-            <input type="checkbox" class="target-boss-chk" value="${b}" ${checked} style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor:pointer;">
-            <label style="margin: 0; padding-top:2px; font-weight:normal; font-size:13px; cursor:pointer;" onclick="this.previousElementSibling.click()">${b}</label>
+            <input type="checkbox" class="target-boss-chk" data-boss-definition-id="${definitionId}" ${checked} style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor:pointer;">
+            <label style="margin: 0; padding-top:2px; font-weight:normal; font-size:13px; cursor:pointer;" onclick="this.previousElementSibling.click()">[${typeLabel}] ${definition.boss}${regionLabel}</label>
           </div>
          `;
       }).join('');
 
       adminContent.innerHTML = `
         <div class="accordion-body">
-          <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">체크를 켜면 해당 보스는 스케줄 목록에서 [참여] 기능이 노출됩니다.</p>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">같은 이름의 보스도 본섭·침공 항목을 각각 선택할 수 있습니다. 체크한 항목의 스케줄에만 [참여] 기능이 노출됩니다.</p>
           <div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding-right:8px; border:1px solid rgba(255,255,255,0.05); padding:8px; border-radius:6px; background:rgba(0,0,0,0.2);">
             ${checkboxesHtml}
           </div>
@@ -1301,12 +1325,10 @@ document.addEventListener('DOMContentLoaded', () => {
       formContainer.appendChild(adminWrapper);
 
       adminContent.querySelector('#save-participation-btn').addEventListener('click', async () => {
-        const checkedBoxes = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked')).map(cb => cb.value);
+        const bossDefinitionIds = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked'))
+          .map(cb => normalizeBossDefinitionId(cb.dataset.bossDefinitionId))
+          .filter(id => id !== null);
         try {
-          const selectedNames = new Set(checkedBoxes);
-          const bossDefinitionIds = customBossesList
-            .filter(boss => selectedNames.has(boss.boss))
-            .map(boss => boss.id);
           const r = await fetch('/api/v1/participation-targets', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -1314,6 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           if (r.status === 401) return handleAuthError();
           if (r.ok) {
+            participationTargetIds = new Set(bossDefinitionIds);
             showToast('참여 보스 목록이 반영되었습니다.');
             fetchSchedules();
           }
@@ -1647,6 +1670,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingIdx = schedules.findIndex(x => x.type === '고정' && x.boss === ev.boss && x.region === ev.region && x.spawnTime === spawnTime);
         if (existingIdx === -1) {
           schedules.push({
+            bossDefinitionId: ev.bossDefinitionId || ev.id,
             type: ev.type,
             region: ev.region,
             boss: ev.boss,
@@ -1825,7 +1849,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.style.animationDelay = `${Math.min(index * 0.03, 1)}s`;
       row.classList.add('animate-in');
 
-      const isTarget = participationTargets.includes(item.boss);
+      const isTarget = participationTargetIds.has(getBossDefinitionId(item));
       let participationHtml = '';
       if (isTarget) {
         const participationVoteKey = getParticipationVoteKey(item);
