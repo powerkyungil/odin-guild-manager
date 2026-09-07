@@ -922,6 +922,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isInteger(id) && id > 0 ? id : null;
   };
 
+  const escapeHtml = (value) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+
   const getBossDefinitionId = (item) => {
     const directId = normalizeBossDefinitionId(item?.bossDefinitionId ?? item?.boss_definition_id);
     if (directId !== null) return directId;
@@ -1266,6 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
       adminHeader.innerHTML = `
           <span>
             <span class="tag" style="background: rgba(242, 183, 5, 0.22); color: var(--primary-color);">[관리]</span> 참여 보스 설정
+            <span class="participation-header-count" id="participation-header-count">${participationTargetIds.size}개 선택</span>
           </span>
           <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2">
             <path d="M6 9l6 6 6-6" />
@@ -1273,39 +1281,97 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       const adminContent = document.createElement('div');
-      adminContent.className = 'accordion-content';
+      adminContent.className = 'accordion-content participation-settings-content';
 
+      const participationTypeOrder = ['공통', '본섭', '침공', '고정'];
       const participationDefinitions = customBossesList
         .filter(boss => boss && boss.boss && normalizeBossDefinitionId(boss.id) !== null)
         .slice()
         .sort((a, b) => {
-          const typeOrder = ['공통', '본섭', '침공', '고정'];
-          const typeDiff = (typeOrder.indexOf(a.type) === -1 ? typeOrder.length : typeOrder.indexOf(a.type))
-            - (typeOrder.indexOf(b.type) === -1 ? typeOrder.length : typeOrder.indexOf(b.type));
+          const typeDiff = (participationTypeOrder.indexOf(a.type) === -1 ? participationTypeOrder.length : participationTypeOrder.indexOf(a.type))
+            - (participationTypeOrder.indexOf(b.type) === -1 ? participationTypeOrder.length : participationTypeOrder.indexOf(b.type));
           if (typeDiff !== 0) return typeDiff;
+          const regionDiff = String(a.region || '').localeCompare(String(b.region || ''), 'ko');
+          if (regionDiff !== 0) return regionDiff;
           return String(a.boss).localeCompare(String(b.boss), 'ko');
         });
 
-      let checkboxesHtml = participationDefinitions.map(definition => {
+      const participationTypeCounts = participationDefinitions.reduce((counts, definition) => {
+        const type = definition.type || '공통';
+        counts[type] = (counts[type] || 0) + 1;
+        return counts;
+      }, {});
+      const participationFilterTypes = [
+        ...participationTypeOrder.filter(type => participationTypeCounts[type]),
+        ...Array.from(new Set(participationDefinitions.map(definition => definition.type || '공통')))
+          .filter(type => !participationTypeOrder.includes(type))
+      ];
+
+      const participationFilterHtml = participationFilterTypes.map(type => {
+        const count = participationTypeCounts[type] || 0;
+        return `
+          <button type="button" class="participation-type-filter" data-target-type="${escapeHtml(type)}" aria-pressed="false">
+            <span>${escapeHtml(type)}</span><strong>${count}</strong>
+          </button>
+        `;
+      }).join('');
+
+      const checkboxesHtml = participationDefinitions.map(definition => {
         const definitionId = normalizeBossDefinitionId(definition.id);
         const checked = participationTargetIds.has(definitionId) ? 'checked' : '';
         const typeLabel = definition.type || '공통';
-        const regionLabel = definition.region ? ` · ${definition.region}` : '';
+        const regionLabel = definition.region || '공통';
+        const searchText = [typeLabel, definition.boss, regionLabel].join(' ').toLowerCase();
+        const inputId = `target-boss-${definitionId}`;
         return `
-          <div class="form-row" style="display:flex; align-items:center; justify-content: flex-start; gap:8px;">
-            <input type="checkbox" class="target-boss-chk" data-boss-definition-id="${definitionId}" ${checked} style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor:pointer;">
-            <label style="margin: 0; padding-top:2px; font-weight:normal; font-size:13px; cursor:pointer;" onclick="this.previousElementSibling.click()">[${typeLabel}] ${definition.boss}${regionLabel}</label>
-          </div>
+          <label class="participation-option${checked ? ' is-selected' : ''}" data-target-row data-type="${escapeHtml(typeLabel)}" data-search="${escapeHtml(searchText)}" for="${inputId}">
+            <input id="${inputId}" type="checkbox" class="target-boss-chk" data-boss-definition-id="${definitionId}" ${checked}>
+            <span class="participation-option-copy">
+              <span class="participation-option-name">${escapeHtml(definition.boss)}</span>
+              <span class="participation-option-meta">
+                <span class="participation-type-badge" data-type="${escapeHtml(typeLabel)}">${escapeHtml(typeLabel)}</span>
+                <span>${escapeHtml(regionLabel)}</span>
+              </span>
+            </span>
+          </label>
          `;
       }).join('');
 
+      const initialSelectedCount = participationDefinitions
+        .filter(definition => participationTargetIds.has(normalizeBossDefinitionId(definition.id)))
+        .length;
+
       adminContent.innerHTML = `
-        <div class="accordion-body">
-          <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">같은 이름의 보스도 본섭·침공 항목을 각각 선택할 수 있습니다. 체크한 항목의 스케줄에만 [참여] 기능이 노출됩니다.</p>
-          <div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding-right:8px; border:1px solid rgba(255,255,255,0.05); padding:8px; border-radius:6px; background:rgba(0,0,0,0.2);">
-            ${checkboxesHtml}
+        <div class="accordion-body participation-settings-body">
+          <div class="participation-intro">
+            <p>같은 이름의 보스도 본섭·침공 항목을 각각 선택할 수 있습니다. 체크한 항목의 스케줄에만 [참여] 기능이 노출됩니다.</p>
+            <div class="participation-selection-summary" aria-live="polite">
+              <strong id="participation-selected-count">${initialSelectedCount}개 선택</strong>
+              <span id="participation-total-count">전체 ${participationDefinitions.length}개</span>
+            </div>
           </div>
-          <button id="save-participation-btn" class="secondary-btn apply-chapter-btn" style="margin-top:10px;">설정 적용</button>
+          <div class="participation-search">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input id="participation-search-input" class="participation-search-input" type="search" placeholder="보스명 또는 지역 검색" autocomplete="off">
+            <button id="participation-search-clear" class="participation-search-clear" type="button" aria-label="검색어 지우기" hidden>×</button>
+          </div>
+          <div class="participation-filter-toolbar">
+            <div class="participation-type-filters" role="group" aria-label="보스 타입 필터">
+              ${participationFilterHtml}
+            </div>
+            <div class="participation-bulk-actions">
+              <button type="button" class="participation-bulk-btn" data-target-bulk="select">현재 목록 전체 선택</button>
+              <button type="button" class="participation-bulk-btn" data-target-bulk="clear">현재 목록 해제</button>
+            </div>
+          </div>
+          <div class="participation-boss-list" id="participation-boss-list">
+            ${checkboxesHtml}
+            <div class="participation-empty" id="participation-empty"${participationDefinitions.length ? ' hidden' : ''}>조건에 맞는 보스가 없습니다.</div>
+          </div>
+          <div class="participation-save-bar">
+            <span id="participation-save-status" class="participation-save-status">저장됨</span>
+            <button id="save-participation-btn" class="secondary-btn participation-save-btn" type="button" disabled>설정 저장</button>
+          </div>
         </div>
       `;
 
@@ -1324,24 +1390,144 @@ document.addEventListener('DOMContentLoaded', () => {
       adminWrapper.appendChild(adminContent);
       formContainer.appendChild(adminWrapper);
 
-      adminContent.querySelector('#save-participation-btn').addEventListener('click', async () => {
-        const bossDefinitionIds = Array.from(adminContent.querySelectorAll('.target-boss-chk:checked'))
-          .map(cb => normalizeBossDefinitionId(cb.dataset.bossDefinitionId))
-          .filter(id => id !== null);
+      const participationRows = Array.from(adminContent.querySelectorAll('[data-target-row]'));
+      const participationFilters = Array.from(adminContent.querySelectorAll('[data-target-type]'));
+      const participationSearchInput = adminContent.querySelector('#participation-search-input');
+      const participationSearchClear = adminContent.querySelector('#participation-search-clear');
+      const participationEmpty = adminContent.querySelector('#participation-empty');
+      const participationSelectedCount = adminContent.querySelector('#participation-selected-count');
+      const participationTotalCount = adminContent.querySelector('#participation-total-count');
+      const participationHeaderCount = adminHeader.querySelector('#participation-header-count');
+      const participationSaveStatus = adminContent.querySelector('#participation-save-status');
+      const participationSaveButton = adminContent.querySelector('#save-participation-btn');
+      const knownDefinitionIds = new Set(participationDefinitions.map(definition => normalizeBossDefinitionId(definition.id)));
+      let savedTargetIds = new Set(Array.from(participationTargetIds).filter(id => knownDefinitionIds.has(id)));
+      let activeParticipationType = '';
+      let isSavingParticipation = false;
+
+      const areTargetIdSetsEqual = (left, right) =>
+        left.size === right.size && Array.from(left).every(id => right.has(id));
+
+      const getSelectedTargetIds = () => new Set(
+        participationRows
+          .filter(row => row.querySelector('.target-boss-chk')?.checked)
+          .map(row => normalizeBossDefinitionId(row.querySelector('.target-boss-chk').dataset.bossDefinitionId))
+          .filter(id => id !== null)
+      );
+
+      const updateParticipationSummary = () => {
+        const selectedIds = getSelectedTargetIds();
+        const visibleRows = participationRows.filter(row => !row.hidden);
+        const visibleSelectedCount = visibleRows.filter(row => row.querySelector('.target-boss-chk')?.checked).length;
+        const isFiltered = Boolean(activeParticipationType) || Boolean(participationSearchInput.value.trim());
+        const hasUnsavedChanges = !areTargetIdSetsEqual(selectedIds, savedTargetIds);
+
+        participationSelectedCount.textContent = `${selectedIds.size}개 선택`;
+        participationTotalCount.textContent = isFiltered
+          ? `현재 ${visibleSelectedCount}/${visibleRows.length}개 선택`
+          : `전체 ${participationDefinitions.length}개`;
+        participationHeaderCount.textContent = `${selectedIds.size}개 선택`;
+        participationSaveStatus.textContent = isSavingParticipation
+          ? '저장 중…'
+          : hasUnsavedChanges ? '저장되지 않은 변경사항' : '저장됨';
+        participationSaveStatus.classList.toggle('is-dirty', hasUnsavedChanges);
+        participationSaveButton.disabled = isSavingParticipation || !hasUnsavedChanges;
+        participationSaveButton.textContent = isSavingParticipation
+          ? '저장 중…'
+          : hasUnsavedChanges ? '변경사항 저장' : '설정 저장';
+      };
+
+      const applyParticipationFilters = () => {
+        const query = participationSearchInput.value.trim().toLowerCase();
+        let visibleCount = 0;
+        participationRows.forEach(row => {
+          const matchesType = !activeParticipationType || row.dataset.type === activeParticipationType;
+          const matchesSearch = !query || row.dataset.search.includes(query);
+          row.hidden = !(matchesType && matchesSearch);
+          if (!row.hidden) visibleCount += 1;
+        });
+        participationEmpty.hidden = visibleCount > 0;
+        participationSearchClear.hidden = !query;
+        updateParticipationSummary();
+      };
+
+      participationRows.forEach(row => {
+        const checkbox = row.querySelector('.target-boss-chk');
+        checkbox.addEventListener('change', () => {
+          row.classList.toggle('is-selected', checkbox.checked);
+          updateParticipationSummary();
+        });
+      });
+
+      participationFilters.forEach(filter => {
+        filter.addEventListener('click', () => {
+          const selectedType = filter.dataset.targetType || '';
+          activeParticipationType = activeParticipationType === selectedType ? '' : selectedType;
+          participationFilters.forEach(button => {
+            const isActive = button.dataset.targetType === activeParticipationType;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+          });
+          applyParticipationFilters();
+        });
+      });
+
+      participationSearchInput.addEventListener('input', applyParticipationFilters);
+      participationSearchClear.addEventListener('click', () => {
+        participationSearchInput.value = '';
+        applyParticipationFilters();
+        participationSearchInput.focus();
+      });
+
+      adminContent.querySelectorAll('[data-target-bulk]').forEach(button => {
+        button.addEventListener('click', () => {
+          const checked = button.dataset.targetBulk === 'select';
+          participationRows
+            .filter(row => !row.hidden)
+            .forEach(row => {
+              const checkbox = row.querySelector('.target-boss-chk');
+              checkbox.checked = checked;
+              row.classList.toggle('is-selected', checked);
+            });
+          updateParticipationSummary();
+        });
+      });
+
+      participationSaveButton.addEventListener('click', async () => {
+        if (isSavingParticipation) return;
+        const bossDefinitionIds = Array.from(getSelectedTargetIds());
+        let didSave = false;
+        isSavingParticipation = true;
+        updateParticipationSummary();
         try {
           const r = await fetch('/api/v1/participation-targets', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ bossDefinitionIds })
           });
-          if (r.status === 401) return handleAuthError();
-          if (r.ok) {
-            participationTargetIds = new Set(bossDefinitionIds);
-            showToast('참여 보스 목록이 반영되었습니다.');
-            fetchSchedules();
+          if (r.status === 401) {
+            handleAuthError();
+            return;
           }
-        } catch (e) { console.error(e); }
+          if (!r.ok) {
+            const data = await r.json().catch(() => ({}));
+            throw new Error(data.error || '참여 보스 설정 저장에 실패했습니다.');
+          }
+          participationTargetIds = new Set(bossDefinitionIds);
+          savedTargetIds = new Set(bossDefinitionIds);
+          didSave = true;
+          showToast('참여 보스 목록이 반영되었습니다.');
+        } catch (e) {
+          console.error('Failed to save participation targets', e);
+          alert(e.message || '참여 보스 설정 저장에 실패했습니다.');
+        } finally {
+          isSavingParticipation = false;
+          updateParticipationSummary();
+        }
+        if (didSave) fetchSchedules();
       });
+
+      updateParticipationSummary();
 
       // --- Add Boss Management UI ---
       const addWrapper = document.createElement('div');
