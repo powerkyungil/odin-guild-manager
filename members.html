@@ -484,8 +484,7 @@
                 const res = await fetch(`/api/v1/members/${id}/password-reset`, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                        'Authorization': `Bearer ${token}`
                     }
                 });
                 if (res.status === 401) return handleAuthError();
