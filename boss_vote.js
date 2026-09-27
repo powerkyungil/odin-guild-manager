@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const rateMemberCount = document.getElementById('rateMemberCount');
   const rateAverage = document.getElementById('rateAverage');
   const rateList = document.getElementById('rateList');
+  const rateBossSelectorList = document.getElementById('rateBossSelectorList');
+  const rateBossSelectionCount = document.getElementById('rateBossSelectionCount');
+  const rateSelectionStatus = document.getElementById('rateSelectionStatus');
+  const rateSelectAllBtn = document.getElementById('rateSelectAllBtn');
+  const rateClearAllBtn = document.getElementById('rateClearAllBtn');
   const modal = document.getElementById('participantModal');
   const modalTitle = document.getElementById('participantModalTitle');
   const modalSub = document.getElementById('participantModalSub');
@@ -55,6 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let statsCache = null;
   let activeStatsMode = 'day';
   let ratesLoadedKey = '';
+  let rateAvailableBosses = [];
+  let selectedRateVoteKeys = new Set();
+  let rateSelectionRangeKey = '';
+  let rateSelectionDirty = false;
 
   const handleAuthError = () => {
     localStorage.removeItem('token');
@@ -188,6 +197,103 @@ document.addEventListener('DOMContentLoaded', () => {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+
+  const getRateBossKey = (boss) => String(boss?.voteKey || boss?.vote_key || '').trim();
+
+  const normalizeRateBoss = (boss) => {
+    const voteKey = getRateBossKey(boss);
+    if (!voteKey) return null;
+    return {
+      voteKey,
+      boss: String(boss.boss || '이름 없는 보스'),
+      spawnTime: Number(boss.spawnTime),
+      type: String(boss.type || ''),
+      region: String(boss.region || ''),
+      isBlessed: !!boss.isBlessed
+    };
+  };
+
+  const formatRateBossDate = (spawnTime) => {
+    const date = new Date(spawnTime);
+    if (!Number.isFinite(date.getTime())) return '';
+    return `${date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit', weekday: 'short' })} ${formatTime(spawnTime)}`;
+  };
+
+  const getRateRangeKey = (start, end) => `${start}_${end}`;
+
+  const updateRateBossSelectionSummary = () => {
+    if (!rateBossSelectionCount) return;
+
+    const total = rateAvailableBosses.length;
+    const selected = selectedRateVoteKeys.size;
+    rateBossSelectionCount.textContent = total > 0
+      ? `${selected}개 선택 / 전체 ${total}개`
+      : (rateSelectionRangeKey ? '조회 기간에 투표 보스가 없습니다.' : '조회 기간의 보스 목록을 불러오는 중입니다.');
+
+    if (rateSelectionStatus) {
+      rateSelectionStatus.textContent = total === 0
+        ? ''
+        : rateSelectionDirty
+          ? '선택 변경됨 · 조회 버튼으로 반영'
+          : '현재 결과에 반영됨';
+      rateSelectionStatus.classList.toggle('is-dirty', rateSelectionDirty);
+    }
+
+    if (rateSelectAllBtn) rateSelectAllBtn.disabled = total === 0 || selected === total;
+    if (rateClearAllBtn) rateClearAllBtn.disabled = total === 0 || selected === 0;
+  };
+
+  const renderRateBossSelector = (bosses, selectedKeys, rangeKey) => {
+    const normalizedBosses = (Array.isArray(bosses) ? bosses : [])
+      .map(normalizeRateBoss)
+      .filter(Boolean)
+      .sort((a, b) => {
+        const timeDiff = (Number.isFinite(a.spawnTime) ? a.spawnTime : 0)
+          - (Number.isFinite(b.spawnTime) ? b.spawnTime : 0);
+        return timeDiff || a.boss.localeCompare(b.boss, 'ko');
+      });
+    const uniqueBosses = Array.from(new Map(normalizedBosses.map(boss => [boss.voteKey, boss])).values());
+    const knownKeys = new Set(uniqueBosses.map(boss => boss.voteKey));
+    const hasExplicitSelection = Array.isArray(selectedKeys);
+
+    rateAvailableBosses = uniqueBosses;
+    selectedRateVoteKeys = new Set(
+      (hasExplicitSelection ? selectedKeys : uniqueBosses.map(boss => boss.voteKey))
+        .map(key => String(key))
+        .filter(key => knownKeys.has(key))
+    );
+    rateSelectionRangeKey = rangeKey || '';
+    rateSelectionDirty = false;
+
+    if (rateBossSelectorList) {
+      if (rateAvailableBosses.length === 0) {
+        rateBossSelectorList.innerHTML = `<div class="rate-boss-selector-empty">${rateSelectionRangeKey ? '조회 기간에 투표 대상 보스가 없습니다.' : '조회 버튼을 누르면 기간 내 투표 보스가 표시됩니다.'}</div>`;
+      } else {
+        rateBossSelectorList.innerHTML = rateAvailableBosses.map(boss => {
+          const meta = [
+            formatRateBossDate(boss.spawnTime),
+            boss.type,
+            shouldShowRegion(boss.region) ? boss.region : ''
+          ].filter(Boolean).join(' · ');
+          return `
+            <label class="rate-boss-option">
+              <input type="checkbox" data-rate-boss-key="${escapeHtml(boss.voteKey)}"${selectedRateVoteKeys.has(boss.voteKey) ? ' checked' : ''}>
+              <span class="rate-boss-option-copy">
+                <span class="rate-boss-option-name">${escapeHtml(boss.boss)}${boss.isBlessed ? ' · 축 보스' : ''}</span>
+                <span class="rate-boss-option-meta">${escapeHtml(meta)}</span>
+              </span>
+            </label>
+          `;
+        }).join('');
+      }
+    }
+
+    updateRateBossSelectionSummary();
+  };
+
+  const invalidateRateBossSelection = () => {
+    renderRateBossSelector([], [], '');
+  };
 
   const getFilteredVotes = () => {
     return votes.filter(vote => {
@@ -497,6 +603,104 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   };
 
+  const getMonthValuesForRange = (start, end) => {
+    const [startYear, startMonth] = String(start).split('-').map(Number);
+    const [endYear, endMonth] = String(end).split('-').map(Number);
+    const cursor = new Date(startYear, startMonth - 1, 1);
+    const lastMonth = new Date(endYear, endMonth - 1, 1);
+    const months = [];
+
+    while (cursor <= lastMonth) {
+      months.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return months;
+  };
+
+  const getFallbackRateVoteKey = (boss) => getRateBossKey(boss)
+    || `${boss.type || ''}|${boss.region || ''}|${boss.boss || ''}|${boss.spawnTime || ''}`;
+
+  const fetchMemberRatesFromStats = async (baseData, start, end, selectedKeys) => {
+    try {
+      const monthValues = getMonthValuesForRange(start, end);
+      const responses = await Promise.all(monthValues.map(async month => {
+        const res = await fetch(`/api/v1/vote-stats?month=${encodeURIComponent(month)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          handleAuthError();
+          throw new Error('인증이 만료되었습니다.');
+        }
+        if (!res.ok) throw new Error('참여 현황을 불러오지 못했습니다.');
+        return res.json();
+      }));
+
+      const availableMap = new Map();
+      responses.forEach(stats => {
+        (stats.days || []).forEach(day => {
+          const dateKey = String(day.date || '');
+          if (dateKey < start || dateKey > end) return;
+          (day.bosses || []).forEach(boss => {
+            const voteKey = getFallbackRateVoteKey(boss);
+            if (!voteKey) return;
+            availableMap.set(voteKey, { ...boss, voteKey });
+          });
+        });
+      });
+
+      const availableBosses = Array.from(availableMap.values());
+      const availableKeys = new Set(availableBosses.map(boss => boss.voteKey));
+      const selectedVoteKeys = new Set(
+        (Array.isArray(selectedKeys) ? selectedKeys : Array.from(availableKeys))
+          .map(key => String(key))
+          .filter(key => availableKeys.has(key))
+      );
+      const participationByUser = new Map();
+
+      availableBosses
+        .filter(boss => selectedVoteKeys.has(boss.voteKey))
+        .forEach(boss => {
+          const participantIds = new Set((boss.participants || [])
+            .map(participant => participant?.userId ?? participant?.user_id)
+            .filter(userId => userId !== undefined && userId !== null)
+            .map(userId => String(userId)));
+          participantIds.forEach(userId => {
+            if (!participationByUser.has(userId)) participationByUser.set(userId, new Set());
+            participationByUser.get(userId).add(boss.voteKey);
+          });
+        });
+
+      const totalBosses = selectedVoteKeys.size;
+      const members = (baseData.members || []).map(member => {
+        const userId = member.userId ?? member.user_id ?? member.id;
+        const joinedCount = participationByUser.get(String(userId))?.size || 0;
+        const rate = totalBosses > 0 ? Math.round((joinedCount / totalBosses) * 1000) / 10 : 0;
+        return {
+          ...member,
+          userId,
+          joinedCount,
+          totalBosses,
+          missedCount: Math.max(totalBosses - joinedCount, 0),
+          rate
+        };
+      });
+
+      return {
+        ...baseData,
+        start,
+        end,
+        totalBosses,
+        availableBosses,
+        selectedVoteKeys: Array.from(selectedVoteKeys),
+        memberCount: members.length,
+        members
+      };
+    } catch (error) {
+      console.warn('Failed to derive selected vote rates from participation stats', error);
+      return null;
+    }
+  };
+
   const fetchMemberRates = async (force = false) => {
     if (!isPrivileged || !rateStartInput || !rateEndInput) return;
 
@@ -507,11 +711,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const rangeKey = `${start}_${end}`;
-    if (!force && ratesLoadedKey === rangeKey) return;
+    const rangeKey = getRateRangeKey(start, end);
+    const hasSelectionForRange = rateSelectionRangeKey === rangeKey;
+    const selectedKeys = hasSelectionForRange
+      ? Array.from(selectedRateVoteKeys).sort()
+      : null;
+    const requestKey = `${rangeKey}|${selectedKeys === null ? '*' : selectedKeys.join('\u001f')}`;
+    if (!force && ratesLoadedKey === requestKey) return;
 
     rateList.innerHTML = '<div class="empty-votes">참여율을 불러오는 중입니다.</div>';
-    const res = await fetch(`/api/v1/vote-member-rates?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
+    const params = new URLSearchParams({ start, end });
+    if (selectedKeys !== null) params.set('voteKeys', JSON.stringify(selectedKeys));
+    const res = await fetch(`/api/v1/vote-member-rates?${params.toString()}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -522,8 +733,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    ratesLoadedKey = rangeKey;
-    renderMemberRates(await res.json());
+    let data = await res.json();
+    let availableBosses = data.availableBosses || data.available_bosses || data.bosses;
+    const responseSelectedKeys = data.selectedVoteKeys || data.selected_vote_keys;
+    if (!Array.isArray(availableBosses)) {
+      data = await fetchMemberRatesFromStats(data, start, end, selectedKeys) || data;
+      availableBosses = data.availableBosses || data.available_bosses || data.bosses;
+    }
+    if (Array.isArray(availableBosses)) {
+      renderRateBossSelector(
+        availableBosses,
+        Array.isArray(data.selectedVoteKeys)
+          ? data.selectedVoteKeys
+          : (Array.isArray(responseSelectedKeys) ? responseSelectedKeys : selectedKeys),
+        rangeKey
+      );
+    }
+    ratesLoadedKey = requestKey;
+    renderMemberRates(data);
   };
 
   const setPageView = (view) => {
@@ -665,12 +892,53 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadRatesBtn) {
       loadRatesBtn.addEventListener('click', () => fetchMemberRates(true));
     }
-    rateStartInput.addEventListener('change', () => {
+    const invalidateRatesForDateChange = () => {
       ratesLoadedKey = '';
-    });
-    rateEndInput.addEventListener('change', () => {
+      invalidateRateBossSelection();
+    };
+    rateStartInput.addEventListener('change', invalidateRatesForDateChange);
+    rateEndInput.addEventListener('change', invalidateRatesForDateChange);
+  }
+
+  if (isPrivileged && rateBossSelectorList) {
+    rateBossSelectorList.addEventListener('change', (event) => {
+      const input = event.target.closest('input[data-rate-boss-key]');
+      if (!input) return;
+
+      const voteKey = input.dataset.rateBossKey;
+      if (input.checked) {
+        selectedRateVoteKeys.add(voteKey);
+      } else {
+        selectedRateVoteKeys.delete(voteKey);
+      }
+      rateSelectionDirty = true;
       ratesLoadedKey = '';
+      updateRateBossSelectionSummary();
     });
+
+    if (rateSelectAllBtn) {
+      rateSelectAllBtn.addEventListener('click', () => {
+        selectedRateVoteKeys = new Set(rateAvailableBosses.map(boss => boss.voteKey));
+        rateSelectionDirty = true;
+        ratesLoadedKey = '';
+        rateBossSelectorList.querySelectorAll('input[data-rate-boss-key]').forEach(input => {
+          input.checked = true;
+        });
+        updateRateBossSelectionSummary();
+      });
+    }
+
+    if (rateClearAllBtn) {
+      rateClearAllBtn.addEventListener('click', () => {
+        selectedRateVoteKeys.clear();
+        rateSelectionDirty = true;
+        ratesLoadedKey = '';
+        rateBossSelectorList.querySelectorAll('input[data-rate-boss-key]').forEach(input => {
+          input.checked = false;
+        });
+        updateRateBossSelectionSummary();
+      });
+    }
   }
 
   voteList.addEventListener('click', (event) => {

@@ -452,6 +452,155 @@
       overflow: hidden;
     }
 
+    .rate-boss-selector {
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .rate-boss-selector-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 15px 12px;
+    }
+
+    .rate-boss-selector-head h3 {
+      margin: 0 0 5px;
+      font-size: 15px;
+    }
+
+    .rate-boss-selector-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .rate-boss-selector-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .rate-boss-selector-action {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 7px 9px;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .rate-boss-selector-action:hover:not(:disabled) {
+      border-color: var(--main);
+      background: var(--main-soft);
+    }
+
+    .rate-boss-selector-action:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .rate-boss-selector-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      padding: 8px 15px;
+      border-top: 1px solid rgba(255,255,255,0.055);
+      border-bottom: 1px solid rgba(255,255,255,0.055);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .rate-selection-status {
+      color: var(--main);
+      text-align: right;
+    }
+
+    .rate-selection-status.is-dirty {
+      color: #facc15;
+    }
+
+    .rate-boss-selector-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 12px 15px 15px;
+    }
+
+    .rate-boss-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      min-width: 0;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.035);
+      padding: 9px 10px;
+      cursor: pointer;
+    }
+
+    .rate-boss-option:hover {
+      border-color: var(--main);
+      background: var(--main-soft);
+    }
+
+    .rate-boss-option input {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      margin: 1px 0 0;
+      accent-color: var(--main);
+      cursor: pointer;
+    }
+
+    .rate-boss-option-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .rate-boss-option-name {
+      overflow: hidden;
+      color: var(--text-light);
+      font-size: 13px;
+      font-weight: 900;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rate-boss-option-meta {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rate-boss-selector-empty {
+      grid-column: 1 / -1;
+      padding: 14px 4px 2px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
     .rate-row {
       display: grid;
       grid-template-columns: minmax(0, 1.4fr) 110px 110px 1fr;
@@ -780,6 +929,7 @@
     :root:not([data-theme="dark"]) .vote-stat,
     :root:not([data-theme="dark"]) .manual-vote-panel,
     :root:not([data-theme="dark"]) .stats-toolbar,
+    :root:not([data-theme="dark"]) .rate-boss-selector,
     :root:not([data-theme="dark"]) .rate-table,
     :root:not([data-theme="dark"]) .stats-day,
     :root:not([data-theme="dark"]) .vote-card,
@@ -799,6 +949,7 @@
     }
 
     :root:not([data-theme="dark"]) .rate-row,
+    :root:not([data-theme="dark"]) .rate-boss-selector-summary,
     :root:not([data-theme="dark"]) .stats-boss,
     :root:not([data-theme="dark"]) .stats-day-header,
     :root:not([data-theme="dark"]) .vote-modal-header {
@@ -806,6 +957,7 @@
     }
 
     :root:not([data-theme="dark"]) .rate-row.header,
+    :root:not([data-theme="dark"]) .rate-boss-option,
     :root:not([data-theme="dark"]) .stats-day-header,
     :root:not([data-theme="dark"]) .empty-votes,
     :root:not([data-theme="dark"]) .participant-row {
@@ -856,6 +1008,7 @@
     }
 
     :root:not([data-theme="dark"]) .vote-btn,
+    :root:not([data-theme="dark"]) .rate-boss-selector-action,
     :root:not([data-theme="dark"]) .month-nav-btn,
     :root:not([data-theme="dark"]) .participant-chip,
     :root:not([data-theme="dark"]) .role-mini,
@@ -866,6 +1019,7 @@
     }
 
     :root:not([data-theme="dark"]) .vote-btn:hover,
+    :root:not([data-theme="dark"]) .rate-boss-selector-action:hover:not(:disabled),
     :root:not([data-theme="dark"]) .month-nav-btn:hover,
     :root:not([data-theme="dark"]) .participant-chip:hover {
       background: rgba(242, 183, 5, 0.13);
@@ -941,6 +1095,7 @@
     }
 
     :root[data-theme="dark"] .vote-btn,
+    :root[data-theme="dark"] .rate-boss-selector-action,
     :root[data-theme="dark"] .page-tab.active,
     :root[data-theme="dark"] .vote-tab.active {
       color: #fff;
@@ -973,6 +1128,23 @@
       .stats-toolbar {
         align-items: stretch;
         flex-direction: column;
+      }
+
+      .rate-boss-selector-head {
+        flex-direction: column;
+      }
+
+      .rate-boss-selector-actions {
+        justify-content: flex-start;
+      }
+
+      .rate-boss-selector-summary {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .rate-selection-status {
+        text-align: left;
       }
 
       .stats-boss {
@@ -1148,8 +1320,28 @@
         </div>
       </div>
 
+      <section class="rate-boss-selector" aria-labelledby="rateBossSelectorTitle">
+        <div class="rate-boss-selector-head">
+          <div>
+            <h3 id="rateBossSelectorTitle">참여율에 포함할 보스</h3>
+            <p>체크한 보스만 참여율의 분모에 포함됩니다. 기본값은 전체 선택입니다.</p>
+          </div>
+          <div class="rate-boss-selector-actions">
+            <button id="rateSelectAllBtn" class="rate-boss-selector-action" type="button">전체 선택</button>
+            <button id="rateClearAllBtn" class="rate-boss-selector-action" type="button">전체 해제</button>
+          </div>
+        </div>
+        <div class="rate-boss-selector-summary" aria-live="polite">
+          <span id="rateBossSelectionCount">조회 기간의 보스 목록을 불러오는 중입니다.</span>
+          <span id="rateSelectionStatus" class="rate-selection-status"></span>
+        </div>
+        <div id="rateBossSelectorList" class="rate-boss-selector-list">
+          <div class="rate-boss-selector-empty">조회 버튼을 누르면 기간 내 투표 보스가 표시됩니다.</div>
+        </div>
+      </section>
+
       <section class="vote-summary">
-        <div class="vote-stat"><span>기간 투표 보스</span><strong id="rateBossCount">0</strong></div>
+        <div class="vote-stat"><span>선택한 투표 보스</span><strong id="rateBossCount">0</strong></div>
         <div class="vote-stat"><span>조회 인원</span><strong id="rateMemberCount">0</strong></div>
         <div class="vote-stat"><span>평균 참여율</span><strong id="rateAverage">0%</strong></div>
       </section>
@@ -1173,7 +1365,7 @@
     </div>
   </div>
 
-  <script src="boss_vote.js?v=2"></script>
+  <script src="boss_vote.js?v=3"></script>
 </body>
 
 </html>

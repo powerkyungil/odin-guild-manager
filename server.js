@@ -2277,6 +2277,22 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
 
     const startText = String(req.query.start || '');
     const endText = String(req.query.end || '');
+    const selectedVoteKeysText = req.query.voteKeys;
+    let requestedVoteKeys = null;
+    if (selectedVoteKeysText !== undefined) {
+        let parsedVoteKeys;
+        try {
+            parsedVoteKeys = JSON.parse(Array.isArray(selectedVoteKeysText)
+                ? selectedVoteKeysText[0]
+                : String(selectedVoteKeysText));
+        } catch {
+            return res.status(400).json({ error: 'voteKeys must be a JSON array.' });
+        }
+        if (!Array.isArray(parsedVoteKeys) || parsedVoteKeys.some(key => typeof key !== 'string')) {
+            return res.status(400).json({ error: 'voteKeys must be a JSON array of strings.' });
+        }
+        requestedVoteKeys = new Set(parsedVoteKeys.map(key => key.trim()).filter(Boolean));
+    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startText) || !/^\d{4}-\d{2}-\d{2}$/.test(endText)) {
         return res.status(400).json({ error: 'start and end must be YYYY-MM-DD.' });
     }
@@ -2292,7 +2308,19 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
     buildVoteRowsForRange(startMs, endMs, (voteErr, voteRows) => {
         if (voteErr) return res.status(500).json({ error: voteErr.message });
 
-        const voteKeySet = new Set(voteRows.map(row => getVoteKey(row)));
+        const availableBosses = voteRows.map(row => ({
+            voteKey: getVoteKey(row),
+            boss: row.boss,
+            spawnTime: row.spawnTime,
+            type: row.type || '',
+            region: row.region || '',
+            isManual: !!row.isManual,
+            isBlessed: !!row.isBlessed
+        }));
+        const selectedVoteRows = requestedVoteKeys === null
+            ? voteRows
+            : voteRows.filter(row => requestedVoteKeys.has(getVoteKey(row)));
+        const voteKeySet = new Set(selectedVoteRows.map(row => getVoteKey(row)));
 
         db.all(
             `SELECT vote_key, user_id
@@ -2315,7 +2343,7 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
                     (userErr, users) => {
                         if (userErr) return res.status(500).json({ error: userErr.message });
 
-                        const totalBosses = voteRows.length;
+                        const totalBosses = selectedVoteRows.length;
                         const members = (users || []).map(user => {
                             const joinedCount = participationByUser.get(user.id)?.size || 0;
                             const rate = totalBosses > 0 ? Math.round((joinedCount / totalBosses) * 1000) / 10 : 0;
@@ -2334,6 +2362,8 @@ app.get('/api/vote-member-rates', verifyToken, (req, res) => {
                             start: startText,
                             end: endText,
                             totalBosses,
+                            availableBosses,
+                            selectedVoteKeys: Array.from(voteKeySet),
                             memberCount: members.length,
                             members
                         });
