@@ -532,12 +532,47 @@
       padding: 14px 15px 12px;
     }
 
-    .rate-boss-selector-head h3 {
-      margin: 0 0 5px;
-      font-size: 15px;
+    .rate-boss-selector-toggle {
+      display: flex;
+      flex: 1;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
     }
 
-    .rate-boss-selector-head p {
+    .rate-boss-selector-toggle-copy {
+      min-width: 0;
+    }
+
+    .rate-boss-selector-toggle-icon {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+      transform: rotate(0deg);
+      transition: transform 0.18s ease;
+    }
+
+    .rate-boss-selector.is-open .rate-boss-selector-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .rate-boss-selector-title {
+      display: block;
+      margin: 0 0 5px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .rate-boss-selector-description {
+      display: block;
       margin: 0;
       color: var(--muted);
       font-size: 13px;
@@ -1200,6 +1235,10 @@
         flex-direction: column;
       }
 
+      .rate-boss-selector-toggle {
+        width: 100%;
+      }
+
       .roulette-copy-panel {
         grid-template-columns: 1fr;
         align-items: stretch;
@@ -1398,10 +1437,13 @@
 
       <section class="rate-boss-selector" aria-labelledby="rateBossSelectorTitle">
         <div class="rate-boss-selector-head">
-          <div>
-            <h3 id="rateBossSelectorTitle">참여율에 포함할 보스</h3>
-            <p>체크한 보스만 참여율의 분모에 포함됩니다. 기본값은 전체 선택입니다.</p>
-          </div>
+          <button id="rateBossSelectorToggle" class="rate-boss-selector-toggle" type="button" aria-expanded="false" aria-controls="rateBossSelectorBody">
+            <span class="rate-boss-selector-toggle-copy">
+              <span id="rateBossSelectorTitle" class="rate-boss-selector-title" role="heading" aria-level="3">참여율에 포함할 보스</span>
+              <span class="rate-boss-selector-description">체크한 보스만 참여율의 분모에 포함됩니다. 기본값은 전체 선택입니다.</span>
+            </span>
+            <span class="rate-boss-selector-toggle-icon" aria-hidden="true">⌄</span>
+          </button>
           <div class="rate-boss-selector-actions">
             <button id="rateSelectAllBtn" class="rate-boss-selector-action" type="button">전체 선택</button>
             <button id="rateClearAllBtn" class="rate-boss-selector-action" type="button">전체 해제</button>
@@ -1411,8 +1453,10 @@
           <span id="rateBossSelectionCount">조회 기간의 보스 목록을 불러오는 중입니다.</span>
           <span id="rateSelectionStatus" class="rate-selection-status"></span>
         </div>
-        <div id="rateBossSelectorList" class="rate-boss-selector-list">
-          <div class="rate-boss-selector-empty">조회 버튼을 누르면 기간 내 투표 보스가 표시됩니다.</div>
+        <div id="rateBossSelectorBody" class="rate-boss-selector-body" hidden>
+          <div id="rateBossSelectorList" class="rate-boss-selector-list">
+            <div class="rate-boss-selector-empty">조회 버튼을 누르면 기간 내 투표 보스가 표시됩니다.</div>
+          </div>
         </div>
       </section>
 

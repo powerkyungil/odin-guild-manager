@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const rateSelectionStatus = document.getElementById('rateSelectionStatus');
   const rateSelectAllBtn = document.getElementById('rateSelectAllBtn');
   const rateClearAllBtn = document.getElementById('rateClearAllBtn');
+  const rateBossSelector = document.querySelector('.rate-boss-selector');
+  const rateBossSelectorToggle = document.getElementById('rateBossSelectorToggle');
+  const rateBossSelectorBody = document.getElementById('rateBossSelectorBody');
   const rouletteMinParticipationInput = document.getElementById('rouletteMinParticipationInput');
   const copyRouletteBtn = document.getElementById('copyRouletteBtn');
   const rouletteCopyPreview = document.getElementById('rouletteCopyPreview');
@@ -81,6 +84,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!token) {
     handleAuthError();
     return;
+  }
+
+  const setRateBossSelectorOpen = (isOpen) => {
+    if (!rateBossSelectorToggle || !rateBossSelectorBody) return;
+    rateBossSelectorBody.hidden = !isOpen;
+    rateBossSelectorToggle.setAttribute('aria-expanded', String(isOpen));
+    rateBossSelector?.classList.toggle('is-open', isOpen);
+  };
+
+  if (rateBossSelectorToggle && rateBossSelectorBody) {
+    setRateBossSelectorOpen(false);
+    rateBossSelectorToggle.addEventListener('click', () => {
+      setRateBossSelectorOpen(rateBossSelectorBody.hidden);
+    });
   }
 
   const startOfToday = () => {
