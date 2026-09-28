@@ -301,13 +301,16 @@
                 <section id="section-invites" class="settings-section">
                     <div class="section-head">
                         <h2>가입 링크</h2>
-                        <p>일반 길드원 또는 운영진 가입 링크를 생성합니다.</p>
+                        <p>현재 링크 하나로 여러 사람이 가입할 수 있습니다. 같은 종류의 링크를 재발급하면 기존 링크는 즉시 무효화됩니다.</p>
                     </div>
                     <div class="button-row">
-                        <button class="save-settings-btn" type="button" onclick="generateInvite('MEMBER')">일반 가입 링크 생성</button>
-                        <button class="save-settings-btn" type="button" onclick="generateInvite('ADMIN')">운영진 가입 링크 생성</button>
+                        <button class="save-settings-btn" type="button" onclick="generateInvite('MEMBER')">일반 가입 링크 재발급</button>
+                        <button class="save-settings-btn" type="button" onclick="generateInvite('ADMIN')">운영진 가입 링크 재발급</button>
                     </div>
-                    <div id="inviteLink" class="invite-link"></div>
+                    <p id="inviteStatus" role="status" aria-live="polite">현재 가입 링크를 불러오는 중입니다.</p>
+                    <button class="copy-link-btn" id="retryInvites" type="button" onclick="loadInvites()" hidden>다시 불러오기</button>
+                    <div id="inviteLink-MEMBER" class="invite-link"></div>
+                    <div id="inviteLink-ADMIN" class="invite-link"></div>
                 </section>
             </main>
         </div>
@@ -454,7 +457,69 @@
             }
         }
 
+        function renderInvite(invite) {
+            const inviteDiv = document.getElementById(`inviteLink-${invite.role}`);
+            if (!inviteDiv || !invite.inviteCode) return;
+            const url = new URL('register.html', window.location.href);
+            url.searchParams.set('code', invite.inviteCode);
+            const link = url.href;
+            inviteDiv.replaceChildren();
+            inviteDiv.style.display = 'block';
+            inviteDiv.dataset.link = link;
+            const header = document.createElement('div');
+            header.className = 'invite-link-head';
+            const label = document.createElement('span');
+            label.textContent = `${invite.role === 'MEMBER' ? '일반' : '운영진'} 현재 가입 링크`;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'copy-link-btn';
+            button.textContent = '복사';
+            button.addEventListener('click', () => copyInviteLink(invite.role));
+            header.append(label, button);
+            const anchor = document.createElement('a');
+            anchor.className = 'invite-url';
+            anchor.href = link;
+            anchor.textContent = link;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.style.color = 'var(--primary-color)';
+            inviteDiv.append(header, anchor);
+        }
+
+        async function loadInvites() {
+            if (!isMaster || !token) return;
+            const status = document.getElementById('inviteStatus');
+            const retry = document.getElementById('retryInvites');
+            status.textContent = '현재 가입 링크를 불러오는 중입니다.';
+            retry.hidden = true;
+            for (const role of ['MEMBER', 'ADMIN']) {
+                const card = document.getElementById(`inviteLink-${role}`);
+                card.style.display = 'none';
+                delete card.dataset.link;
+            }
+            try {
+                const res = await fetch('/api/v1/auth/invites', {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store'
+                });
+                if (res.status === 401) return handleAuthError();
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '가입 링크를 불러오지 못했습니다.');
+                if (!Array.isArray(data)) throw new Error('가입 링크 응답을 확인할 수 없습니다.');
+                data.forEach(renderInvite);
+                const missing = ['MEMBER', 'ADMIN'].filter(role => !data.some(invite => invite.role === role && invite.inviteCode));
+                status.textContent = missing.length
+                    ? `${missing.map(role => role === 'MEMBER' ? '일반' : '운영진').join('·')} 가입 링크가 없습니다. 위 버튼으로 발급할 수 있습니다.`
+                    : '아래 현재 링크를 복사해서 공유하세요.';
+            } catch (err) {
+                status.textContent = err.message || '가입 링크를 불러오지 못했습니다.';
+                retry.hidden = false;
+            }
+        }
+
         async function generateInvite(targetRole = 'MEMBER') {
+            const label = targetRole === 'MEMBER' ? '일반' : '운영진';
+            if (!window.confirm(`${label} 가입 링크를 재발급하시겠습니까? 기존 ${label} 링크는 즉시 무효화됩니다.`)) return;
             try {
                 const res = await fetch('/api/v1/auth/invites', {
                     method: 'POST',
@@ -473,17 +538,7 @@
 
                 const data = await res.json();
                 if (res.ok) {
-                    const link = `${window.location.origin}/register.html?code=${encodeURIComponent(data.inviteCode)}`;
-                    const inviteDiv = document.getElementById('inviteLink');
-                    inviteDiv.style.display = 'block';
-                    inviteDiv.dataset.link = link;
-                    inviteDiv.innerHTML = `
-                        <div class="invite-link-head">
-                            <span>생성된 가입 링크</span>
-                            <button class="copy-link-btn" type="button" onclick="copyInviteLink()">Copy</button>
-                        </div>
-                        <a class="invite-url" href="${link}" target="_blank" style="color: var(--primary-color);">${link}</a>
-                    `;
+                    await loadInvites();
                 } else {
                     alert('오류: ' + data.error);
                 }
@@ -492,8 +547,8 @@
             }
         }
 
-        async function copyInviteLink() {
-            const inviteDiv = document.getElementById('inviteLink');
+        async function copyInviteLink(role) {
+            const inviteDiv = document.getElementById(`inviteLink-${role}`);
             const link = inviteDiv.dataset.link;
             if (!link) return;
 
@@ -505,12 +560,13 @@
                     tempInput.value = link;
                     document.body.appendChild(tempInput);
                     tempInput.select();
-                    document.execCommand('copy');
+                    const copied = document.execCommand('copy');
                     tempInput.remove();
+                    if (!copied) throw new Error('Copy failed');
                 }
                 const button = inviteDiv.querySelector('.copy-link-btn');
-                button.textContent = 'Copied';
-                setTimeout(() => { button.textContent = 'Copy'; }, 1400);
+                button.textContent = '복사됨';
+                setTimeout(() => { button.textContent = '복사'; }, 1400);
             } catch (err) {
                 alert('복사에 실패했습니다. 링크를 직접 선택해서 복사해주세요.');
             }
@@ -527,6 +583,7 @@
 
         syncCombatPowerTogglePermission();
         loadSettings();
+        loadInvites();
         loadMaintenanceStatus();
     </script>
 </body>

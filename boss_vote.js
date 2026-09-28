@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const rateSelectionStatus = document.getElementById('rateSelectionStatus');
   const rateSelectAllBtn = document.getElementById('rateSelectAllBtn');
   const rateClearAllBtn = document.getElementById('rateClearAllBtn');
+  const rouletteMinParticipationInput = document.getElementById('rouletteMinParticipationInput');
+  const copyRouletteBtn = document.getElementById('copyRouletteBtn');
+  const rouletteCopyPreview = document.getElementById('rouletteCopyPreview');
   const modal = document.getElementById('participantModal');
   const modalTitle = document.getElementById('participantModalTitle');
   const modalSub = document.getElementById('participantModalSub');
@@ -64,6 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedRateVoteKeys = new Set();
   let rateSelectionRangeKey = '';
   let rateSelectionDirty = false;
+  let rateMembers = [];
+  let rateResultsReady = false;
 
   const handleAuthError = () => {
     localStorage.removeItem('token');
@@ -241,6 +246,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (rateSelectAllBtn) rateSelectAllBtn.disabled = total === 0 || selected === total;
     if (rateClearAllBtn) rateClearAllBtn.disabled = total === 0 || selected === 0;
+    updateRouletteCopyUI();
+  };
+
+  const getRouletteMinParticipation = () => {
+    const value = Number.parseInt(rouletteMinParticipationInput?.value, 10);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  };
+
+  const getRouletteTargetNicknames = () => {
+    const minParticipation = getRouletteMinParticipation();
+    return Array.from(new Set(rateMembers
+      .filter(member => Number(member.joinedCount) >= minParticipation)
+      .map(member => String(member.nickname || '').trim())
+      .filter(Boolean)));
+  };
+
+  const updateRouletteCopyUI = () => {
+    if (!rouletteCopyPreview || !copyRouletteBtn) return;
+
+    if (!rateResultsReady || rateSelectionDirty) {
+      rouletteCopyPreview.textContent = rateSelectionDirty
+        ? '대상 보스 선택이 변경되었습니다. 조회 후 복사할 수 있습니다.'
+        : '참여율을 조회하면 복사 대상이 표시됩니다.';
+      copyRouletteBtn.disabled = true;
+      return;
+    }
+
+    const minParticipation = getRouletteMinParticipation();
+    const nicknames = getRouletteTargetNicknames();
+    rouletteCopyPreview.textContent = nicknames.length
+      ? `복사 대상 ${nicknames.length}명 · ${nicknames.join(',')}`
+      : `참여 ${minParticipation}회 이상인 길드원이 없습니다.`;
+    copyRouletteBtn.disabled = nicknames.length === 0;
+  };
+
+  const copyRouletteNames = async () => {
+    const nicknames = getRouletteTargetNicknames();
+    if (!rateResultsReady || rateSelectionDirty || nicknames.length === 0) return;
+
+    const text = nicknames.join(',');
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('Copy failed');
+      }
+      rouletteCopyPreview.textContent = `${nicknames.length}명 복사 완료 · ${text}`;
+    } catch (error) {
+      console.warn('Failed to copy roulette participants', error);
+      rouletteCopyPreview.textContent = '복사에 실패했습니다. 브라우저의 클립보드 권한을 확인해 주세요.';
+    }
   };
 
   const renderRateBossSelector = (bosses, selectedKeys, rangeKey) => {
@@ -570,6 +635,8 @@ document.addEventListener('DOMContentLoaded', () => {
     rateMemberCount.textContent = String(data.memberCount || 0);
 
     const members = data.members || [];
+    rateMembers = members;
+    rateResultsReady = true;
     const avg = members.length
       ? Math.round((members.reduce((sum, member) => sum + member.rate, 0) / members.length) * 10) / 10
       : 0;
@@ -577,6 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (members.length === 0) {
       rateList.innerHTML = '<div class="empty-votes">조회할 길드원이 없습니다.</div>';
+      updateRouletteCopyUI();
       return;
     }
 
@@ -601,6 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('')}
       </div>
     `;
+    updateRouletteCopyUI();
   };
 
   const getMonthValuesForRange = (start, end) => {
@@ -707,6 +776,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const start = rateStartInput.value;
     const end = rateEndInput.value;
     if (!start || !end) {
+      rateMembers = [];
+      rateResultsReady = false;
+      updateRouletteCopyUI();
       rateList.innerHTML = '<div class="empty-votes">조회 기간을 입력해 주세요.</div>';
       return;
     }
@@ -719,6 +791,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestKey = `${rangeKey}|${selectedKeys === null ? '*' : selectedKeys.join('\u001f')}`;
     if (!force && ratesLoadedKey === requestKey) return;
 
+    rateMembers = [];
+    rateResultsReady = false;
+    updateRouletteCopyUI();
     rateList.innerHTML = '<div class="empty-votes">참여율을 불러오는 중입니다.</div>';
     const params = new URLSearchParams({ start, end });
     if (selectedKeys !== null) params.set('voteKeys', JSON.stringify(selectedKeys));
@@ -894,6 +969,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const invalidateRatesForDateChange = () => {
       ratesLoadedKey = '';
+      rateMembers = [];
+      rateResultsReady = false;
+      updateRouletteCopyUI();
       invalidateRateBossSelection();
     };
     rateStartInput.addEventListener('change', invalidateRatesForDateChange);
@@ -939,6 +1017,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRateBossSelectionSummary();
       });
     }
+  }
+
+  if (isPrivileged && rouletteMinParticipationInput && copyRouletteBtn) {
+    const updateRouletteThreshold = () => {
+      const threshold = getRouletteMinParticipation();
+      if (rouletteMinParticipationInput.value !== String(threshold)) {
+        rouletteMinParticipationInput.value = String(threshold);
+      }
+      updateRouletteCopyUI();
+    };
+    rouletteMinParticipationInput.addEventListener('input', updateRouletteThreshold);
+    rouletteMinParticipationInput.addEventListener('change', updateRouletteThreshold);
+    copyRouletteBtn.addEventListener('click', copyRouletteNames);
+    updateRouletteCopyUI();
   }
 
   voteList.addEventListener('click', (event) => {

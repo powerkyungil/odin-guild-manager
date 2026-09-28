@@ -452,6 +452,69 @@
       overflow: hidden;
     }
 
+    .roulette-copy-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px 18px;
+      align-items: end;
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px 15px;
+      box-shadow: var(--shadow);
+    }
+
+    .roulette-copy-panel h3 {
+      margin: 0 0 5px;
+      font-size: 15px;
+    }
+
+    .roulette-copy-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .roulette-copy-controls {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+    }
+
+    .roulette-copy-field label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .roulette-copy-field input {
+      width: 110px;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.22);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+
+    .roulette-copy-field input:focus {
+      outline: none;
+      border-color: var(--main);
+      box-shadow: 0 0 0 3px rgba(242, 183, 5, 0.22);
+    }
+
+    .roulette-copy-preview {
+      grid-column: 1 / -1;
+      overflow-wrap: anywhere;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
     .rate-boss-selector {
       margin-bottom: 14px;
       border: 1px solid var(--line);
@@ -930,6 +993,7 @@
     :root:not([data-theme="dark"]) .manual-vote-panel,
     :root:not([data-theme="dark"]) .stats-toolbar,
     :root:not([data-theme="dark"]) .rate-boss-selector,
+    :root:not([data-theme="dark"]) .roulette-copy-panel,
     :root:not([data-theme="dark"]) .rate-table,
     :root:not([data-theme="dark"]) .stats-day,
     :root:not([data-theme="dark"]) .vote-card,
@@ -969,7 +1033,8 @@
     :root:not([data-theme="dark"]) .month-field input,
     :root:not([data-theme="dark"]) .range-field input,
     :root:not([data-theme="dark"]) .range-field select,
-    :root:not([data-theme="dark"]) .boss-combobox input {
+    :root:not([data-theme="dark"]) .boss-combobox input,
+    :root:not([data-theme="dark"]) .roulette-copy-field input {
       background-color: #fffaf1;
       border-color: rgba(26, 23, 20, 0.26);
       color: #1A1714;
@@ -988,7 +1053,8 @@
     :root:not([data-theme="dark"]) .manual-vote-field select:focus,
     :root:not([data-theme="dark"]) .month-field input:focus,
     :root:not([data-theme="dark"]) .range-field input:focus,
-    :root:not([data-theme="dark"]) .range-field select:focus {
+    :root:not([data-theme="dark"]) .range-field select:focus,
+    :root:not([data-theme="dark"]) .roulette-copy-field input:focus {
       border-color: #C9542B;
       box-shadow: 0 0 0 3px rgba(201, 84, 43, 0.16);
     }
@@ -1132,6 +1198,16 @@
 
       .rate-boss-selector-head {
         flex-direction: column;
+      }
+
+      .roulette-copy-panel {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+      }
+
+      .roulette-copy-controls {
+        align-items: end;
+        justify-content: flex-start;
       }
 
       .rate-boss-selector-actions {
@@ -1346,6 +1422,21 @@
         <div class="vote-stat"><span>평균 참여율</span><strong id="rateAverage">0%</strong></div>
       </section>
 
+      <section class="roulette-copy-panel" aria-labelledby="rouletteCopyTitle">
+        <div>
+          <h3 id="rouletteCopyTitle">룰렛 대상 복사</h3>
+          <p>선택한 대상 보스에 지정 횟수 이상 참여한 길드원만 닉네임 목록으로 복사합니다.</p>
+        </div>
+        <div class="roulette-copy-controls">
+          <div class="roulette-copy-field">
+            <label for="rouletteMinParticipationInput">최소 참여 횟수</label>
+            <input id="rouletteMinParticipationInput" type="number" min="1" step="1" value="1" inputmode="numeric">
+          </div>
+          <button id="copyRouletteBtn" class="vote-btn primary" type="button" disabled>룰렛 COPY</button>
+        </div>
+        <p id="rouletteCopyPreview" class="roulette-copy-preview" aria-live="polite">참여율을 조회하면 복사 대상이 표시됩니다.</p>
+      </section>
+
       <section id="rateList" class="vote-list">
         <div class="empty-votes">참여율을 불러오는 중입니다.</div>
       </section>
@@ -1365,7 +1456,7 @@
     </div>
   </div>
 
-  <script src="boss_vote.js?v=3"></script>
+  <script src="boss_vote.js?v=4"></script>
 </body>
 
 </html>
