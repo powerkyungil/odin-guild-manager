@@ -10,13 +10,27 @@
   </script>
   <link rel="stylesheet" href="auth.css">
   <script src="api-config.js"></script>
+  <script src="deputy-ui.js"></script>
 </head>
 <body>
     <div class="auth-container expanded">
         <div class="auth-header">
             <h1>정보 수정 <span id="userRoleBadge" style="font-size: 12px; vertical-align: middle; margin-left:10px; padding: 2px 8px; background: rgba(242, 183, 5, 0.22); color: var(--primary-color); border-radius: 4px; font-weight: 600;">--</span></h1>
-            <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">변경할 캐릭터 정보를 입력하세요</p>
+            <p id="profileDescription" style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">변경할 캐릭터 정보를 입력하세요</p>
         </div>
+
+        <section id="deputyProfilePanel" class="form-section" hidden aria-labelledby="deputyProfileTitle">
+            <div id="deputyProfileTitle" class="form-section-title">부주 닉네임</div>
+            <p style="color:var(--text-muted); line-height:1.6; font-size:13px;">부주 계정 본인의 닉네임만 변경할 수 있습니다. 이 닉네임은 실제 투표자 표시에도 사용됩니다.</p>
+            <form id="deputyProfileForm">
+                <div class="form-group">
+                    <label for="deputyNickname">부주 닉네임</label>
+                    <input type="text" id="deputyNickname" maxlength="40" required autocomplete="nickname">
+                </div>
+                <button type="submit" class="auth-btn">닉네임 저장</button>
+                <div id="deputyProfileMessage" class="error-message" role="status" aria-live="polite"></div>
+            </form>
+        </section>
         
         <form id="editForm">
             <!-- 1. 계정 정보 (아이디 수정 불가) -->
@@ -126,7 +140,7 @@
             <div id="message" class="error-message"></div>
         </form>
 
-        <section class="form-section" aria-labelledby="deleteAccountTitle" style="border-color:rgba(239,68,68,.35); margin-top:36px;">
+        <section id="deleteAccountSection" class="form-section" aria-labelledby="deleteAccountTitle" style="border-color:rgba(239,68,68,.35); margin-top:36px;">
             <div id="deleteAccountTitle" class="form-section-title" style="color:var(--danger-color);">계정 삭제</div>
             <p style="color:var(--text-muted); line-height:1.6; font-size:13px;">계정과 계정에 직접 연결된 프로필·길드 활동 정보가 즉시 삭제되며 복구할 수 없습니다.</p>
             <div class="grid-2">
@@ -146,25 +160,26 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const currentSession = window.odinGetSession();
+        const token = currentSession.token;
+        const isDeputyAccount = currentSession.isDeputy;
         
-        const handleAuthError = () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('role');
-            localStorage.removeItem('nickname');
-            sessionStorage.clear();
-            window.location.href = 'login.html';
-        };
+        const handleAuthError = () => window.odinHandleAuthError();
 
         if (!token) handleAuthError();
 
         const deleteAccountButton = document.getElementById('deleteAccountButton');
-        if ((localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER') {
+        const deleteAccountSection = document.getElementById('deleteAccountSection');
+        if (isDeputyAccount) {
+            deleteAccountSection.hidden = true;
+            deleteAccountButton.disabled = true;
+        } else if (currentSession.role === 'MASTER') {
             deleteAccountButton.disabled = true;
             document.getElementById('deleteMessage').textContent = '길드장 계정은 역할을 이전한 뒤 삭제할 수 있습니다.';
         }
 
         deleteAccountButton.addEventListener('click', async () => {
+            if (isDeputyAccount) return;
             const deleteMessage = document.getElementById('deleteMessage');
             const password = document.getElementById('deletePassword').value;
             const confirmation = document.getElementById('deleteConfirmation').value.trim();
@@ -185,8 +200,7 @@
                     },
                     body: JSON.stringify({ password })
                 });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '계정 삭제에 실패했습니다.');
+                if (!response.ok) throw new Error(window.odinErrorText(await window.odinReadResponseBody(response), '계정 삭제에 실패했습니다.'));
 
                 ['token', 'role', 'username', 'userId', 'nickname'].forEach((key) => {
                     localStorage.removeItem(key);
@@ -370,7 +384,7 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    if (document.getElementById('usernameDisplay')) document.getElementById('usernameDisplay').value = localStorage.getItem('username');
+                    if (document.getElementById('usernameDisplay')) document.getElementById('usernameDisplay').value = currentSession.username;
                     const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
                     if (document.getElementById('userRoleBadge')) document.getElementById('userRoleBadge').textContent = roleLabels[data.role] || data.role;
                     document.getElementById('nickname').value = data.nickname || '';
@@ -425,12 +439,82 @@
             }
         }
 
-        applyCombatPowerEditSetting();
-        loadProfile();
+        async function setupDeputyProfile() {
+            document.getElementById('editForm').hidden = true;
+            document.getElementById('deleteAccountSection').hidden = true;
+            document.getElementById('deputyProfilePanel').hidden = false;
+            document.getElementById('userRoleBadge').textContent = '부주 계정';
+            document.getElementById('profileDescription').textContent = '부주 계정 본인의 닉네임만 변경할 수 있습니다.';
+
+            await window.odinDeputyReady;
+            let profile = window.odinGetSession().deputyProfile;
+            if (!profile) {
+                const response = await fetch('/api/v1/deputy/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await window.odinReadResponseBody(response);
+                if (response.status === 401) return handleAuthError();
+                if (!response.ok) {
+                    document.getElementById('deputyProfileMessage').textContent = window.odinErrorText(data, '부주 프로필을 불러오지 못했습니다.');
+                    return;
+                }
+                profile = data;
+            }
+            document.getElementById('deputyNickname').value = profile?.nickname || '';
+        }
+
+        if (isDeputyAccount) {
+            setupDeputyProfile().catch(() => {
+                document.getElementById('deputyProfileMessage').textContent = '서버 통신 오류로 부주 프로필을 불러오지 못했습니다.';
+            });
+        } else {
+            applyCombatPowerEditSetting();
+            loadProfile();
+        }
+
+        document.getElementById('deputyProfileForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!isDeputyAccount) return;
+            const input = document.getElementById('deputyNickname');
+            const message = document.getElementById('deputyProfileMessage');
+            const nickname = input.value.trim();
+            message.style.color = 'var(--danger-color)';
+            message.textContent = '';
+            if (!nickname || nickname.length > 40) {
+                message.textContent = '부주 닉네임은 1자 이상 40자 이하로 입력해 주세요.';
+                return;
+            }
+            const saveButton = event.target.querySelector('button[type="submit"]');
+            saveButton.disabled = true;
+            try {
+                const response = await fetch('/api/v1/deputy/me', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ nickname })
+                });
+                const data = await window.odinReadResponseBody(response);
+                if (response.status === 401) return handleAuthError();
+                if (!response.ok) {
+                    message.textContent = window.odinErrorText(data, '닉네임 변경에 실패했습니다.');
+                    return;
+                }
+                window.odinUpdateDeputyProfile(data);
+                message.style.color = '#10b981';
+                message.textContent = '부주 닉네임이 저장되었습니다.';
+            } catch (error) {
+                message.textContent = '서버 통신 오류로 닉네임을 저장하지 못했습니다.';
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
 
         // --- SUBMIT UPDATE ---
         document.getElementById('editForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (isDeputyAccount) return;
             
             const equipment = {};
             document.querySelectorAll('.equip-input').forEach(el => {

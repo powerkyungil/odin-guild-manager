@@ -1,7 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  const role = localStorage.getItem('role') || sessionStorage.getItem('role');
-  const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username') || sessionStorage.getItem('username') || '';
+  const currentSession = window.odinGetSession();
+  const token = currentSession.token;
+  const role = currentSession.role;
+  const myUserId = currentSession.userId;
+  const isDeputyAccount = currentSession.isDeputy;
   const isPrivileged = role === 'MASTER' || role === 'ADMIN';
   const voteList = document.getElementById('voteList');
   const refreshBtn = document.getElementById('refreshVotesBtn');
@@ -55,6 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const manualBossInput = document.getElementById('manualBossInput');
   const manualTypeInput = document.getElementById('manualTypeInput');
   const manualBlessInput = document.getElementById('manualBlessInput');
+  const voteTargetSelect = document.getElementById('voteTargetSelect');
+  const voteTargetHelp = document.getElementById('voteTargetHelp');
+  const voteTargetMessage = document.getElementById('voteTargetMessage');
 
   let votes = [];
   let activeFilter = 'today';
@@ -72,14 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let rateSelectionDirty = false;
   let rateMembers = [];
   let rateResultsReady = false;
+  let voteTargetCharacterKey = '';
+  let voteTargetCharacters = [];
+  let voteTargetReady = false;
 
-  const handleAuthError = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('nickname');
-    sessionStorage.clear();
-    window.location.href = 'login.html';
-  };
+  const handleAuthError = () => window.odinHandleAuthError();
 
   if (!token) {
     handleAuthError();
@@ -176,6 +178,116 @@ document.addEventListener('DOMContentLoaded', () => {
   const shouldShowRegion = (region) => {
     const normalized = String(region || '').trim();
     return normalized !== '' && normalized !== '수동';
+  };
+
+  const setVoteTargetMessage = (message, isError = false) => {
+    if (!voteTargetMessage) return;
+    voteTargetMessage.textContent = message || '';
+    voteTargetMessage.classList.toggle('error', Boolean(isError));
+  };
+
+  const voteTargetLabel = character => {
+    const typeLabel = character.characterType === 'ALTERNATE' ? '부캐' : '본캐';
+    const owner = character.ownerNickname ? `${character.ownerNickname} · ` : '';
+    return `${owner}${character.characterName || '이름 없는 캐릭터'} (${typeLabel})`;
+  };
+
+  const renderVoteTargetOptions = () => {
+    if (!voteTargetSelect) return;
+    voteTargetSelect.replaceChildren();
+    voteTargetCharacters.forEach(character => {
+      const option = document.createElement('option');
+      option.value = character.characterKey;
+      option.textContent = voteTargetLabel(character);
+      option.selected = character.characterKey === voteTargetCharacterKey;
+      voteTargetSelect.appendChild(option);
+    });
+    voteTargetSelect.disabled = isDeputyAccount || voteTargetCharacters.length === 0;
+    if (voteTargetCharacters.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = '선택 가능한 캐릭터가 없습니다.';
+      option.disabled = true;
+      option.selected = true;
+      voteTargetSelect.appendChild(option);
+    }
+  };
+
+  const loadVoteTarget = async () => {
+    voteTargetReady = false;
+    setVoteTargetMessage('투표 대상 캐릭터를 불러오는 중입니다.');
+    await window.odinDeputyReady;
+
+    if (isDeputyAccount) {
+      const activeCharacter = window.odinGetActiveCharacter();
+      if (!activeCharacter) {
+        renderVoteTargetOptions();
+        setVoteTargetMessage('부주 계정은 투표 전에 대신할 캐릭터를 선택해야 합니다.', true);
+        return false;
+      }
+      voteTargetCharacters = [activeCharacter];
+      voteTargetCharacterKey = activeCharacter.characterKey;
+      voteTargetHelp.textContent = '부주 계정의 공통 선택값입니다. 다른 캐릭터로 대신하려면 상단 캐릭터 선택에서 변경하세요.';
+      renderVoteTargetOptions();
+      voteTargetReady = true;
+      setVoteTargetMessage(`현재 대상: ${voteTargetLabel(activeCharacter)}`);
+      return true;
+    }
+
+    try {
+      const response = await fetch('/api/v1/members', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await window.odinReadResponseBody(response);
+      if (response.status === 401) {
+        handleAuthError();
+        return false;
+      }
+      if (!response.ok) {
+        setVoteTargetMessage(window.odinErrorText(data, '투표 대상 캐릭터를 불러오지 못했습니다.'), true);
+        return false;
+      }
+
+      voteTargetCharacters = (Array.isArray(data) ? data : []).flatMap(member => {
+        const ownerUserId = Number(member.id);
+        if (!Number.isSafeInteger(ownerUserId) || ownerUserId < 1) return [];
+        const ownerNickname = member.nickname || member.username || `길드원 ${ownerUserId}`;
+        const main = {
+          characterKey: `MAIN:${ownerUserId}`,
+          characterType: 'MAIN',
+          ownerUserId,
+          ownerNickname,
+          characterName: member.nickname || member.username || '본캐',
+          mainClass: member.mainClass || member.main_class || '',
+          combatPower: Number(member.combatPower ?? member.combat_power ?? 0)
+        };
+        const alternates = (member.alternateCharacters || member.alternate_characters || []).map(alternate => ({
+          characterKey: `ALTERNATE:${ownerUserId}`,
+          characterType: 'ALTERNATE',
+          ownerUserId,
+          ownerNickname,
+          characterName: alternate.characterName || alternate.character_name || '부캐',
+          mainClass: alternate.mainClass || alternate.main_class || '',
+          combatPower: Number(member.combatPower ?? member.combat_power ?? 0)
+        }));
+        return [main, ...alternates];
+      });
+
+      const storedKey = currentSession.storage.getItem('voteTargetCharacterKey') || '';
+      const ownKey = myUserId ? `MAIN:${myUserId}` : '';
+      voteTargetCharacterKey = voteTargetCharacters.some(item => item.characterKey === storedKey)
+        ? storedKey
+        : (voteTargetCharacters.some(item => item.characterKey === ownKey) ? ownKey : voteTargetCharacters[0]?.characterKey || '');
+      if (voteTargetCharacterKey) currentSession.storage.setItem('voteTargetCharacterKey', voteTargetCharacterKey);
+      voteTargetHelp.textContent = '별도 위임 없이 같은 길드의 캐릭터를 대신해 투표할 수 있습니다. 선택한 대상만 참여 상태가 변경됩니다.';
+      renderVoteTargetOptions();
+      voteTargetReady = Boolean(voteTargetCharacterKey);
+      setVoteTargetMessage(voteTargetReady ? `현재 대상: ${voteTargetLabel(voteTargetCharacters.find(item => item.characterKey === voteTargetCharacterKey))}` : '선택 가능한 캐릭터가 없습니다.', !voteTargetReady);
+      return voteTargetReady;
+    } catch (error) {
+      setVoteTargetMessage('서버 통신 오류로 투표 대상 캐릭터를 불러오지 못했습니다.', true);
+      return false;
+    }
   };
 
   const applyAutoTypeForBoss = (bossName) => {
@@ -298,6 +410,28 @@ document.addEventListener('DOMContentLoaded', () => {
     copyRouletteBtn.disabled = nicknames.length === 0;
   };
 
+  const showVoteToast = (message, type = 'success') => {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type === 'success' ? 'toast-success' : ''}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    void toast.offsetWidth;
+    toast.classList.add('show');
+
+    window.setTimeout(() => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+      window.setTimeout(() => toast.remove(), 300);
+    }, 2200);
+  };
+
   const copyRouletteNames = async () => {
     const nicknames = getRouletteTargetNicknames();
     if (!rateResultsReady || rateSelectionDirty || nicknames.length === 0) return;
@@ -319,9 +453,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!copied) throw new Error('Copy failed');
       }
       rouletteCopyPreview.textContent = `${nicknames.length}명 복사 완료 · ${text}`;
+      copyRouletteBtn.textContent = '복사됨 ✓';
+      showVoteToast(`룰렛 대상 ${nicknames.length}명을 복사했습니다.`);
+      window.setTimeout(() => {
+        copyRouletteBtn.textContent = '룰렛 COPY';
+        updateRouletteCopyUI();
+      }, 1500);
     } catch (error) {
       console.warn('Failed to copy roulette participants', error);
       rouletteCopyPreview.textContent = '복사에 실패했습니다. 브라우저의 클립보드 권한을 확인해 주세요.';
+      showVoteToast('룰렛 대상 복사에 실패했습니다.', 'error');
     }
   };
 
@@ -392,27 +533,53 @@ document.addEventListener('DOMContentLoaded', () => {
     myVoteCountEl.textContent = String(items.filter(item => item.joined).length);
   };
 
+  const participantCharacterDirectory = () => isDeputyAccount
+    ? window.odinGetDeputyCharacters()
+    : voteTargetCharacters;
+
+  const participantOwnerNickname = participant => {
+    const characterType = participant.characterType === 'ALTERNATE' ? 'ALTERNATE' : 'MAIN';
+    const characterKey = participant.characterKey || `${characterType}:${participant.userId}`;
+    return participantCharacterDirectory().find(character => character.characterKey === characterKey)?.ownerNickname || '';
+  };
+
+  const participantTargetLabel = participant => {
+    const characterType = participant.characterType === 'ALTERNATE' ? '부캐' : '본캐';
+    const ownerNickname = participantOwnerNickname(participant);
+    return `${ownerNickname ? `${ownerNickname} · ` : ''}${participant.nickname || '이름 없는 캐릭터'} · ${characterType}`;
+  };
+
+  const participantActorLabel = participant => {
+    if (participant.votedBy) {
+      const accountType = participant.votedBy.accountType === 'DEPUTY' ? '부주 계정' : '일반 계정';
+      return `실제 투표자: ${participant.votedBy.nickname || '알 수 없음'} · ${accountType}`;
+    }
+    const ownerNickname = participantOwnerNickname(participant);
+    return `실제 투표자: ${ownerNickname || '대상 캐릭터 소유 계정'} · 일반 계정`;
+  };
+
   const renderParticipantChip = participant =>
-    `<span class="participant-chip">${escapeHtml(participant.nickname)}</span>`;
+    `<span class="participant-chip" title="${escapeHtml(participantActorLabel(participant))}">${escapeHtml(participantTargetLabel(participant))}</span>`;
+
+  const renderParticipantSummary = participant => `
+    <div class="vote-participant-summary">
+      <strong>${escapeHtml(participantTargetLabel(participant))}</strong>
+      <span>${escapeHtml(participantActorLabel(participant))}</span>
+    </div>
+  `;
 
   const openParticipantModal = (vote) => {
     const participants = vote.participants || [];
     modalTitle.textContent = `${vote.boss} 참여자`;
     modalSub.textContent = `${formatDateLabel(vote.spawnTime)} · 총 ${participants.length}명`;
     modalList.innerHTML = participants.length
-      ? participants.map(p => `<div class="participant-row">${escapeHtml(p.nickname)}</div>`).join('')
+      ? participants.map(p => `<div class="participant-row"><strong>${escapeHtml(participantTargetLabel(p))}</strong><span>${escapeHtml(participantActorLabel(p))}</span></div>`).join('')
       : '<div class="empty-votes">아직 참여자가 없습니다.</div>';
     modal.classList.add('open');
   };
 
   const closeParticipantModal = () => {
     modal.classList.remove('open');
-  };
-
-  const syncOpenModalIfNeeded = (vote) => {
-    if (!modal.classList.contains('open')) return;
-    if (modalTitle.textContent !== `${vote.boss} 참여자`) return;
-    openParticipantModal(vote);
   };
 
   const refreshVoteRelatedData = () => {
@@ -425,6 +592,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const toggleVote = async (vote) => {
+    if (!voteTargetReady || !voteTargetCharacterKey) {
+      setVoteTargetMessage('투표할 캐릭터를 먼저 선택해 주세요.', true);
+      return;
+    }
     const res = await fetch(`/api/v1/boss-votes/${encodeURIComponent(vote.voteKey)}/participation`, {
       method: 'PUT',
       headers: {
@@ -433,34 +604,20 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       body: JSON.stringify({
         boss: vote.boss,
-        spawnTime: vote.spawnTime
+        spawnTime: vote.spawnTime,
+        characterKey: voteTargetCharacterKey
       })
     });
 
     if (res.status === 401) return handleAuthError();
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || '참여 처리에 실패했습니다.');
+      const data = await window.odinReadResponseBody(res);
+      setVoteTargetMessage(window.odinErrorText(data, '참여 처리에 실패했습니다.'), true);
       return;
     }
 
-    const result = await res.json().catch(() => ({}));
-    const joined = !!result.joined;
-
-    vote.joined = joined;
-    if (!Array.isArray(vote.participants)) vote.participants = [];
-
-    if (joined) {
-      if (!vote.participants.some(p => p.nickname === myNickname)) {
-        vote.participants.push({ nickname: myNickname });
-      }
-    } else {
-      vote.participants = vote.participants.filter(p => p.nickname !== myNickname);
-    }
-    vote.participantCount = vote.participants.length;
-
-    renderVotes();
-    syncOpenModalIfNeeded(vote);
+    await res.json().catch(() => ({}));
+    await fetchVotes();
     refreshVoteRelatedData();
   };
 
@@ -525,7 +682,12 @@ document.addEventListener('DOMContentLoaded', () => {
               ${shouldShowRegion(vote.region) ? `<span class="vote-pill">${escapeHtml(vote.region)}</span>` : ''}
               ${vote.isBlessed ? '<span class="bless-badge">축 보스</span>' : ''}
             </div>
-            <div class="vote-meta">참여 ${vote.participantCount || 0}명${vote.joined ? ' · 내 참여 완료' : ''}</div>
+            <div class="vote-meta">참여 ${vote.participantCount || 0}명${vote.joined ? ' · 선택 대상 참여 완료' : ''}</div>
+            <div class="vote-participant-preview">
+              ${(vote.participants || []).length
+                ? vote.participants.map(renderParticipantSummary).join('')
+                : '<span class="vote-participant-empty">참여자 없음</span>'}
+            </div>
           </div>
           <div class="vote-card-actions">
             ${participationButton}
@@ -858,14 +1020,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const fetchVotes = async () => {
+    if (!voteTargetReady || !voteTargetCharacterKey) {
+      voteList.innerHTML = '<div class="empty-votes">투표할 캐릭터를 먼저 선택해 주세요.</div>';
+      return;
+    }
     voteList.innerHTML = '<div class="empty-votes">투표 보스를 불러오는 중입니다.</div>';
-    const res = await fetch('/api/v1/boss-votes', {
+    const res = await fetch(`/api/v1/boss-votes?characterKey=${encodeURIComponent(voteTargetCharacterKey)}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
     if (res.status === 401) return handleAuthError();
     if (!res.ok) {
-      voteList.innerHTML = '<div class="empty-votes">투표 보스를 불러오지 못했습니다.</div>';
+      const data = await window.odinReadResponseBody(res);
+      voteList.innerHTML = `<div class="empty-votes">${escapeHtml(window.odinErrorText(data, '투표 보스를 불러오지 못했습니다.'))}</div>`;
       return;
     }
 
@@ -1065,6 +1232,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   refreshBtn.addEventListener('click', fetchVotes);
+  if (voteTargetSelect && !isDeputyAccount) {
+    voteTargetSelect.addEventListener('change', () => {
+      voteTargetCharacterKey = voteTargetSelect.value || '';
+      if (voteTargetCharacterKey) currentSession.storage.setItem('voteTargetCharacterKey', voteTargetCharacterKey);
+      const target = voteTargetCharacters.find(item => item.characterKey === voteTargetCharacterKey);
+      setVoteTargetMessage(target ? `현재 대상: ${voteTargetLabel(target)}` : '투표할 캐릭터를 먼저 선택해 주세요.', !target);
+      voteTargetReady = Boolean(target);
+      fetchVotes();
+    });
+  }
   if (isPrivileged && manualVotePanel && manualVoteForm) {
     manualVotePanel.classList.add('open');
     if (manualBlessInput) {
@@ -1107,6 +1284,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target === modal) closeParticipantModal();
   });
 
-  loadBossNameOptions();
-  fetchVotes();
+  window.odinDeputyReady.then(async () => {
+    const targetReady = await loadVoteTarget();
+    if (!targetReady) return;
+    loadBossNameOptions();
+    fetchVotes();
+  });
 });

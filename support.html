@@ -79,6 +79,17 @@
             font-weight: 800;
             margin: 0 0 4px;
         }
+        .character-badge {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 3px 7px;
+            border: 1px solid rgba(129,140,248,0.35);
+            border-radius: 999px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+            vertical-align: middle;
+        }
         .request-meta {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -552,6 +563,7 @@
         }
     </style>
   <script src="api-config.js"></script>
+  <script src="deputy-ui.js"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -633,18 +645,20 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const myUserId = Number(localStorage.getItem('userId') || sessionStorage.getItem('userId'));
-        const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
+        const currentSession = window.odinGetSession();
+        const token = currentSession.token;
+        const myUserId = currentSession.userId;
+        const myRole = currentSession.role;
+        const isDeputyAccount = currentSession.isDeputy;
         const isAdmin = myRole === 'MASTER' || myRole === 'ADMIN';
+        const actingCharacter = () => window.odinGetActionCharacter?.() || null;
+        const actingOwnerId = () => Number(actingCharacter()?.ownerUserId || myUserId) || null;
+        const actingCharacterType = () => actingCharacter()?.characterType || 'MAIN';
+        const isActingCharacter = (userId, characterType) => (
+            Number(userId) === actingOwnerId() && (characterType || 'MAIN') === actingCharacterType()
+        );
 
-        const handleAuthError = () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('role');
-            localStorage.removeItem('nickname');
-            sessionStorage.clear();
-            window.location.href = 'login.html';
-        };
+        const handleAuthError = () => window.odinHandleAuthError();
 
         if (!token) handleAuthError();
 
@@ -781,6 +795,11 @@
             return res;
         };
 
+        const responseError = async (res, fallback) => {
+            const data = await window.odinReadResponseBody(res);
+            return window.odinErrorText(data, fallback);
+        };
+
         function openRequestModal() {
             document.getElementById('formMessage').textContent = '';
             document.getElementById('requestModal').classList.add('open');
@@ -821,8 +840,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ requestedTime, memo })
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '요청 등록에 실패했습니다.');
+                if (!res.ok) throw new Error(await responseError(res, '요청 등록에 실패했습니다.'));
                 event.target.reset();
                 initDateTimeDropdowns();
                 closeRequestModal();
@@ -837,9 +855,9 @@
             list.innerHTML = '<div class="empty">불러오는 중입니다.</div>';
             try {
                 const res = await apiFetch('/api/v1/support-requests');
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '목록을 불러오지 못했습니다.');
-                renderRequests(data);
+                const data = await window.odinReadResponseBody(res);
+                if (!res.ok) throw new Error(window.odinErrorText(data, '목록을 불러오지 못했습니다.'));
+                renderRequests(Array.isArray(data) ? data : []);
             } catch (err) {
                 list.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
             }
@@ -853,20 +871,23 @@
             }
 
             list.innerHTML = requests.map(req => {
-                const canManage = req.requesterId === myUserId || isAdmin;
-                const hasApplied = req.applications.some(app => app.applicantId === myUserId);
-                const canApply = req.status === 'OPEN' && req.requesterId !== myUserId && !hasApplied;
+                const requesterCharacterType = req.requesterCharacterType || 'MAIN';
+                const canManage = isActingCharacter(req.requesterId, requesterCharacterType) || isAdmin;
+                const hasApplied = req.applications.some(app => isActingCharacter(app.applicantId, app.applicantCharacterType));
+                const isRequester = isActingCharacter(req.requesterId, requesterCharacterType);
+                const canApply = req.status === 'OPEN' && !isRequester && !hasApplied;
                 const statusClass = `status-${String(req.status || 'OPEN').toLowerCase()}`;
 
                 const applicationsHtml = req.applications.length
                     ? `<div class="application-badges">${req.applications.map(app => {
                         const selected = app.status === 'SELECTED';
-                        const isMine = app.applicantId === myUserId;
+                        const isMine = isActingCharacter(app.applicantId, app.applicantCharacterType);
+                        const characterLabel = (app.applicantCharacterType || 'MAIN') === 'ALTERNATE' ? '부캐' : '본캐';
                         const selectableClass = canManage ? 'selectable' : '';
                         const selectAttr = canManage ? `onclick="selectApplication(${req.id}, ${app.id})" title="이 지원자 선택"` : '';
                         return `
                             <span class="app-badge ${selected ? 'selected' : ''} ${selectableClass}" ${selectAttr}>
-                                <span class="app-badge-name">${escapeHtml(app.nickname)}</span>
+                                <span class="app-badge-name">${escapeHtml(app.nickname)} · ${characterLabel}</span>
                                 ${selected ? '<span class="app-badge-mark">선택</span>' : ''}
                                 ${isMine ? `<button type="button" class="app-cancel-btn" onclick="cancelApplication(event, ${req.id}, ${app.id})" aria-label="신청 취소">&times;</button>` : ''}
                             </span>
@@ -878,7 +899,7 @@
                     <article class="request-card">
                         <div class="request-head">
                             <div>
-                                <h3 class="request-name">${escapeHtml(req.nickname)}</h3>
+                                <h3 class="request-name">${escapeHtml(req.nickname)} <span class="character-badge">${requesterCharacterType === 'ALTERNATE' ? '부캐' : '본캐'}</span></h3>
                                 <div class="request-meta">
                                     <div class="info-tile power">
                                         <div class="info-label">투력</div>
@@ -920,8 +941,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ memo: '' })
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '신청에 실패했습니다.');
+                if (!res.ok) throw new Error(await responseError(res, '신청에 실패했습니다.'));
                 await loadRequests();
             } catch (err) {
                 alert(err.message);
@@ -934,8 +954,7 @@
             if (!confirm('손지원 신청을 취소하시겠습니까?')) return;
             try {
                 const res = await apiFetch(`/api/v1/support-requests/${requestId}/applications/${applicationId}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '신청 취소에 실패했습니다.');
+                if (!res.ok) throw new Error(await responseError(res, '신청 취소에 실패했습니다.'));
                 await loadRequests();
             } catch (err) {
                 alert(err.message);
@@ -946,8 +965,7 @@
             if (!confirm('이 신청자를 손지원 담당자로 선택하시겠습니까?')) return;
             try {
                 const res = await apiFetch(`/api/v1/support-requests/${requestId}/select/${applicationId}`, { method: 'POST' });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '선택에 실패했습니다.');
+                if (!res.ok) throw new Error(await responseError(res, '선택에 실패했습니다.'));
                 await loadRequests();
             } catch (err) {
                 alert(err.message);
@@ -963,8 +981,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '상태 변경에 실패했습니다.');
+                if (!res.ok) throw new Error(await responseError(res, '상태 변경에 실패했습니다.'));
                 await loadRequests();
             } catch (err) {
                 alert(err.message);
@@ -975,16 +992,18 @@
             if (!confirm('이 손지원 요청을 삭제하시겠습니까? 신청목록도 함께 삭제됩니다.')) return;
             try {
                 const res = await apiFetch(`/api/v1/support-requests/${requestId}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || '삭제에 실패했습니다.');
+                if (!res.ok) throw new Error(await responseError(res, '삭제에 실패했습니다.'));
                 await loadRequests();
             } catch (err) {
                 alert(err.message);
             }
         }
 
-        initDateTimeDropdowns();
-        loadRequests();
+        window.odinDeputyReady.then(() => {
+            if (isDeputyAccount && !window.odinEnsureActionCharacter()) return;
+            initDateTimeDropdowns();
+            loadRequests();
+        });
     </script>
 </body>
 </html>

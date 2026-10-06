@@ -9,6 +9,8 @@
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
   <link rel="stylesheet" href="auth.css">
+  <script src="api-config.js"></script>
+  <script src="deputy-ui.js"></script>
   <style>
     body { padding: 0 20px; box-sizing: border-box; }
     .auth-container { width: min(96vw, 1800px); max-width: none; margin: 20px auto; }
@@ -216,7 +218,6 @@
       .auth-container { width: min(97vw, 1360px); }
     }
   </style>
-  <script src="api-config.js"></script>
 </head>
 <body>
   <div class="auth-container">

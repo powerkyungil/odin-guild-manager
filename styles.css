@@ -1690,6 +1690,11 @@ h1 {
   text-align: center;
 }
 
+.toast.toast-success {
+  background: rgba(16, 185, 129, 0.95);
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.35);
+}
+
 .toast.show {
   opacity: 1;
   transform: translateY(0);

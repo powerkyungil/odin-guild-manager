@@ -149,6 +149,7 @@
         }
     </style>
   <script src="api-config.js"></script>
+  <script src="deputy-ui.js"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -165,7 +166,7 @@
             <option value="safety">샌드골드</option>
             <option value="dark">다크블루</option>
                 </select>
-                <button class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
+                <button id="profileBtn" class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
                 <button id="settingsBtn" class="logout-btn settings-btn" type="button" onclick="window.location.href='settings.html'">설정</button>
                 <button class="logout-btn" onclick="logout()">로그아웃</button>
             </div>
@@ -176,7 +177,7 @@
         </div>
         
         <div class="menu-grid">
-            <a href="notice.html" class="menu-card">
+            <a href="notice.html" class="menu-card" data-deputy-hidden="true">
                 <h3>공지</h3>
                 <p>길드 공지, 거래 기준, 보스 통제 확인</p>
                 <div class="menu-sub">
@@ -201,7 +202,7 @@
                 <p>접속이 어려운 길드원과 지원자를 매칭</p>
             </a>
 
-            <a href="collections_v2.html" class="menu-card">
+            <a href="collections_v2.html" class="menu-card" data-deputy-hidden="true">
                 <h3>길드원 아이템 현황</h3>
                 <p>고정 아이템 ID 기반의 안전한 달성 현황 관리</p>
             </a>
@@ -211,17 +212,17 @@
                 <p>드래그 앤 드롭 그룹 빌더</p>
             </a>
 
-            <a href="siege.html" class="menu-card">
+            <a href="siege.html" class="menu-card" data-deputy-hidden="true">
                 <h3>공성전 참여</h3>
                 <p>보유/잔여 다이아 현황 관리</p>
             </a>
             
-            <a href="members.html" class="menu-card">
+            <a href="members.html" class="menu-card" data-deputy-hidden="true">
                 <h3>길드원 관리</h3>
                 <p>회원 목록 및 성과 관리</p>
             </a>
 
-            <a href="distributions-list.html" class="menu-card">
+            <a href="distributions-list.html" class="menu-card" data-deputy-hidden="true">
                 <h3>길드원 분배금 <span class="new-badge">NEW</span></h3>
                 <p>기간별 분배금 계산과 확정 내역 확인</p>
             </a>
@@ -235,15 +236,12 @@
     </div>
 
     <script>
-        const sessionToken = sessionStorage.getItem('token');
-        const activeStorage = sessionToken ? sessionStorage : localStorage;
-        const token = sessionToken || localStorage.getItem('token');
+        const currentSession = window.odinGetSession();
+        const activeStorage = currentSession.storage;
+        const token = currentSession.token;
         
         const handleAuthError = () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('role');
-            localStorage.removeItem('nickname');
-            sessionStorage.clear();
+            window.odinHandleAuthError();
             window.location.href = 'login.html';
         };
 
@@ -258,16 +256,23 @@
             document.documentElement.dataset.theme = themeSelect.value;
         });
 
-        const currentUsername = activeStorage.getItem('username');
+        const role = currentSession.role;
+        const currentUsername = currentSession.isDeputy
+            ? (currentSession.nickname || currentSession.username)
+            : currentSession.username;
         document.getElementById('userNameDisplay').textContent = currentUsername;
-        const role = activeStorage.getItem('role');
-        const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
+        const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원', 'DEPUTY': '부주 계정' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
+        if (currentSession.isDeputy) {
+            document.getElementById('profileBtn').textContent = '부주 닉네임';
+            document.querySelectorAll('[data-deputy-hidden="true"]').forEach(card => { card.hidden = true; });
+        }
         if (role === 'MASTER') {
             document.getElementById('settingsBtn').style.display = 'inline-block';
         }
 
         async function loadSettings() {
+            if (currentSession.isDeputy) return;
             try {
                 const res = await fetch('/api/v1/guild/settings', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) return handleAuthError();
@@ -285,12 +290,16 @@
 
         loadSettings();
 
+        const menuError = new URLSearchParams(window.location.search).get('error');
+        if (menuError === 'deputy-forbidden') {
+            const notice = document.createElement('div');
+            notice.textContent = '부주 계정으로 사용할 수 없는 기능입니다.';
+            notice.style.cssText = 'margin:0 0 14px; padding:10px 12px; border:1px solid rgba(239,68,68,.35); border-radius:8px; color:var(--danger-color); background:rgba(239,68,68,.08); font-size:13px; font-weight:700;';
+            document.querySelector('.menu-grid').before(notice);
+        }
+
         function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('role');
-            localStorage.removeItem('username');
-            localStorage.removeItem('userId');
-            sessionStorage.clear();
+            window.odinClearSession();
             window.location.href = 'login.html';
         }
 

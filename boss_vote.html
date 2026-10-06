@@ -145,6 +145,63 @@
       font-size: 22px;
     }
 
+    .vote-target-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--main);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px 15px;
+      box-shadow: var(--shadow);
+    }
+
+    .vote-target-copy {
+      min-width: 0;
+    }
+
+    .vote-target-copy h2 {
+      margin: 0 0 5px;
+      font-size: 16px;
+    }
+
+    .vote-target-copy p,
+    .vote-target-message {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .vote-target-message {
+      margin-top: 5px;
+      color: var(--main);
+    }
+
+    .vote-target-message.error {
+      color: #f87171;
+    }
+
+    .vote-target-select {
+      width: min(380px, 45%);
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.22);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .vote-target-select:disabled {
+      opacity: .82;
+      cursor: not-allowed;
+    }
+
     .manual-vote-panel {
       display: none;
       border: 1px solid var(--line);
@@ -909,6 +966,31 @@
       font-size: 13px;
     }
 
+    .vote-participant-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 116px;
+      margin-top: 9px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .vote-participant-summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 8px;
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .vote-participant-summary span,
+    .vote-participant-empty {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
     .vote-card-actions {
       display: flex;
       align-items: center;
@@ -1021,6 +1103,14 @@
       border-radius: 8px;
       background: rgba(255,255,255,0.06);
       font-weight: 800;
+    }
+
+    .participant-row span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
 
     :root:not([data-theme="dark"]) .vote-tabs,
@@ -1222,6 +1312,15 @@
         grid-template-columns: 1fr;
       }
 
+      .vote-target-panel {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .vote-target-select {
+        width: 100%;
+      }
+
       .manual-vote-form {
         grid-template-columns: 1fr;
       }
@@ -1280,6 +1379,7 @@
     }
   </style>
   <script src="api-config.js"></script>
+  <script src="deputy-ui.js"></script>
 </head>
 
 <body>
@@ -1305,10 +1405,20 @@
     </nav>
 
     <section id="voteView" class="view-panel active">
+      <section id="voteTargetPanel" class="vote-target-panel" aria-labelledby="voteTargetTitle">
+        <div class="vote-target-copy">
+          <h2 id="voteTargetTitle">투표 대상 캐릭터</h2>
+          <p id="voteTargetHelp">투표 대상을 확인하는 중입니다.</p>
+          <p id="voteTargetMessage" class="vote-target-message" role="status" aria-live="polite"></p>
+        </div>
+        <select id="voteTargetSelect" class="vote-target-select" aria-label="투표 대상 캐릭터">
+          <option value="">선택하는 중입니다.</option>
+        </select>
+      </section>
       <section class="vote-summary">
         <div class="vote-stat"><span>투표 보스</span><strong id="voteBossCount">0</strong></div>
         <div class="vote-stat"><span>전체 참여</span><strong id="voteJoinCount">0</strong></div>
-        <div class="vote-stat"><span>내 참여</span><strong id="myVoteCount">0</strong></div>
+        <div class="vote-stat"><span>선택 대상 참여</span><strong id="myVoteCount">0</strong></div>
       </section>
 
       <section id="manualVotePanel" class="manual-vote-panel">
@@ -1500,7 +1610,7 @@
     </div>
   </div>
 
-  <script src="boss_vote.js?v=4"></script>
+  <script src="boss_vote.js?v=5"></script>
 </body>
 
 </html>

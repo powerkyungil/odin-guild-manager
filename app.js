@@ -27,19 +27,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const ocrResultPanel = document.getElementById('ocr-result-panel');
   const ocrResultList = document.getElementById('ocr-result-list');
 
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  const myRole = localStorage.getItem('role') || sessionStorage.getItem('role');
-  const myNickname = localStorage.getItem('nickname') || sessionStorage.getItem('nickname') || localStorage.getItem('username');
+  const currentSession = window.odinGetSession();
+  const token = currentSession.token;
+  const myRole = currentSession.role;
+  const myNickname = currentSession.nickname || currentSession.username;
+  const isDeputyAccount = currentSession.isDeputy;
+  const canManageSchedule = myRole === 'MASTER' || myRole === 'ADMIN';
+  const getActionCharacter = () => window.odinGetActionCharacter?.() || null;
+  const getActionCharacterKey = () => getActionCharacter()?.characterKey || null;
+  const getActionCharacterName = () => getActionCharacter()?.characterName || myNickname;
 
-  const handleAuthError = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('nickname');
-    sessionStorage.clear();
-    window.location.href = 'login.html';
-  };
+  const handleAuthError = () => window.odinHandleAuthError();
 
-  if (!token) handleAuthError();
+  if (!token) return handleAuthError();
+
+  if (isDeputyAccount) {
+    if (document.getElementById('sidebar')) document.getElementById('sidebar').hidden = true;
+    if (document.getElementById('sidebar-toggle')) document.getElementById('sidebar-toggle').hidden = true;
+  }
 
   // --- Input mode / screenshot preparation ---
   // OCR credentials remain server-side. This step only normalizes the selected image
@@ -522,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       const end = Date.now();
       const rtt = end - start;
-      const serverTime = Number(data?.serverTime);
+      const serverTime = Number(data?.epochMs ?? data?.serverTime);
       if (!res.ok || !Number.isFinite(serverTime)) {
         throw new Error(`Invalid server time response (${res.status})`);
       }
@@ -2040,7 +2045,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isTarget) {
         const participationVoteKey = getParticipationVoteKey(item);
         const list = participantsMap[participationVoteKey] || [];
-        const IJoined = list.includes(myNickname);
+        const IJoined = list.includes(getActionCharacterName());
         const isParticipationClosed = participationClosedKeys.has(participationVoteKey);
 
         if (IJoined || !isParticipationClosed) {
@@ -2077,16 +2082,16 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="time-action-group" style="grid-column: 3 / 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
           ${!isPast ? `<div class="row-remaining" data-spawn-time="${item.spawnTime}">${remainingStr}</div>` : ''}
-          ${!item.isFixed ? `
+          ${!item.isFixed && canManageSchedule ? `
             <button class="cut-btn" style="background: #0ea5e9; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">컷</button>
             ${isPast && item.type !== '침공' ? `<button class="mung-btn" style="background: #a855f7; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0;">멍</button>` : ''}
           ` : ''}
           <div class="spawn-time" style="white-space: nowrap;">${timeLabel}</div>
-          <button class="delete-row-btn" aria-label="삭제" style="flex-shrink: 0; margin-left: 0;">
+          ${canManageSchedule ? `<button class="delete-row-btn" aria-label="삭제" style="flex-shrink: 0; margin-left: 0;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
-          </button>
+          </button>` : ''}
         </div>
       `;
 
@@ -2099,23 +2104,32 @@ document.addEventListener('DOMContentLoaded', () => {
           if (pBtn.classList.contains('joined')) {
             showParticipantModal(item.boss, participantsMap[getParticipationVoteKey(item)] || []);
           } else {
-            fetch('/api/v1/participants/' + encodeURIComponent(item.boss), {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
+            try {
+              const body = {
                 type: item.type,
                 region: item.region,
                 spawnTime: item.spawnTime
-              })
-            }).then(r => {
-              if (r.status === 401) return handleAuthError();
-              return r.json();
-            }).then(res => {
+              };
+              const characterKey = getActionCharacterKey();
+              if (characterKey) body.characterKey = characterKey;
+              const response = await fetch('/api/v1/participants/' + encodeURIComponent(item.boss), {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(body)
+              });
+              if (response.status === 401) return handleAuthError();
+              const data = await window.odinReadResponseBody(response);
+              if (!response.ok) {
+                alert(window.odinErrorText(data, '참여 처리에 실패했습니다.'));
+                return;
+              }
               fetchSchedules(); // reload data naturally
-            });
+            } catch (error) {
+              alert('서버 통신 오류로 참여 처리에 실패했습니다.');
+            }
           }
         });
       }
@@ -2158,7 +2172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      row.querySelector('.delete-row-btn').addEventListener('click', () => {
+      row.querySelector('.delete-row-btn')?.addEventListener('click', () => {
         if (item.isFixed) {
           alert('고정 이벤트는 삭제할 수 없습니다.');
           return;
@@ -2227,6 +2241,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const fetchSettings = async () => {
+    if (isDeputyAccount) return;
     try {
       const res = await fetch('/api/v1/guild/settings', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -2240,13 +2255,21 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- Init ---
-  fetchSettings();
-  fetchCustomBosses().then(() => {
-    fetchSchedules().then(() => {
-      renderForms();
+  window.odinDeputyReady.then(() => {
+    if (isDeputyAccount && !window.odinEnsureActionCharacter()) {
+      scheduleContainer.innerHTML = '<div class="empty-state">대신할 캐릭터를 선택하면 보스 스케줄을 조회할 수 있습니다.</div>';
+      return;
+    }
+    fetchSettings();
+    fetchCustomBosses().then(() => {
+      fetchSchedules().then(() => {
+        if (!isDeputyAccount) renderForms();
+      });
     });
-  });
 
-  // Polling every 30 seconds
-  setInterval(fetchSchedules, 30000);
+    // Polling every 30 seconds
+    setInterval(() => {
+      if (!isDeputyAccount || getActionCharacter()) fetchSchedules();
+    }, 30000);
+  });
 });

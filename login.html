@@ -30,6 +30,15 @@
                 <input type="password" id="password" required autocomplete="current-password">
             </div>
 
+            <div class="form-group">
+                <label for="loginMode">로그인 유형</label>
+                <select id="loginMode">
+                    <option value="USER">일반 계정</option>
+                    <option value="DEPUTY">부주 계정</option>
+                </select>
+                <small style="display:block; margin-top:7px; color:var(--text-muted);">부주 계정은 로그인 후 대신할 길드 캐릭터를 선택합니다.</small>
+            </div>
+
             <div class="form-group"
                 style="display: flex; gap: 15px; flex-direction: row; align-items: center; justify-content: flex-start; margin-top: 5px; margin-bottom: 20px;">
                 <label
@@ -72,10 +81,12 @@
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const loginMode = document.getElementById('loginMode').value;
             const errorDiv = document.getElementById('errorMessage');
 
             try {
-                const res = await fetch('/api/v1/auth/login', {
+                const endpoint = loginMode === 'DEPUTY' ? '/api/v1/deputy-auth/login' : '/api/v1/auth/login';
+                const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -93,15 +104,35 @@
                     }
 
                     const storage = autoLogin ? localStorage : sessionStorage;
-                    ['token', 'role', 'username', 'userId', 'nickname'].forEach(key => {
+                    [
+                        'token', 'role', 'principalType', 'accountType', 'username', 'userId',
+                        'deputyId', 'guildId', 'nickname', 'activeCharacterKey', 'activeCharacter',
+                        'voteTargetCharacterKey'
+                    ].forEach(key => {
                         localStorage.removeItem(key);
                         sessionStorage.removeItem(key);
                     });
                     storage.setItem('token', data.token);
-                    storage.setItem('role', data.role);
-                    storage.setItem('username', data.username);
-                    storage.setItem('userId', data.userId);
-                    if (data.nickname) storage.setItem('nickname', data.nickname);
+                    if (loginMode === 'DEPUTY') {
+                        storage.setItem('role', 'DEPUTY');
+                        storage.setItem('principalType', 'DEPUTY');
+                        storage.setItem('accountType', 'DEPUTY');
+                        storage.setItem('username', data.username);
+                        storage.setItem('deputyId', data.deputyId);
+                        storage.setItem('guildId', data.guildId);
+                        if (data.nickname) storage.setItem('nickname', data.nickname);
+                        if (data.activeCharacter) {
+                            storage.setItem('activeCharacterKey', data.activeCharacter.characterKey);
+                            storage.setItem('activeCharacter', JSON.stringify(data.activeCharacter));
+                        }
+                    } else {
+                        storage.setItem('role', data.role);
+                        storage.setItem('principalType', 'USER');
+                        storage.setItem('accountType', 'USER');
+                        storage.setItem('username', data.username);
+                        storage.setItem('userId', data.userId);
+                        if (data.nickname) storage.setItem('nickname', data.nickname);
+                    }
 
                     window.location.href = 'menu.html';
                 } else {

@@ -294,6 +294,7 @@
         }
     </style>
   <script src="api-config.js"></script>
+  <script src="deputy-ui.js"></script>
 </head>
 <body>
     <div class="sidebar">
@@ -318,6 +319,7 @@
             <h1>컨텐츠 참여 그룹 빌더</h1>
             <button class="btn-create" onclick="createNewGroup()">+ 새 그룹 생성</button>
         </div>
+        <div id="contentPermissionNotice" style="display:none; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-muted); font-size:13px; line-height:1.5;"></div>
         
         <div class="groups-container" id="groupsContainer">
             <!-- Groups injected here -->
@@ -325,8 +327,10 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) logout();
+        const currentSession = window.odinGetSession();
+        const token = currentSession.token;
+        const isDeputyAccount = currentSession.isDeputy;
+        if (!token) window.odinHandleAuthError();
 
         let allMembers = [];
         let groups = [];
@@ -334,29 +338,64 @@
 
         async function init() {
             try {
-                // Fetch user info to check role
-                const meRes = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (meRes.status === 401) return logout();
-                if (meRes.ok) {
-                    const me = await meRes.json();
-                    isAdmin = (me.role === 'MASTER' || me.role === 'ADMIN');
+                if (isDeputyAccount && !window.odinEnsureActionCharacter()) {
+                    document.getElementById('groupsContainer').innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:100px; color:var(--text-muted);">대신할 캐릭터를 선택하면 콘텐츠 배치를 조회할 수 있습니다.</div>';
+                    return;
                 }
 
-                if (!isAdmin) {
-                    document.querySelector('.btn-create').style.display = 'none';
-                    document.querySelector('.sidebar-header p').innerText = '배치 현황을 조회할 수 있습니다.';
+                if (isDeputyAccount) {
+                    document.querySelector('.btn-create').hidden = true;
+                    document.querySelector('.sidebar-header p').innerText = '콘텐츠 배치 현황을 조회할 수 있습니다.';
+                    document.querySelector('.main-header h1').innerText = '콘텐츠 참여 현황';
+                    const [rosterRes, groupRes] = await Promise.all([
+                        fetch('/api/v1/content-groups/roster', { headers: { 'Authorization': `Bearer ${token}` } }),
+                        fetch('/api/v1/content-groups', { headers: { 'Authorization': `Bearer ${token}` } })
+                    ]);
+                    if (rosterRes.status === 401 || groupRes.status === 401) return window.odinHandleAuthError();
+                    const roster = await rosterRes.json();
+                    const deputyGroups = await groupRes.json();
+                    if (!rosterRes.ok) throw new Error(window.odinErrorText(roster, '콘텐츠 참여 대상 조회에 실패했습니다.'));
+                    if (!groupRes.ok) throw new Error(window.odinErrorText(deputyGroups, '콘텐츠 그룹 조회에 실패했습니다.'));
+                    allMembers = (Array.isArray(roster) ? roster : []).map(member => ({
+                        ...member,
+                        id: Number(member.id),
+                        nickname: member.nickname || '',
+                        mainClass: member.mainClass || '',
+                        combatPower: Number(member.combatPower || 0)
+                    }));
+                    groups = Array.isArray(deputyGroups) ? deputyGroups : [];
+                    const permissionNotice = document.getElementById('contentPermissionNotice');
+                    permissionNotice.textContent = '부주 계정은 현재 API 계약에 따라 콘텐츠 그룹 배치를 조회할 수 있습니다. 그룹 생성·이름 변경·배치 변경은 운영진 기능입니다.';
+                    permissionNotice.style.display = 'block';
+                } else {
+                    // Fetch user info to check role
+                    const meRes = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (meRes.status === 401) return window.odinHandleAuthError();
+                    if (meRes.ok) {
+                        const me = await meRes.json();
+                        isAdmin = (me.role === 'MASTER' || me.role === 'ADMIN');
+                    }
+
+                    if (!isAdmin) {
+                        document.querySelector('.btn-create').style.display = 'none';
+                        document.querySelector('.sidebar-header p').innerText = '배치 현황을 조회할 수 있습니다.';
+                    }
+
+                    // Fetch members
+                    const mRes = await fetch('/api/v1/members', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (!mRes.ok) throw new Error(`멤버 목록 로드 실패 (${mRes.status})`);
+                    allMembers = await mRes.json();
+                    allMembers = allMembers.map(member => ({
+                        ...member,
+                        mainClass: member.mainClass || member.main_class || '',
+                        combatPower: Number(member.combatPower ?? member.combat_power ?? 0)
+                    })).filter(m => m.nickname).sort((a,b) => b.combatPower - a.combatPower);
+
+                    // Fetch groups
+                    const gRes = await fetch('/api/v1/content-groups', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (!gRes.ok) throw new Error(`그룹 정보 로드 실패 (${gRes.status})`);
+                    groups = await gRes.json();
                 }
-
-                // Fetch members
-                const mRes = await fetch('/api/v1/members', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!mRes.ok) throw new Error(`멤버 목록 로드 실패 (${mRes.status})`);
-                allMembers = await mRes.json();
-                allMembers = allMembers.filter(m => m.nickname).sort((a,b) => b.combat_power - a.combat_power);
-
-                // Fetch groups
-                const gRes = await fetch('/api/v1/content-groups', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!gRes.ok) throw new Error(`그룹 정보 로드 실패 (${gRes.status})`);
-                groups = await gRes.json();
 
                 renderMembers();
                 renderGroups();
@@ -367,8 +406,7 @@
         }
 
         function logout() {
-            localStorage.clear();
-            sessionStorage.clear();
+            window.odinClearSession();
             window.location.href = 'login.html';
         }
 
@@ -391,7 +429,7 @@
                 
                 item.innerHTML = `
                     <div class="nick">${m.nickname}</div>
-                    <div class="info">${m.main_class || m.occupation || 'N/A'} | ${Math.floor(m.combat_power/10000)}만</div>
+                    <div class="info">${m.mainClass || m.main_class || m.occupation || 'N/A'} | ${Math.floor((m.combatPower ?? m.combat_power ?? 0)/10000)}만</div>
                 `;
 
                 // Filter search
@@ -586,7 +624,7 @@
             }
         }
 
-        init();
+        window.odinDeputyReady.then(init);
     </script>
 </body>
 </html>
