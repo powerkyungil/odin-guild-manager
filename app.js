@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!token) return handleAuthError();
 
   if (isDeputyAccount) {
+    layout?.classList.add('deputy-mode');
+    mainContent?.classList.add('deputy-mode');
     if (document.getElementById('sidebar')) document.getElementById('sidebar').hidden = true;
     if (document.getElementById('sidebar-toggle')) document.getElementById('sidebar-toggle').hidden = true;
   }
