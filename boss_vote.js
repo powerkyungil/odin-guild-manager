@@ -308,13 +308,13 @@ document.addEventListener('DOMContentLoaded', () => {
       voteTargetCharacters = (Array.isArray(data) ? data : []).flatMap(member => {
         const ownerUserId = Number(member.id);
         if (!Number.isSafeInteger(ownerUserId) || ownerUserId < 1) return [];
-        const ownerNickname = member.nickname || member.username || `길드원 ${ownerUserId}`;
+        const ownerNickname = member.nickname || '길드원';
         const main = {
           characterKey: `MAIN:${ownerUserId}`,
           characterType: 'MAIN',
           ownerUserId,
           ownerNickname,
-          characterName: member.nickname || member.username || '본캐',
+          characterName: member.nickname || '본캐',
           mainClass: member.mainClass || member.main_class || '',
           combatPower: Number(member.combatPower ?? member.combat_power ?? 0)
         };

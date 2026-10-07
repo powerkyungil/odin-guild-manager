@@ -257,10 +257,7 @@
         });
 
         const role = currentSession.role;
-        const currentUsername = currentSession.isDeputy
-            ? (currentSession.nickname || currentSession.username)
-            : currentSession.username;
-        document.getElementById('userNameDisplay').textContent = currentUsername;
+        document.getElementById('userNameDisplay').textContent = currentSession.nickname || '회원';
         const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원', 'DEPUTY': '부주 계정' };
         document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
         if (currentSession.isDeputy) {

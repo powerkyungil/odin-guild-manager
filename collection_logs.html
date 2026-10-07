@@ -168,8 +168,8 @@
             return body;
         }
 
-        function displayName(nickname, userId) {
-            return nickname || `회원 #${userId}`;
+        function displayName(nickname) {
+            return nickname || '알 수 없는 회원';
         }
 
         function formatDate(timestamp) {
@@ -192,7 +192,7 @@
             logs.forEach(log => {
                 const row = document.createElement('tr');
                 row.appendChild(createCell(formatDate(log.createdAt), 'muted'));
-                row.appendChild(createCell(displayName(log.targetNickname, log.targetUserId), 'person'));
+                row.appendChild(createCell(displayName(log.targetNickname), 'person'));
 
                 const itemCell = document.createElement('td');
                 const itemWrap = document.createElement('div');
@@ -222,7 +222,7 @@
                 state.textContent = log.completed ? '달성 체크' : '체크 해제';
                 stateCell.appendChild(state);
                 row.appendChild(stateCell);
-                row.appendChild(createCell(displayName(log.actorNickname, log.actorUserId), 'person'));
+                row.appendChild(createCell(displayName(log.actorNickname), 'person'));
                 logBody.appendChild(row);
             });
         }

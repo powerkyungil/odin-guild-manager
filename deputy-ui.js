@@ -188,14 +188,14 @@
         characterKey: String(character?.characterKey || ''),
         characterType: character?.characterType === 'ALTERNATE' ? 'ALTERNATE' : 'MAIN',
         ownerUserId: Number(character?.ownerUserId) || ownerUserId,
-        ownerNickname: character?.ownerNickname || owner.ownerNickname || '',
+        ownerNickname: character?.ownerNickname || owner.ownerNickname || '회원',
         characterName: character?.characterName || '',
         mainClass: character?.mainClass || '',
         combatPower: Number(character?.combatPower) || 0
       })).filter(character => character.characterKey);
       return {
         ownerUserId,
-        ownerNickname: owner.ownerNickname || `회원 ${ownerUserId}`,
+        ownerNickname: owner.ownerNickname || '회원',
         characters
       };
     }).filter(owner => owner && owner.characters.length > 0);
@@ -270,8 +270,8 @@
       characterType: 'MAIN',
       ownerUserId: session.userId,
       ownerUsername: session.username,
-      ownerNickname: session.nickname || session.username,
-      characterName: session.nickname || session.username,
+      ownerNickname: session.nickname || '회원',
+      characterName: session.nickname || '회원',
       mainClass: '',
       combatPower: 0,
       isDelegated: false
@@ -283,8 +283,8 @@
     characterType: 'MAIN',
     ownerUserId: delegation.ownerUserId,
     ownerUsername: delegation.ownerUsername,
-    ownerNickname: delegation.ownerNickname || delegation.ownerUsername || `회원 ${delegation.ownerUserId}`,
-    characterName: delegation.ownerNickname || delegation.ownerUsername || `회원 ${delegation.ownerUserId}`,
+    ownerNickname: delegation.ownerNickname || '회원',
+    characterName: delegation.ownerNickname || '회원',
     mainClass: '',
     combatPower: 0,
     delegationId: delegation.id,
@@ -494,7 +494,7 @@
 
   const actionCharacterLabel = character => {
     if (!character) return '';
-    const owner = character.ownerNickname || character.ownerUsername || character.characterName || '회원';
+    const owner = character.ownerNickname || character.characterName || '회원';
     const name = character.characterName && character.characterName !== owner
       ? ` · ${character.characterName}`
       : '';
@@ -584,8 +584,8 @@
       const character = session.activeCharacter;
       title.textContent = character ? `대신하는 캐릭터: ${character.characterName}` : '대신할 캐릭터를 선택해 주세요';
       subtitle.textContent = character
-        ? `${character.ownerNickname} 소유 · ${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'} · 계정 ${session.nickname || session.username}`
-        : `계정 ${session.nickname || session.username} · 기능 사용 전에 캐릭터 선택 필요`;
+        ? `${character.ownerNickname || '회원'} 소유 · ${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'} · 부주 닉네임: ${session.nickname || '부주 회원'}`
+        : `부주 닉네임: ${session.nickname || '부주 회원'} · 기능 사용 전에 캐릭터 선택 필요`;
       bannerButton.hidden = false;
       bannerButton.textContent = character ? '캐릭터 변경' : '캐릭터 선택';
       bannerPanel.hidden = !bannerPanel.dataset.open && Boolean(character);
@@ -595,39 +595,39 @@
     } else if (memberDeputy) {
       const character = session.memberDeputyTarget;
       title.textContent = character
-        ? `${character.ownerNickname} · ${character.characterName} 대신 활동 중`
+        ? `${character.ownerNickname || '회원'} · ${character.characterName || '캐릭터'} 대신 활동 중`
         : '대신할 캐릭터를 선택해 주세요';
       subtitle.textContent = character
-        ? `실제 로그인 회원: ${session.nickname || session.username} · ${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'}${character.mainClass ? ` · ${character.mainClass}` : ''}`
-        : `실제 로그인 회원: ${session.nickname || session.username}`;
+        ? `실제 로그인 회원: ${session.nickname || '회원'} · ${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'}${character.mainClass ? ` · ${character.mainClass}` : ''}`
+        : `실제 로그인 회원: ${session.nickname || '회원'}`;
       bannerButton.hidden = false;
       bannerButton.textContent = '부주 대상 변경';
       bannerPanel.hidden = !bannerPanel.dataset.open;
       banner.querySelector('.odin-context-legacy-controls').hidden = true;
       banner.querySelector('.odin-context-member-controls').hidden = false;
     } else if (hasMemberDeputyTargets) {
-      title.textContent = session.nickname || session.username || '일반 회원';
-      subtitle.textContent = `실제 로그인 회원: ${session.nickname || session.username} · 현재 활동 대상: ${actionCharacterLabel(getActionCharacter()) || '본인 본캐'} · 부주 모드를 시작할 수 있습니다.`;
+      title.textContent = session.nickname || '일반 회원';
+      subtitle.textContent = `실제 로그인 회원: ${session.nickname || '회원'} · 현재 활동 대상: ${actionCharacterLabel(getActionCharacter()) || '본인 본캐'} · 부주 모드를 시작할 수 있습니다.`;
       bannerButton.hidden = false;
       bannerButton.textContent = '부주 모드 시작';
       bannerPanel.hidden = !bannerPanel.dataset.open;
       banner.querySelector('.odin-context-legacy-controls').hidden = true;
       banner.querySelector('.odin-context-member-controls').hidden = false;
     } else if (hasMemberDelegations) {
-      title.textContent = session.nickname || session.username || '일반 계정';
+      title.textContent = session.nickname || '일반 계정';
       const actionTarget = actionCharacterLabel(getActionCharacter()) || '본인 본캐';
       subtitle.textContent = activeMemberDelegation
-        ? `실제 로그인 회원: ${session.nickname || session.username} · 현재 활동 대상: ${actionTarget} · MEMBER_DEPUTY 세션은 꺼져 있습니다.`
-        : `실제 로그인 회원: ${session.nickname || session.username} · 현재 활동 대상: ${actionTarget} · 받은 위임은 부주 모드에서 사용할 수 있습니다.`;
+        ? `실제 로그인 회원: ${session.nickname || '회원'} · 현재 활동 대상: ${actionTarget} · MEMBER_DEPUTY 세션은 꺼져 있습니다.`
+        : `실제 로그인 회원: ${session.nickname || '회원'} · 현재 활동 대상: ${actionTarget} · 받은 위임은 부주 모드에서 사용할 수 있습니다.`;
       bannerButton.hidden = false;
       bannerButton.textContent = activeMemberDelegation ? '활동 대상 변경' : '부주 대상 선택';
       bannerPanel.hidden = !bannerPanel.dataset.open;
       banner.querySelector('.odin-context-legacy-controls').hidden = false;
       banner.querySelector('.odin-context-member-controls').hidden = true;
     } else {
-      const memberLabel = session.nickname || session.username || '일반 계정';
+      const memberLabel = session.nickname || '일반 계정';
       title.textContent = memberLabel;
-      subtitle.textContent = `실제 로그인 회원: ${memberLabel} · 현재 활동 대상: ${actionCharacterLabel(getActionCharacter()) || '본인 본캐'}${session.username ? ` · 계정 ${session.username}` : ''}`;
+      subtitle.textContent = `실제 로그인 회원: ${memberLabel} · 현재 활동 대상: ${actionCharacterLabel(getActionCharacter()) || '본인 본캐'}`;
       bannerButton.hidden = !session.memberDeputyToken;
       bannerButton.textContent = '부주 모드 시작';
       bannerPanel.hidden = true;

@@ -676,7 +676,7 @@
             const isActive = Boolean(activeSession.isMemberDeputy);
             context.hidden = !isActive;
             if (isActive && character) {
-                context.textContent = `부주 모드 · 실제 로그인 회원: ${activeSession.nickname || activeSession.username} · 대신하는 회원: ${character.ownerNickname || `회원 ${character.ownerUserId}`} · 캐릭터: ${character.characterName} (${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'})`;
+                context.textContent = `부주 모드 · 실제 로그인 회원: ${activeSession.nickname || '회원'} · 대신하는 회원: ${character.ownerNickname || '회원'} · 캐릭터: ${character.characterName || '캐릭터'} (${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'})`;
             }
         };
         window.addEventListener('odin-session-context-changed', event => {

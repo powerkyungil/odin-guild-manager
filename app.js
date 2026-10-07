@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const currentSession = window.odinGetSession();
   const token = currentSession.token;
   const myRole = currentSession.role;
-  const myNickname = currentSession.nickname || currentSession.username;
+  const myNickname = currentSession.nickname || '회원';
   const isDeputyAccount = currentSession.isDeputy;
   const canManageSchedule = myRole === 'MASTER' || myRole === 'ADMIN';
   const getActionCharacter = () => window.odinGetActionCharacter?.() || null;

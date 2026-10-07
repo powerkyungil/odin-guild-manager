@@ -59,13 +59,9 @@
         </section>
         
         <form id="editForm">
-            <!-- 1. 계정 정보 (아이디 수정 불가) -->
+            <!-- 계정 보안 -->
             <div class="grid-2">
-                <div class="form-group">
-                    <label>아이디 (수정 불가)</label>
-                    <input type="text" id="usernameDisplay" disabled style="opacity: 0.5;">
-                </div>
-                <div class="form-group">
+                <div class="form-group" style="grid-column:1 / -1;">
                     <label for="password">비밀번호 (변경 시에만 입력)</label>
                     <input type="password" id="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="비워두면 기존 비밀번호 유지 (변경 시 6자 이상)">
                 </div>
@@ -207,8 +203,8 @@
             delegations.forEach(delegation => {
                 const item = document.createElement('div');
                 const otherNickname = direction === 'owned'
-                    ? (delegation.deputyNickname || delegation.deputyUsername || `회원 ${delegation.deputyUserId}`)
-                    : (delegation.ownerNickname || delegation.ownerUsername || `회원 ${delegation.ownerUserId}`);
+                    ? (delegation.deputyNickname || '회원')
+                    : (delegation.ownerNickname || '회원');
                 item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
                 const name = document.createElement('span');
                 name.textContent = direction === 'owned' ? `내 캐릭터 → ${otherNickname}` : `${otherNickname} → 내 계정`;
@@ -270,8 +266,7 @@
                     .map(member => ({
                         userId: Number(member.userId ?? member.id),
                         role: String(member.role || '').toUpperCase(),
-                        nickname: member.nickname || member.username || `회원 ${member.userId ?? member.id}`,
-                        username: member.username || ''
+                        nickname: member.nickname || '회원'
                     }))
                     .filter(member => Number.isSafeInteger(member.userId) && member.userId > 0)
                     .filter(member => member.userId !== Number(currentSession.userId))
@@ -287,7 +282,7 @@
                 candidates.forEach(member => {
                     const option = document.createElement('option');
                     option.value = String(member.userId);
-                    option.textContent = `${member.nickname}${member.username ? ` (${member.username})` : ''}`;
+                    option.textContent = member.nickname;
                     select.appendChild(option);
                 });
                 select.disabled = candidates.length === 0;
@@ -578,7 +573,6 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    if (document.getElementById('usernameDisplay')) document.getElementById('usernameDisplay').value = currentSession.username;
                     const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원' };
                     if (document.getElementById('userRoleBadge')) document.getElementById('userRoleBadge').textContent = roleLabels[data.role] || data.role;
                     document.getElementById('nickname').value = data.nickname || '';
