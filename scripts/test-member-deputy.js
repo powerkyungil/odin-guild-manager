@@ -159,6 +159,10 @@ vm.runInNewContext(uiSource, sandbox, { filename: 'deputy-ui.js' });
     'vote API calls use the active session token');
   assert.match(voteSource, /window\.odinGetMemberDeputyTarget\?\.\(\)/,
     'member deputy votes use the selected delegated character');
+  assert.match(voteSource, /setVoteTargetPanelVisible\(false\)/,
+    'vote target picker is hidden when the top-level context control can select the activity target');
+  assert.match(voteSource, /setVoteTargetPanelVisible\(true\)/,
+    'vote target picker remains available for accounts without a top-level activity target');
   assert.doesNotMatch(supportSource, /JSON\.stringify\(\{[^}]*ownerUserId/);
 
   console.log('Member deputy session tests passed.');

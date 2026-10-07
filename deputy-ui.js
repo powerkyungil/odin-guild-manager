@@ -492,6 +492,16 @@
     return character ? actionOptionValue(character) : '';
   };
 
+  const actionCharacterLabel = character => {
+    if (!character) return '';
+    const owner = character.ownerNickname || character.ownerUsername || character.characterName || '회원';
+    const name = character.characterName && character.characterName !== owner
+      ? ` · ${character.characterName}`
+      : '';
+    const type = character.characterType === 'ALTERNATE' ? '부캐' : '본캐';
+    return `${owner}${name} (${type})`;
+  };
+
   const setBannerMessage = (message, isError = false) => {
     if (!bannerMessage) return;
     bannerMessage.textContent = message || '';
@@ -597,7 +607,7 @@
       banner.querySelector('.odin-context-member-controls').hidden = false;
     } else if (hasMemberDeputyTargets) {
       title.textContent = session.nickname || session.username || '일반 회원';
-      subtitle.textContent = `실제 로그인 회원: ${session.nickname || session.username} · 부주 모드를 시작할 수 있습니다.`;
+      subtitle.textContent = `실제 로그인 회원: ${session.nickname || session.username} · 현재 활동 대상: ${actionCharacterLabel(getActionCharacter()) || '본인 본캐'} · 부주 모드를 시작할 수 있습니다.`;
       bannerButton.hidden = false;
       bannerButton.textContent = '부주 모드 시작';
       bannerPanel.hidden = !bannerPanel.dataset.open;
@@ -605,9 +615,10 @@
       banner.querySelector('.odin-context-member-controls').hidden = false;
     } else if (hasMemberDelegations) {
       title.textContent = session.nickname || session.username || '일반 계정';
+      const actionTarget = actionCharacterLabel(getActionCharacter()) || '본인 본캐';
       subtitle.textContent = activeMemberDelegation
-        ? `실제 로그인 회원: ${session.nickname || session.username} · 화면 활동 대상: ${activeMemberDelegation.ownerNickname || activeMemberDelegation.ownerUsername} · MEMBER_DEPUTY 세션은 꺼져 있습니다.`
-        : `실제 로그인 회원: ${session.nickname || session.username} · 받은 위임은 부주 모드에서 사용할 수 있습니다.`;
+        ? `실제 로그인 회원: ${session.nickname || session.username} · 현재 활동 대상: ${actionTarget} · MEMBER_DEPUTY 세션은 꺼져 있습니다.`
+        : `실제 로그인 회원: ${session.nickname || session.username} · 현재 활동 대상: ${actionTarget} · 받은 위임은 부주 모드에서 사용할 수 있습니다.`;
       bannerButton.hidden = false;
       bannerButton.textContent = activeMemberDelegation ? '활동 대상 변경' : '부주 대상 선택';
       bannerPanel.hidden = !bannerPanel.dataset.open;
@@ -616,7 +627,7 @@
     } else {
       const memberLabel = session.nickname || session.username || '일반 계정';
       title.textContent = memberLabel;
-      subtitle.textContent = `실제 로그인 회원: ${memberLabel}${session.username ? ` · 계정 ${session.username}` : ''}`;
+      subtitle.textContent = `실제 로그인 회원: ${memberLabel} · 현재 활동 대상: ${actionCharacterLabel(getActionCharacter()) || '본인 본캐'}${session.username ? ` · 계정 ${session.username}` : ''}`;
       bannerButton.hidden = !session.memberDeputyToken;
       bannerButton.textContent = '부주 모드 시작';
       bannerPanel.hidden = true;

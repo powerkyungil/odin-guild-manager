@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const manualBossInput = document.getElementById('manualBossInput');
   const manualTypeInput = document.getElementById('manualTypeInput');
   const manualBlessInput = document.getElementById('manualBlessInput');
+  const voteTargetPanel = document.getElementById('voteTargetPanel');
   const voteTargetSelect = document.getElementById('voteTargetSelect');
   const voteTargetHelp = document.getElementById('voteTargetHelp');
   const voteTargetMessage = document.getElementById('voteTargetMessage');
@@ -202,6 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
     voteTargetMessage.classList.toggle('error', Boolean(isError));
   };
 
+  const setVoteTargetPanelVisible = visible => {
+    if (voteTargetPanel) voteTargetPanel.hidden = !visible;
+  };
+
   const voteTargetLabel = character => {
     const typeLabel = character.characterType === 'ALTERNATE' ? '부캐' : '본캐';
     const owner = character.isDelegated && character.ownerNickname ? `${character.ownerNickname} · ` : '';
@@ -231,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadVoteTarget = async () => {
     voteTargetReady = false;
+    setVoteTargetPanelVisible(false);
     setVoteTargetMessage('투표 대상 캐릭터를 불러오는 중입니다.');
     await window.odinDeputyReady;
 
@@ -246,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
       voteTargetHelp.textContent = '부주 계정의 공통 선택값입니다. 다른 캐릭터로 대신하려면 상단 캐릭터 선택에서 변경하세요.';
       renderVoteTargetOptions();
       voteTargetReady = true;
-      setVoteTargetMessage(`현재 대상: ${voteTargetLabel(activeCharacter)}`);
+      setVoteTargetMessage('');
       return true;
     }
 
@@ -263,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       voteTargetHelp.textContent = '부주 모드의 선택 캐릭터로 투표합니다. 일반 회원 모드로 돌아가면 본인 본캐가 다시 선택됩니다.';
       renderVoteTargetOptions();
       voteTargetReady = true;
-      setVoteTargetMessage(`부주 투표 대상: ${voteTargetLabel(voteTargetCharacters[0])}`);
+      setVoteTargetMessage('');
       return true;
     }
 
@@ -279,10 +285,12 @@ document.addEventListener('DOMContentLoaded', () => {
         : '현재 계정의 본캐 참여 상태를 확인합니다. 부주 권한이 추가되면 상단에서 활동 대상을 선택할 수 있습니다.';
       renderVoteTargetOptions();
       voteTargetReady = Boolean(voteTargetCharacterKey);
-      setVoteTargetMessage(voteTargetReady ? `현재 대상: ${voteTargetLabel(voteTargetCharacters.find(item => item.characterKey === voteTargetCharacterKey))}` : '선택 가능한 캐릭터가 없습니다.', !voteTargetReady);
+      setVoteTargetMessage(voteTargetReady ? '' : '선택 가능한 캐릭터가 없습니다.', !voteTargetReady);
       return voteTargetReady;
     }
 
+    setVoteTargetPanelVisible(true);
+    setVoteTargetMessage('투표 대상 캐릭터를 불러오는 중입니다.');
     try {
       const response = await fetch('/api/v1/members', {
         headers: { 'Authorization': `Bearer ${token}` }

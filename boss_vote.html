@@ -159,6 +159,10 @@
       box-shadow: var(--shadow);
     }
 
+    .vote-target-panel[hidden] {
+      display: none;
+    }
+
     .vote-target-copy {
       min-width: 0;
     }
@@ -179,6 +183,12 @@
     .vote-target-message {
       margin-top: 5px;
       color: var(--main);
+    }
+
+    .vote-title .vote-target-message {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
     .vote-target-message.error {
@@ -1392,6 +1402,7 @@
         </a>
         <h1>보스 참여 투표</h1>
         <p>투표 대상으로 지정된 보스를 날짜별로 확인하고 참여할 수 있습니다.</p>
+        <p id="voteTargetMessage" class="vote-target-message" role="status" aria-live="polite"></p>
       </div>
       <div class="vote-actions">
         <button id="refreshVotesBtn" class="vote-btn">새로고침</button>
@@ -1405,11 +1416,10 @@
     </nav>
 
     <section id="voteView" class="view-panel active">
-      <section id="voteTargetPanel" class="vote-target-panel" aria-labelledby="voteTargetTitle">
+      <section id="voteTargetPanel" class="vote-target-panel" aria-labelledby="voteTargetTitle" hidden>
         <div class="vote-target-copy">
           <h2 id="voteTargetTitle">투표 대상 캐릭터</h2>
           <p id="voteTargetHelp">투표 대상을 확인하는 중입니다.</p>
-          <p id="voteTargetMessage" class="vote-target-message" role="status" aria-live="polite"></p>
         </div>
         <select id="voteTargetSelect" class="vote-target-select" aria-label="투표 대상 캐릭터">
           <option value="">선택하는 중입니다.</option>
@@ -1610,7 +1620,7 @@
     </div>
   </div>
 
-  <script src="boss_vote.js?v=6"></script>
+  <script src="boss_vote.js?v=7"></script>
 </body>
 
 </html>
