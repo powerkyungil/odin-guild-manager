@@ -11,6 +11,7 @@
 - **스크린샷 OCR**: 길드장이 보스 시간표 이미지를 분석해 일정 입력을 보조할 수 있습니다.
 - **보스 참여 투표**: 오늘·내일 투표, 수동 보스 추가, 참여 현황과 기간별 참여율을 제공합니다.
 - **손지원 매칭**: 지원 요청과 신청자를 연결하고 진행 상태를 관리합니다.
+- **회원 간 부주**: 프로필에서 등록한 부주와 받은 위임을 확인하고, 받은 위임의 본캐·부캐로 손지원 매칭을 이용합니다.
 - **길드원 아이템 현황**: 고정 아이템 ID 기반으로 컬렉션 달성 여부와 분배 제외 대상을 관리합니다.
 - **컨텐츠 참여**: 드래그 앤 드롭으로 길드원 참여 그룹을 편성합니다.
 - **공성전 참여**: 길드원별 보유·잔여 다이아를 관리합니다.
@@ -117,6 +118,8 @@ node server.js
 
 권한은 화면뿐 아니라 API에서도 확인합니다. 길드장 계정은 다른 회원에게 역할을 이전하기 전에는 삭제할 수 없습니다.
 
+회원 간 부주 모드는 기본 `MEMBER` 로그인 후 화면 오른쪽 위에서 시작합니다. 기본 token은 유지하고 `MEMBER_DEPUTY` token을 별도 저장하며, 손지원 매칭 요청에만 대리 token을 사용합니다. 대상 목록과 세션 발급, 부주 관계 관리는 기본 MEMBER token으로 요청합니다. 부주 세션에서 손지원 API가 `401`을 반환하면 대리 세션을 지우고 기본 모드로 돌아갑니다. `403`은 권한 오류로 표시하며 세션 만료로 처리하지 않습니다.
+
 ## 외부 서비스 설정
 
 ### CLOVA Template OCR
@@ -181,6 +184,7 @@ DB_PATH=/absolute/path/to/database.sqlite npm run audit:collection-migration
 | `npm run test:privacy` | 개인정보처리방침, 계정 삭제와 하드 삭제 흐름 |
 | `npm run test:collection-migration` | 컬렉션 V2 마이그레이션과 권한 |
 | `npm run test:distributions-ui` | 분배금 화면의 주요 UI·API 계약 |
+| `npm run test:member-deputy` | 기본·대리 세션 전환, token 분리, 대상 변경, 401·403 처리와 손지원 인증 token |
 | `npm run audit:collection-migration` | 운영 SQLite의 컬렉션 마이그레이션 상태 |
 
 코드 변경 후 정적 검증은 다음처럼 한 번에 실행할 수 있습니다.
@@ -191,6 +195,7 @@ npm run test:api-contracts
 npm run test:privacy
 npm run test:collection-migration
 npm run test:distributions-ui
+npm run test:member-deputy
 ```
 
 ## PM2 운영 예시

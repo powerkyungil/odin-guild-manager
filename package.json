@@ -5,7 +5,8 @@
     "test:privacy": "node scripts/test-privacy.js",
     "test:distributions-ui": "node scripts/test-distributions-ui.js",
     "test:api-config": "node scripts/test-api-config.js",
-    "test:api-contracts": "node scripts/test-api-contracts.js"
+    "test:api-contracts": "node scripts/test-api-contracts.js",
+    "test:member-deputy": "node scripts/test-member-deputy.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

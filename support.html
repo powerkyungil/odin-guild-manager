@@ -575,6 +575,7 @@
         <div class="auth-header" style="text-align:left; margin-bottom:20px;">
             <h1>손지원 매칭</h1>
             <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">접속 정보는 개인 카톡으로 주고받고, 여기서는 요청자와 지원자만 매칭합니다.</p>
+            <p id="memberDeputySupportContext" hidden role="status" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(99,102,241,.38); border-radius:8px; color:var(--text-light); background:rgba(99,102,241,.1); font-size:13px; line-height:1.5;"></p>
         </div>
 
         <div class="support-layout">
@@ -651,12 +652,37 @@
         const myRole = currentSession.role;
         const isDeputyAccount = currentSession.isDeputy;
         const isAdmin = myRole === 'MASTER' || myRole === 'ADMIN';
-        const actingCharacter = () => window.odinGetActionCharacter?.() || null;
-        const actingOwnerId = () => Number(actingCharacter()?.ownerUserId || myUserId) || null;
+        const actingCharacter = () => {
+            const activeSession = window.odinGetSession?.() || currentSession;
+            if (activeSession.isMemberDeputy) return window.odinGetMemberDeputyTarget?.() || null;
+            return window.odinGetActionCharacter?.() || null;
+        };
+        const isMemberDeputyMode = () => Boolean(window.odinIsMemberDeputyMode?.());
+        const actingOwnerId = () => {
+            const activeSession = window.odinGetSession?.() || currentSession;
+            return Number((activeSession.isMemberDeputy || activeSession.isDeputy)
+                ? actingCharacter()?.ownerUserId
+                : (actingCharacter()?.ownerUserId || myUserId)) || null;
+        };
         const actingCharacterType = () => actingCharacter()?.characterType || 'MAIN';
         const isActingCharacter = (userId, characterType) => (
             Number(userId) === actingOwnerId() && (characterType || 'MAIN') === actingCharacterType()
         );
+
+        const updateMemberDeputySupportContext = () => {
+            const context = document.getElementById('memberDeputySupportContext');
+            const activeSession = window.odinGetSession?.() || currentSession;
+            const character = actingCharacter();
+            const isActive = Boolean(activeSession.isMemberDeputy);
+            context.hidden = !isActive;
+            if (isActive && character) {
+                context.textContent = `부주 모드 · 실제 로그인 회원: ${activeSession.nickname || activeSession.username} · 대신하는 회원: ${character.ownerNickname || `회원 ${character.ownerUserId}`} · 캐릭터: ${character.characterName} (${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'})`;
+            }
+        };
+        window.addEventListener('odin-session-context-changed', event => {
+            updateMemberDeputySupportContext();
+            if (event.detail?.reason !== 'unauthorized') loadRequests();
+        });
 
         const handleAuthError = () => window.odinHandleAuthError();
 
@@ -784,20 +810,18 @@
         };
 
         const apiFetch = async (url, options = {}) => {
-            const res = await fetch(url, {
-                ...options,
-                headers: {
-                    ...(options.headers || {}),
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (res.status === 401) handleAuthError();
+            const res = await window.odinFetchSupportApi(url, options);
+            if (res.status === 401) {
+                if (!window.odinHandleMemberDeputyUnauthorized?.()) handleAuthError();
+            }
             return res;
         };
 
         const responseError = async (res, fallback) => {
             const data = await window.odinReadResponseBody(res);
-            return window.odinErrorText(data, fallback);
+            const detail = window.odinErrorText(data, '');
+            if (res.status === 403) return detail ? `권한 오류: ${detail}` : '이 작업을 수행할 권한이 없습니다.';
+            return detail || fallback;
         };
 
         function openRequestModal() {
@@ -856,7 +880,12 @@
             try {
                 const res = await apiFetch('/api/v1/support-requests');
                 const data = await window.odinReadResponseBody(res);
-                if (!res.ok) throw new Error(window.odinErrorText(data, '목록을 불러오지 못했습니다.'));
+                if (!res.ok) {
+                    const detail = window.odinErrorText(data, '');
+                    throw new Error(res.status === 403
+                        ? `권한 오류: ${detail || '손지원 목록을 볼 권한이 없습니다.'}`
+                        : detail || '목록을 불러오지 못했습니다.');
+                }
                 renderRequests(Array.isArray(data) ? data : []);
             } catch (err) {
                 list.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
@@ -1001,6 +1030,7 @@
 
         window.odinDeputyReady.then(() => {
             if (isDeputyAccount && !window.odinEnsureActionCharacter()) return;
+            updateMemberDeputySupportContext();
             initDateTimeDropdowns();
             loadRequests();
         });

@@ -14,7 +14,9 @@
     'activeDelegationId',
     'activeCharacterKey',
     'activeCharacter',
-    'voteTargetCharacterKey'
+    'voteTargetCharacterKey',
+    'memberDeputyToken',
+    'memberDeputyTarget'
   ];
   const DEPUTY_ALLOWED_PAGES = new Set([
     'menu.html',
@@ -40,8 +42,18 @@
     }
   };
 
+  const parseStoredMemberDeputyTarget = () => {
+    try {
+      const value = JSON.parse(activeStorage.getItem('memberDeputyTarget') || 'null');
+      return value && typeof value === 'object' ? value : null;
+    } catch (error) {
+      return null;
+    }
+  };
+
   const session = {
     token,
+    baseToken: token,
     storage: activeStorage,
     role: initialRole,
     principalType: initialPrincipalType,
@@ -54,11 +66,24 @@
     activeCharacterKey: activeStorage.getItem('activeCharacterKey') || null,
     activeCharacter: parseStoredCharacter(),
     activeDelegationId: activeStorage.getItem('activeDelegationId') || null,
+    memberDeputyToken: activeStorage.getItem('memberDeputyToken') || null,
+    memberDeputyTarget: parseStoredMemberDeputyTarget(),
+    memberDeputyTargets: [],
     memberDelegations: { owned: [], received: [] },
     characters: [],
     deputyProfile: null,
     contextError: ''
   };
+
+  const storedMemberDeputyOwnerId = Number(session.memberDeputyTarget?.ownerUserId);
+  if (session.role !== 'MEMBER' || !session.memberDeputyToken || !Number.isSafeInteger(storedMemberDeputyOwnerId) || storedMemberDeputyOwnerId < 1 || !session.memberDeputyTarget?.characterKey) {
+    [localStorage, sessionStorage].forEach(store => {
+      store.removeItem('memberDeputyToken');
+      store.removeItem('memberDeputyTarget');
+    });
+    session.memberDeputyToken = null;
+    session.memberDeputyTarget = null;
+  }
 
   const roleLabels = {
     MASTER: '길드장',
@@ -122,12 +147,11 @@
     const id = Number(delegation.id);
     const ownerUserId = Number(delegation.ownerUserId);
     const deputyUserId = Number(delegation.deputyUserId);
-    if (!Number.isSafeInteger(id) || id < 1) return null;
     if (!Number.isSafeInteger(ownerUserId) || ownerUserId < 1) return null;
     if (!Number.isSafeInteger(deputyUserId) || deputyUserId < 1) return null;
     return {
       ...delegation,
-      id,
+      id: Number.isSafeInteger(id) && id > 0 ? id : null,
       ownerUserId,
       deputyUserId,
       isActive: delegation.isActive !== false
@@ -152,6 +176,89 @@
     const selected = activeReceived.find(delegation => String(delegation.id) === String(session.activeDelegationId));
     session.activeDelegationId = selected ? String(selected.id) : null;
     setSessionValue('activeDelegationId', session.activeDelegationId);
+  };
+
+  const normalizeMemberDeputyTargets = body => {
+    const rows = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
+    return rows.map(owner => {
+      const ownerUserId = Number(owner?.ownerUserId);
+      if (!Number.isSafeInteger(ownerUserId) || ownerUserId < 1) return null;
+      const characters = (Array.isArray(owner.characters) ? owner.characters : []).map(character => ({
+        ...character,
+        characterKey: String(character?.characterKey || ''),
+        characterType: character?.characterType === 'ALTERNATE' ? 'ALTERNATE' : 'MAIN',
+        ownerUserId: Number(character?.ownerUserId) || ownerUserId,
+        ownerNickname: character?.ownerNickname || owner.ownerNickname || '',
+        characterName: character?.characterName || '',
+        mainClass: character?.mainClass || '',
+        combatPower: Number(character?.combatPower) || 0
+      })).filter(character => character.characterKey);
+      return {
+        ownerUserId,
+        ownerNickname: owner.ownerNickname || `회원 ${ownerUserId}`,
+        characters
+      };
+    }).filter(owner => owner && owner.characters.length > 0);
+  };
+
+  const isMemberDeputyMode = () => Boolean(
+    !session.isDeputy && session.role === 'MEMBER' && session.memberDeputyToken && session.memberDeputyTarget
+  );
+
+  const notifySessionContextChanged = detail => {
+    if (typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent('odin-session-context-changed', { detail }));
+  };
+
+  const clearMemberDeputySession = (message, reason = 'exit') => {
+    [localStorage, sessionStorage].forEach(store => {
+      store.removeItem('memberDeputyToken');
+      store.removeItem('memberDeputyTarget');
+    });
+    session.memberDeputyToken = null;
+    session.memberDeputyTarget = null;
+    updateBanner();
+    if (message) {
+      session.contextError = message;
+      showContextMessage(message, true);
+    }
+    notifySessionContextChanged({ reason, isMemberDeputy: false });
+  };
+
+  const memberApiHeaders = (json = false) => ({
+    ...(json ? { 'Content-Type': 'application/json' } : {}),
+    'Authorization': `Bearer ${session.baseToken}`
+  });
+
+  const createMemberDeputySession = async (ownerUserId, characterKey) => {
+    const normalizedOwnerUserId = Number(ownerUserId);
+    const owner = session.memberDeputyTargets.find(item => item.ownerUserId === normalizedOwnerUserId);
+    const character = owner?.characters.find(item => item.characterKey === String(characterKey));
+    if (!owner || !character) throw new Error('선택할 수 없는 위임 대상 또는 캐릭터입니다.');
+    const response = await fetch('/api/v1/member-delegations/session', {
+      method: 'POST',
+      headers: memberApiHeaders(true),
+      body: JSON.stringify({ ownerUserId: normalizedOwnerUserId, characterKey: character.characterKey })
+    });
+    const body = await readResponseBody(response);
+    if (response.status === 401) {
+      handleAuthError();
+      throw new Error('인증이 만료되었습니다. 다시 로그인해 주세요.');
+    }
+    if (!response.ok) {
+      const detail = errorText(body, '부주 세션을 발급하지 못했습니다.');
+      throw new Error(response.status === 403 ? `권한 오류: ${detail}` : detail);
+    }
+    const issuedToken = typeof body?.token === 'string' ? body.token : '';
+    if (!issuedToken) throw new Error('서버 응답에 부주 세션이 없습니다.');
+    session.memberDeputyToken = issuedToken;
+    session.memberDeputyTarget = { ...character, ownerNickname: owner.ownerNickname };
+    session.contextError = '';
+    session.storage.setItem('memberDeputyToken', issuedToken);
+    session.storage.setItem('memberDeputyTarget', JSON.stringify(session.memberDeputyTarget));
+    updateBanner();
+    notifySessionContextChanged({ reason: 'started', isMemberDeputy: true });
+    return sessionSnapshot();
   };
 
   const ownActionCharacter = () => {
@@ -223,7 +330,7 @@
   };
 
   const setActionCharacter = characterKey => {
-    if (session.isDeputy) return false;
+    if (session.isDeputy || isMemberDeputyMode()) return false;
     const target = getMemberActionCharacters().find(character => character.characterKey === characterKey);
     if (!target) return false;
     return setMemberDelegation(target.isDelegated ? target.delegationId : null);
@@ -234,7 +341,9 @@
     storage: session.storage,
     role: session.isDeputy ? 'DEPUTY' : session.role,
     activeDelegation: getActiveMemberDelegation(),
-    isMemberDeputy: Boolean(getActiveMemberDelegation())
+    isMemberDeputy: isMemberDeputyMode(),
+    isMemberDeputyMode: isMemberDeputyMode(),
+    hasReceivedMemberDelegation: Boolean(getActiveMemberDelegation())
   });
 
   const installStyles = () => {
@@ -267,8 +376,14 @@
       .odin-context-save { border:1px solid var(--border-color, rgba(255,255,255,.18)); border-radius:7px; background:rgba(255,255,255,.07); color:inherit; padding:7px 9px; font-size:11px; font-weight:900; cursor:pointer; white-space:nowrap; }
       .odin-context-button:hover, .odin-context-save:hover { border-color:var(--primary-color, #6366f1); }
       .odin-context-button[hidden], .odin-context-panel[hidden] { display:none; }
+      .odin-context-controls[hidden], .odin-context-control-actions button[hidden] { display:none; }
       .odin-context-panel { display:flex; gap:7px; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border-color, rgba(255,255,255,.12)); }
       .odin-context-select { min-width:0; flex:1; padding:8px 9px; border:1px solid var(--border-color, rgba(255,255,255,.18)); border-radius:7px; background:rgba(0,0,0,.18); color:inherit; font:inherit; }
+      .odin-context-controls { display:grid; gap:8px; width:100%; }
+      .odin-context-control-row { display:flex; gap:7px; min-width:0; }
+      .odin-context-control-row .odin-context-select { min-width:0; }
+      .odin-context-control-actions { display:flex; gap:7px; }
+      .odin-context-control-actions button { flex:1; }
       .odin-context-message { margin-top:8px; color:var(--text-muted, #94a3b8); line-height:1.4; }
       .odin-context-message.error { color:var(--danger-color, #ef4444); }
       @media (max-width: 640px) {
@@ -283,6 +398,10 @@
   let bannerPanel = null;
   let bannerMessage = null;
   let bannerButton = null;
+  let bannerOwnerSelect = null;
+  let bannerTargetSelect = null;
+  let memberDeputyStartButton = null;
+  let memberDeputyExitButton = null;
 
   const characterOptionLabel = character => {
     const owner = (session.isDeputy || character.isDelegated) && character.ownerNickname
@@ -310,14 +429,57 @@
     bannerMessage.classList.toggle('error', Boolean(isError));
   };
 
+  const renderMemberDeputyTargetSelectors = () => {
+    if (!bannerOwnerSelect || !bannerTargetSelect) return;
+    const targets = session.memberDeputyTargets;
+    const current = session.memberDeputyTarget;
+    const currentSelectOwnerId = Number(bannerOwnerSelect.value);
+    const selectedOwnerId = targets.some(owner => owner.ownerUserId === currentSelectOwnerId)
+      ? currentSelectOwnerId
+      : Number(current?.ownerUserId) || targets[0]?.ownerUserId;
+    bannerOwnerSelect.replaceChildren();
+    targets.forEach(owner => {
+      const option = document.createElement('option');
+      option.value = String(owner.ownerUserId);
+      option.textContent = owner.ownerNickname;
+      option.selected = owner.ownerUserId === selectedOwnerId;
+      bannerOwnerSelect.appendChild(option);
+    });
+    const selectedOwner = targets.find(owner => owner.ownerUserId === selectedOwnerId) || targets[0];
+    const selectedCharacterKey = current?.ownerUserId === selectedOwner?.ownerUserId
+      ? current.characterKey
+      : '';
+    bannerTargetSelect.replaceChildren();
+    (selectedOwner?.characters || []).forEach(character => {
+      const option = document.createElement('option');
+      option.value = character.characterKey;
+      const type = character.characterType === 'ALTERNATE' ? '부캐' : '본캐';
+      const detail = [character.mainClass, Number(character.combatPower) > 0 ? `${Number(character.combatPower).toLocaleString()} 전투력` : '']
+        .filter(Boolean).join(' · ');
+      option.textContent = `${character.characterName || '이름 없는 캐릭터'} (${type})${detail ? ` · ${detail}` : ''}`;
+      option.selected = character.characterKey === selectedCharacterKey;
+      bannerTargetSelect.appendChild(option);
+    });
+    bannerOwnerSelect.disabled = targets.length === 0;
+    bannerTargetSelect.disabled = !selectedOwner || selectedOwner.characters.length === 0;
+    if (memberDeputyStartButton) {
+      memberDeputyStartButton.disabled = !selectedOwner || selectedOwner.characters.length === 0;
+      memberDeputyStartButton.textContent = isMemberDeputyMode() ? '대상 변경' : '부주 모드 켜기';
+    }
+    if (memberDeputyExitButton) memberDeputyExitButton.hidden = !isMemberDeputyMode();
+  };
+
   const updateBanner = () => {
     if (!banner) return;
     const deputy = session.isDeputy;
+    const memberDeputy = isMemberDeputyMode();
     const activeMemberDelegation = getActiveMemberDelegation();
     const hasMemberDelegations = !deputy && session.memberDelegations.received.some(delegation => delegation.isActive);
+    const hasMemberDeputyTargets = !deputy && session.memberDeputyTargets.length > 0;
     banner.querySelector('.odin-context-mode').textContent = deputy
       ? '부주 계정 모드'
-      : activeMemberDelegation ? '부주 활동 모드' : `${roleLabels[session.role] || '일반 계정'} 모드`;
+      : memberDeputy ? '손지원 회원 간 부주 모드'
+        : session.role === 'MEMBER' ? '일반 MEMBER 모드' : `${roleLabels[session.role] || '일반 계정'} 모드`;
     const title = banner.querySelector('.odin-context-title');
     const subtitle = banner.querySelector('.odin-context-subtitle');
 
@@ -331,21 +493,48 @@
       bannerButton.textContent = character ? '캐릭터 변경' : '캐릭터 선택';
       bannerPanel.hidden = !bannerPanel.dataset.open && Boolean(character);
       if (!character) bannerPanel.dataset.open = 'true';
+      banner.querySelector('.odin-context-legacy-controls').hidden = false;
+      banner.querySelector('.odin-context-member-controls').hidden = true;
+    } else if (memberDeputy) {
+      const character = session.memberDeputyTarget;
+      title.textContent = character
+        ? `${character.ownerNickname} · ${character.characterName} 대신 활동 중`
+        : '대신할 캐릭터를 선택해 주세요';
+      subtitle.textContent = character
+        ? `실제 로그인 회원: ${session.nickname || session.username} · ${character.characterType === 'ALTERNATE' ? '부캐' : '본캐'}${character.mainClass ? ` · ${character.mainClass}` : ''}`
+        : `실제 로그인 회원: ${session.nickname || session.username}`;
+      bannerButton.hidden = false;
+      bannerButton.textContent = '부주 대상 변경';
+      bannerPanel.hidden = !bannerPanel.dataset.open;
+      banner.querySelector('.odin-context-legacy-controls').hidden = true;
+      banner.querySelector('.odin-context-member-controls').hidden = false;
+    } else if (hasMemberDeputyTargets) {
+      title.textContent = session.nickname || session.username || '일반 회원';
+      subtitle.textContent = `실제 로그인 회원: ${session.nickname || session.username} · 부주 모드를 시작할 수 있습니다.`;
+      bannerButton.hidden = false;
+      bannerButton.textContent = '부주 모드 시작';
+      bannerPanel.hidden = !bannerPanel.dataset.open;
+      banner.querySelector('.odin-context-legacy-controls').hidden = true;
+      banner.querySelector('.odin-context-member-controls').hidden = false;
     } else if (hasMemberDelegations) {
-      title.textContent = activeMemberDelegation
-        ? `${activeMemberDelegation.ownerNickname || activeMemberDelegation.ownerUsername} 대신 활동 중`
-        : (session.nickname || session.username || '일반 계정');
+      title.textContent = session.nickname || session.username || '일반 계정';
       subtitle.textContent = activeMemberDelegation
-        ? `내 계정 ${session.nickname || session.username} · 부주 관계로 선택한 회원의 본캐에 참여합니다.`
-        : `내 계정 ${session.nickname || session.username} · 부주 활동 대상을 선택할 수 있습니다.`;
+        ? `실제 로그인 회원: ${session.nickname || session.username} · 화면 활동 대상: ${activeMemberDelegation.ownerNickname || activeMemberDelegation.ownerUsername} · MEMBER_DEPUTY 세션은 꺼져 있습니다.`
+        : `실제 로그인 회원: ${session.nickname || session.username} · 받은 위임은 부주 모드에서 사용할 수 있습니다.`;
       bannerButton.hidden = false;
       bannerButton.textContent = activeMemberDelegation ? '활동 대상 변경' : '부주 대상 선택';
       bannerPanel.hidden = !bannerPanel.dataset.open;
+      banner.querySelector('.odin-context-legacy-controls').hidden = false;
+      banner.querySelector('.odin-context-member-controls').hidden = true;
     } else {
-      title.textContent = session.nickname || session.username || '일반 계정';
-      subtitle.textContent = session.username ? `계정 ${session.username}` : '현재 로그인 계정';
-      bannerButton.hidden = true;
+      const memberLabel = session.nickname || session.username || '일반 계정';
+      title.textContent = memberLabel;
+      subtitle.textContent = `실제 로그인 회원: ${memberLabel}${session.username ? ` · 계정 ${session.username}` : ''}`;
+      bannerButton.hidden = !session.memberDeputyToken;
+      bannerButton.textContent = '부주 모드 시작';
       bannerPanel.hidden = true;
+      banner.querySelector('.odin-context-legacy-controls').hidden = true;
+      banner.querySelector('.odin-context-member-controls').hidden = true;
     }
 
     bannerSelect.replaceChildren();
@@ -365,13 +554,15 @@
       option.selected = true;
       bannerSelect.appendChild(option);
     }
+    renderMemberDeputyTargetSelectors();
   };
 
   const openCharacterSelector = () => {
-    if (!bannerPanel || (!session.isDeputy && !session.memberDelegations.received.some(delegation => delegation.isActive))) return;
+    if (!bannerPanel || (!session.isDeputy && !isMemberDeputyMode() && !session.memberDeputyTargets.length && !session.memberDelegations.received.some(delegation => delegation.isActive))) return;
     bannerPanel.dataset.open = 'true';
     bannerPanel.hidden = false;
-    bannerSelect.focus();
+    if (isMemberDeputyMode() || session.memberDeputyTargets.length) bannerOwnerSelect?.focus();
+    else bannerSelect.focus();
   };
 
   const closeCharacterSelector = () => {
@@ -440,8 +631,20 @@
         <button type="button" class="odin-context-button" aria-expanded="false">캐릭터 선택</button>
       </div>
       <div class="odin-context-panel" hidden>
-        <select class="odin-context-select" aria-label="부주가 대신할 캐릭터"></select>
-        <button type="button" class="odin-context-save">적용</button>
+        <div class="odin-context-controls odin-context-legacy-controls">
+          <select class="odin-context-select" aria-label="활동 캐릭터"></select>
+          <button type="button" class="odin-context-save">적용</button>
+        </div>
+        <div class="odin-context-controls odin-context-member-controls" hidden>
+          <div class="odin-context-control-row">
+            <select class="odin-context-select odin-context-owner" aria-label="위임 대상 회원"></select>
+            <select class="odin-context-select odin-context-target" aria-label="대리할 캐릭터"></select>
+          </div>
+          <div class="odin-context-control-actions">
+            <button type="button" class="odin-context-save-member">부주 모드 켜기</button>
+            <button type="button" class="odin-context-exit" hidden>일반 회원 모드로 돌아가기</button>
+          </div>
+        </div>
       </div>
       <div class="odin-context-message" role="status" aria-live="polite"></div>
     `;
@@ -449,6 +652,10 @@
     bannerButton = banner.querySelector('.odin-context-button');
     bannerPanel = banner.querySelector('.odin-context-panel');
     bannerSelect = banner.querySelector('.odin-context-select');
+    bannerOwnerSelect = banner.querySelector('.odin-context-owner');
+    bannerTargetSelect = banner.querySelector('.odin-context-target');
+    memberDeputyStartButton = banner.querySelector('.odin-context-save-member');
+    memberDeputyExitButton = banner.querySelector('.odin-context-exit');
     bannerMessage = banner.querySelector('.odin-context-message');
     bannerButton.addEventListener('click', () => {
       if (bannerPanel.hidden) openCharacterSelector();
@@ -456,11 +663,36 @@
       bannerButton.setAttribute('aria-expanded', String(!bannerPanel.hidden));
     });
     banner.querySelector('.odin-context-save').addEventListener('click', selectActiveCharacter);
+    bannerOwnerSelect.addEventListener('change', renderMemberDeputyTargetSelectors);
+    memberDeputyStartButton.addEventListener('click', async () => {
+      memberDeputyStartButton.disabled = true;
+      if (memberDeputyExitButton) memberDeputyExitButton.disabled = true;
+      setBannerMessage(isMemberDeputyMode() ? '부주 대상을 변경하는 중입니다.' : '부주 세션을 발급하는 중입니다.');
+      try {
+        await createMemberDeputySession(bannerOwnerSelect.value, bannerTargetSelect.value);
+        setBannerMessage('부주 모드가 시작되었습니다. 손지원 매칭은 선택한 캐릭터 세션으로 처리됩니다.');
+        bannerPanel.dataset.open = '';
+        bannerPanel.hidden = true;
+      } catch (error) {
+        setBannerMessage(error instanceof Error ? error.message : '부주 모드를 시작하지 못했습니다.', true);
+      } finally {
+        renderMemberDeputyTargetSelectors();
+        memberDeputyStartButton.disabled = false;
+        if (memberDeputyExitButton) memberDeputyExitButton.disabled = false;
+      }
+    });
+    memberDeputyExitButton.addEventListener('click', () => {
+      clearMemberDeputySession();
+      bannerPanel.dataset.open = '';
+      bannerPanel.hidden = true;
+      setBannerMessage('기본 MEMBER 세션으로 돌아왔습니다.');
+    });
     updateBanner();
     if (session.contextError) setBannerMessage(session.contextError, true);
   };
 
   const showContextMessage = (message, isError = false) => {
+    session.contextError = message || '';
     if (!banner) return;
     setBannerMessage(message, isError);
   };
@@ -504,22 +736,43 @@
   };
 
   const loadMemberDelegationContext = async () => {
-    if (session.isDeputy || !session.token || !session.userId) return sessionSnapshot();
+    if (session.isDeputy || session.role !== 'MEMBER' || !session.token || !session.userId) return sessionSnapshot();
     try {
-      const response = await fetch('/api/v1/member-delegations', {
-        headers: { 'Authorization': `Bearer ${session.token}` },
-        cache: 'no-store'
-      });
-      const body = await readResponseBody(response);
-      if (response.status === 401) {
+      const [delegationsResponse, targetsResponse] = await Promise.all([
+        fetch('/api/v1/member-delegations', { headers: memberApiHeaders(), cache: 'no-store' }),
+        fetch('/api/v1/member-delegations/targets', { headers: memberApiHeaders(), cache: 'no-store' })
+      ]);
+      const [delegationsBody, targetsBody] = await Promise.all([
+        readResponseBody(delegationsResponse),
+        readResponseBody(targetsResponse)
+      ]);
+      if (delegationsResponse.status === 401 || targetsResponse.status === 401) {
         handleAuthError();
         throw new Error('인증이 만료되었습니다.');
       }
-      if (!response.ok) {
-        session.contextError = errorText(body, '부주 관계를 불러오지 못했습니다.');
-        return sessionSnapshot();
+      if (delegationsResponse.ok) {
+        syncMemberDelegations(delegationsBody);
+      } else {
+        session.contextError = errorText(delegationsBody, '부주 관계를 불러오지 못했습니다.');
       }
-      syncMemberDelegations(body);
+      if (targetsResponse.ok) {
+        session.memberDeputyTargets = normalizeMemberDeputyTargets(targetsBody);
+        if (delegationsResponse.ok) session.contextError = '';
+        if (isMemberDeputyMode()) {
+          const target = session.memberDeputyTarget;
+          const owner = session.memberDeputyTargets.find(item => item.ownerUserId === Number(target.ownerUserId));
+          const character = owner?.characters.find(item => item.characterKey === target.characterKey);
+          if (!character) {
+            clearMemberDeputySession('위임 관계가 해제되었거나 대상 캐릭터를 사용할 수 없어 일반 회원 모드로 돌아왔습니다.', 'revoked');
+          } else {
+            session.memberDeputyTarget = { ...character, ownerNickname: owner.ownerNickname };
+            session.storage.setItem('memberDeputyTarget', JSON.stringify(session.memberDeputyTarget));
+          }
+        }
+      } else if (!session.contextError) {
+        session.contextError = errorText(targetsBody, '부주 대상 캐릭터를 불러오지 못했습니다.');
+      }
+      updateBanner();
       return sessionSnapshot();
     } catch (error) {
       if (!session.contextError) session.contextError = error instanceof Error ? error.message : '부주 관계를 불러오지 못했습니다.';
@@ -542,7 +795,55 @@
   });
   window.odinGetAvailableActionCharacters = () => getAvailableActionCharacters();
   window.odinGetActionCharacter = () => getActionCharacter();
-  window.odinIsMemberDeputy = () => Boolean(getActiveMemberDelegation());
+  window.odinGetMemberDeputyTarget = () => isMemberDeputyMode() ? session.memberDeputyTarget : null;
+  window.odinIsMemberDeputy = () => isMemberDeputyMode();
+  window.odinIsMemberDeputyMode = () => isMemberDeputyMode();
+  window.odinGetSupportToken = () => session.isDeputy
+    ? session.token
+    : (isMemberDeputyMode() ? session.memberDeputyToken : session.baseToken);
+  window.odinFetchSupportApi = (url, options = {}) => {
+    const activeToken = window.odinGetSupportToken();
+    if (!activeToken) return Promise.reject(new Error('사용할 수 있는 인증 세션이 없습니다. 다시 로그인해 주세요.'));
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        'Authorization': `Bearer ${activeToken}`
+      }
+    });
+  };
+  window.odinGetMemberDeputyTargets = () => session.memberDeputyTargets.map(owner => ({
+    ...owner,
+    characters: owner.characters.slice()
+  }));
+  window.odinStartMemberDeputy = createMemberDeputySession;
+  window.odinExitMemberDeputy = message => clearMemberDeputySession(message);
+  window.odinHandleMemberDeputyUnauthorized = () => {
+    if (!isMemberDeputyMode()) return false;
+    clearMemberDeputySession('부주 세션이 만료되었거나 위임이 해제되어 기본 MEMBER 모드로 돌아왔습니다.', 'unauthorized');
+    return true;
+  };
+  window.odinRegisterMemberDeputy = deputyUserId => fetch('/api/v1/member-delegations', {
+    method: 'POST',
+    headers: memberApiHeaders(true),
+    body: JSON.stringify({ deputyUserId: Number(deputyUserId) })
+  });
+  window.odinRemoveMemberDeputy = deputyUserId => fetch(`/api/v1/member-delegations/${encodeURIComponent(Number(deputyUserId))}`, {
+    method: 'DELETE',
+    headers: memberApiHeaders()
+  });
+  window.odinLoadMemberDelegations = async () => {
+    const response = await fetch('/api/v1/member-delegations', {
+      headers: memberApiHeaders(),
+      cache: 'no-store'
+    });
+    const body = await readResponseBody(response);
+    if (response.status === 401) handleAuthError();
+    if (!response.ok) throw new Error(errorText(body, '부주 관계를 불러오지 못했습니다.'));
+    syncMemberDelegations(body);
+    updateBanner();
+    return session.memberDelegations;
+  };
   window.odinSetActionCharacter = characterKey => setActionCharacter(characterKey);
   window.odinEnsureActionCharacter = () => {
     if (session.isDeputy && session.activeCharacter) return true;

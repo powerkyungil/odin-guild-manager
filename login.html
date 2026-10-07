@@ -34,9 +34,9 @@
                 <label for="loginMode">로그인 유형</label>
                 <select id="loginMode">
                     <option value="USER">일반 계정</option>
-                    <option value="DEPUTY">부주 계정</option>
+                    <option value="DEPUTY">부주 계정 (별도 계정)</option>
                 </select>
-                <small style="display:block; margin-top:7px; color:var(--text-muted);">부주 계정은 로그인 후 대신할 길드 캐릭터를 선택합니다.</small>
+                <small style="display:block; margin-top:7px; color:var(--text-muted);">별도 부주 계정은 로그인 후 캐릭터를 선택합니다. 회원 간 부주 모드는 일반 계정으로 로그인한 뒤 화면 오른쪽 위에서 켤 수 있습니다.</small>
             </div>
 
             <div class="form-group"
@@ -107,7 +107,7 @@
                     [
                         'token', 'role', 'principalType', 'accountType', 'username', 'userId',
                         'deputyId', 'guildId', 'nickname', 'activeDelegationId', 'activeCharacterKey', 'activeCharacter',
-                        'voteTargetCharacterKey'
+                        'voteTargetCharacterKey', 'memberDeputyToken', 'memberDeputyTarget'
                     ].forEach(key => {
                         localStorage.removeItem(key);
                         sessionStorage.removeItem(key);

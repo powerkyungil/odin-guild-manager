@@ -146,7 +146,7 @@
                 if (!loginResponse.ok) throw new Error(session.error || '로그인에 실패했습니다.');
                 await requestMaintenanceAccess(session.token);
 
-                ['token', 'role', 'username', 'userId', 'nickname', 'activeDelegationId'].forEach(key => {
+                ['token', 'role', 'username', 'userId', 'nickname', 'activeDelegationId', 'memberDeputyToken', 'memberDeputyTarget'].forEach(key => {
                     localStorage.removeItem(key);
                     sessionStorage.removeItem(key);
                 });

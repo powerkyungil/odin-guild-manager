@@ -28,6 +28,7 @@
 
   const logout = () => {
     localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username');
+    localStorage.removeItem('memberDeputyToken'); localStorage.removeItem('memberDeputyTarget');
     sessionStorage.clear(); window.location.replace('login.html');
   };
 

@@ -34,7 +34,16 @@
 
         <section id="memberDelegationPanel" class="form-section" hidden aria-labelledby="memberDelegationTitle">
             <div id="memberDelegationTitle" class="form-section-title">부주 관계</div>
-            <p style="color:var(--text-muted); line-height:1.6; font-size:13px;">다른 길드원이 내 캐릭터를 맡고 있거나, 내가 다른 길드원의 캐릭터를 대신할 수 있는 관계입니다. 활성화된 받은 관계는 화면 오른쪽 위의 활동 대상 선택에서 사용할 수 있습니다.</p>
+            <p style="color:var(--text-muted); line-height:1.6; font-size:13px;">다른 MEMBER를 내 부주로 등록하거나 해제할 수 있습니다. 받은 위임은 화면 오른쪽 위에서 부주 모드를 켜고 손지원 매칭에 사용할 캐릭터를 선택할 수 있습니다.</p>
+            <form id="registerMemberDeputyForm" style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin:14px 0 18px;">
+                <div class="form-group" style="flex:1; min-width:220px; margin:0;">
+                    <label for="memberDeputyUserSelect">내 부주로 등록할 회원</label>
+                    <select id="memberDeputyUserSelect" required style="width:100%; box-sizing:border-box; padding:11px 13px; border:1px solid var(--border-color); border-radius:8px; background:rgba(15,23,42,.6); color:var(--text-light);">
+                        <option value="">회원 목록을 불러오는 중입니다.</option>
+                    </select>
+                </div>
+                <button id="registerMemberDeputyButton" type="submit" class="auth-btn" style="width:auto; margin:0;">부주 등록</button>
+            </form>
             <div class="grid-2" style="margin-top:14px;">
                 <div>
                     <strong style="display:block; margin-bottom:8px;">내가 맡긴 부주</strong>
@@ -45,6 +54,7 @@
                     <div id="receivedDelegations" style="display:grid; gap:8px;"></div>
                 </div>
             </div>
+            <div id="memberDeputyDirectoryMessage" role="status" aria-live="polite" style="margin-top:10px; color:var(--text-muted); font-size:12px;"></div>
             <div id="memberDelegationMessage" class="error-message" role="status" aria-live="polite" style="margin-top:12px;"></div>
         </section>
         
@@ -208,12 +218,98 @@
                     ? 'color:#10b981; font-weight:800; white-space:nowrap;'
                     : 'color:var(--text-muted); font-weight:800; white-space:nowrap;';
                 item.append(name, status);
+                if (direction === 'owned') {
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.textContent = '해제';
+                    removeButton.setAttribute('aria-label', `${otherNickname} 부주 관계 해제`);
+                    removeButton.style.cssText = 'border:1px solid rgba(239,68,68,.35); border-radius:6px; padding:5px 8px; background:rgba(239,68,68,.08); color:var(--danger-color); font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap;';
+                    removeButton.addEventListener('click', async () => {
+                        if (!window.confirm(`${otherNickname} 회원의 부주 등록을 해제할까요?`)) return;
+                        removeButton.disabled = true;
+                        const statusMessage = document.getElementById('memberDelegationMessage');
+                        statusMessage.textContent = '부주 관계를 해제하는 중입니다.';
+                        try {
+                            const response = await window.odinRemoveMemberDeputy(delegation.deputyUserId);
+                            const body = await window.odinReadResponseBody(response);
+                            if (response.status === 401) return handleAuthError();
+                            if (!response.ok) {
+                                const detail = window.odinErrorText(body, '부주 관계 해제 권한이 없습니다.');
+                                throw new Error(response.status === 403 ? `권한 오류: ${detail}` : detail);
+                            }
+                            window.location.reload();
+                        } catch (error) {
+                            statusMessage.textContent = error.message || '부주 관계 해제에 실패했습니다.';
+                            removeButton.disabled = false;
+                        }
+                    });
+                    item.appendChild(removeButton);
+                }
                 container.appendChild(item);
             });
         };
 
+        async function loadMemberDeputyCandidates(delegations) {
+            const select = document.getElementById('memberDeputyUserSelect');
+            const directoryMessage = document.getElementById('memberDeputyDirectoryMessage');
+            select.replaceChildren();
+            const loading = document.createElement('option');
+            loading.value = '';
+            loading.textContent = '회원 목록을 불러오는 중입니다.';
+            select.appendChild(loading);
+            try {
+                const response = await fetch('/api/v1/members', {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store'
+                });
+                const body = await window.odinReadResponseBody(response);
+                if (response.status === 401) return handleAuthError();
+                if (!response.ok) throw new Error(window.odinErrorText(body, '회원 목록을 불러오지 못했습니다.'));
+                const existingIds = new Set(delegations.owned.filter(item => item.isActive).map(item => Number(item.deputyUserId)));
+                const candidates = (Array.isArray(body) ? body : [])
+                    .map(member => ({
+                        userId: Number(member.userId ?? member.id),
+                        role: String(member.role || '').toUpperCase(),
+                        nickname: member.nickname || member.username || `회원 ${member.userId ?? member.id}`,
+                        username: member.username || ''
+                    }))
+                    .filter(member => Number.isSafeInteger(member.userId) && member.userId > 0)
+                    .filter(member => member.userId !== Number(currentSession.userId))
+                    .filter(member => !member.role || member.role === 'MEMBER')
+                    .filter(member => !existingIds.has(member.userId));
+                select.replaceChildren();
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = candidates.length ? '부주로 등록할 회원을 선택하세요.' : '등록 가능한 MEMBER가 없습니다.';
+                placeholder.disabled = true;
+                placeholder.selected = true;
+                select.appendChild(placeholder);
+                candidates.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = String(member.userId);
+                    option.textContent = `${member.nickname}${member.username ? ` (${member.username})` : ''}`;
+                    select.appendChild(option);
+                });
+                select.disabled = candidates.length === 0;
+                document.getElementById('registerMemberDeputyButton').disabled = candidates.length === 0;
+                directoryMessage.textContent = candidates.length
+                    ? '회원 목록의 MEMBER만 등록할 수 있습니다. 최종 권한은 서버가 확인합니다.'
+                    : '현재 등록할 수 있는 회원이 없습니다.';
+            } catch (error) {
+                select.replaceChildren();
+                const failed = document.createElement('option');
+                failed.value = '';
+                failed.textContent = '회원 목록을 불러오지 못했습니다.';
+                select.appendChild(failed);
+                select.disabled = true;
+                document.getElementById('registerMemberDeputyButton').disabled = true;
+                directoryMessage.style.color = 'var(--danger-color)';
+                directoryMessage.textContent = error.message || '회원 목록을 불러오지 못했습니다.';
+            }
+        }
+
         async function setupMemberDelegationPanel() {
-            if (isDeputyAccount) return;
+            if (isDeputyAccount || currentSession.role !== 'MEMBER') return;
             const panel = document.getElementById('memberDelegationPanel');
             const message = document.getElementById('memberDelegationMessage');
             panel.hidden = false;
@@ -224,6 +320,7 @@
             const context = window.odinGetSession?.() || {};
             renderDelegationList(document.getElementById('ownedDelegations'), delegations.owned, 'owned');
             renderDelegationList(document.getElementById('receivedDelegations'), delegations.received, 'received');
+            await loadMemberDeputyCandidates(delegations);
             const activeReceivedCount = delegations.received.filter(delegation => delegation.isActive).length;
             if (context.contextError) {
                 message.style.color = 'var(--danger-color)';
@@ -232,9 +329,38 @@
             }
             message.style.color = activeReceivedCount ? 'var(--primary-color)' : 'var(--text-muted)';
             message.textContent = activeReceivedCount
-                ? '활성 받은 관계가 있습니다. 화면 오른쪽 위에서 대신 활동할 회원을 선택할 수 있습니다.'
-                : '현재 대신 활동할 수 있는 활성 관계가 없습니다.';
+                ? '활성 받은 위임이 있습니다. 화면 오른쪽 위에서 부주 모드를 켜고 본캐 또는 부캐를 선택할 수 있습니다.'
+                : '현재 사용할 수 있는 받은 위임이 없습니다.';
         }
+
+        document.getElementById('registerMemberDeputyForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const select = document.getElementById('memberDeputyUserSelect');
+            const button = document.getElementById('registerMemberDeputyButton');
+            const message = document.getElementById('memberDelegationMessage');
+            const deputyUserId = Number(select.value);
+            if (!Number.isSafeInteger(deputyUserId) || deputyUserId < 1) {
+                message.textContent = '부주로 등록할 회원을 선택해 주세요.';
+                return;
+            }
+            button.disabled = true;
+            message.style.color = 'var(--text-muted)';
+            message.textContent = '부주 관계를 등록하는 중입니다.';
+            try {
+                const response = await window.odinRegisterMemberDeputy(deputyUserId);
+                const body = await window.odinReadResponseBody(response);
+                if (response.status === 401) return handleAuthError();
+                if (!response.ok) {
+                    const detail = window.odinErrorText(body, '부주 등록에 실패했습니다.');
+                    throw new Error(response.status === 403 ? `권한 오류: ${detail}` : detail);
+                }
+                window.location.reload();
+            } catch (error) {
+                message.style.color = 'var(--danger-color)';
+                message.textContent = error.message || '부주 등록에 실패했습니다.';
+                button.disabled = false;
+            }
+        });
 
         const deleteAccountButton = document.getElementById('deleteAccountButton');
         const deleteAccountSection = document.getElementById('deleteAccountSection');
@@ -270,7 +396,7 @@
                 });
                 if (!response.ok) throw new Error(window.odinErrorText(await window.odinReadResponseBody(response), '계정 삭제에 실패했습니다.'));
 
-                ['token', 'role', 'username', 'userId', 'nickname', 'activeDelegationId'].forEach((key) => {
+                ['token', 'role', 'username', 'userId', 'nickname', 'activeDelegationId', 'memberDeputyToken', 'memberDeputyTarget'].forEach((key) => {
                     localStorage.removeItem(key);
                     sessionStorage.removeItem(key);
                 });
