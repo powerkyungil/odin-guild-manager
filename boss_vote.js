@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const voteTargetLabel = character => {
     const typeLabel = character.characterType === 'ALTERNATE' ? '부캐' : '본캐';
-    const owner = character.ownerNickname ? `${character.ownerNickname} · ` : '';
+    const owner = character.isDelegated && character.ownerNickname ? `${character.ownerNickname} · ` : '';
     return `${owner}${character.characterName || '이름 없는 캐릭터'} (${typeLabel})`;
   };
 
@@ -232,6 +232,22 @@ document.addEventListener('DOMContentLoaded', () => {
       voteTargetReady = true;
       setVoteTargetMessage(`현재 대상: ${voteTargetLabel(activeCharacter)}`);
       return true;
+    }
+
+    const availableActionCharacters = window.odinGetAvailableActionCharacters?.() || [];
+    if (availableActionCharacters.length > 0) {
+      voteTargetCharacters = availableActionCharacters;
+      const activeCharacter = window.odinGetActionCharacter?.();
+      voteTargetCharacterKey = activeCharacter?.characterKey || voteTargetCharacters[0]?.characterKey || '';
+      if (voteTargetCharacterKey) currentSession.storage.setItem('voteTargetCharacterKey', voteTargetCharacterKey);
+      const hasDelegatedTargets = voteTargetCharacters.some(character => character.isDelegated);
+      voteTargetHelp.textContent = hasDelegatedTargets
+        ? '내 캐릭터와 부주 관계가 있는 회원의 본캐만 선택할 수 있습니다. 상단 활동 대상과 함께 동기화됩니다.'
+        : '현재 계정의 본캐 참여 상태를 확인합니다. 부주 권한이 추가되면 상단에서 활동 대상을 선택할 수 있습니다.';
+      renderVoteTargetOptions();
+      voteTargetReady = Boolean(voteTargetCharacterKey);
+      setVoteTargetMessage(voteTargetReady ? `현재 대상: ${voteTargetLabel(voteTargetCharacters.find(item => item.characterKey === voteTargetCharacterKey))}` : '선택 가능한 캐릭터가 없습니다.', !voteTargetReady);
+      return voteTargetReady;
     }
 
     try {
@@ -1237,6 +1253,7 @@ document.addEventListener('DOMContentLoaded', () => {
       voteTargetCharacterKey = voteTargetSelect.value || '';
       if (voteTargetCharacterKey) currentSession.storage.setItem('voteTargetCharacterKey', voteTargetCharacterKey);
       const target = voteTargetCharacters.find(item => item.characterKey === voteTargetCharacterKey);
+      if (target) window.odinSetActionCharacter?.(target.characterKey);
       setVoteTargetMessage(target ? `현재 대상: ${voteTargetLabel(target)}` : '투표할 캐릭터를 먼저 선택해 주세요.', !target);
       voteTargetReady = Boolean(target);
       fetchVotes();

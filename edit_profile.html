@@ -31,6 +31,22 @@
                 <div id="deputyProfileMessage" class="error-message" role="status" aria-live="polite"></div>
             </form>
         </section>
+
+        <section id="memberDelegationPanel" class="form-section" hidden aria-labelledby="memberDelegationTitle">
+            <div id="memberDelegationTitle" class="form-section-title">부주 관계</div>
+            <p style="color:var(--text-muted); line-height:1.6; font-size:13px;">다른 길드원이 내 캐릭터를 맡고 있거나, 내가 다른 길드원의 캐릭터를 대신할 수 있는 관계입니다. 활성화된 받은 관계는 화면 오른쪽 위의 활동 대상 선택에서 사용할 수 있습니다.</p>
+            <div class="grid-2" style="margin-top:14px;">
+                <div>
+                    <strong style="display:block; margin-bottom:8px;">내가 맡긴 부주</strong>
+                    <div id="ownedDelegations" style="display:grid; gap:8px;"></div>
+                </div>
+                <div>
+                    <strong style="display:block; margin-bottom:8px;">내가 받은 부주 권한</strong>
+                    <div id="receivedDelegations" style="display:grid; gap:8px;"></div>
+                </div>
+            </div>
+            <div id="memberDelegationMessage" class="error-message" role="status" aria-live="polite" style="margin-top:12px;"></div>
+        </section>
         
         <form id="editForm">
             <!-- 1. 계정 정보 (아이디 수정 불가) -->
@@ -168,6 +184,58 @@
 
         if (!token) handleAuthError();
 
+        const delegationStatusLabel = delegation => delegation.isActive ? '활성' : '해제됨';
+        const renderDelegationList = (container, delegations, direction) => {
+            container.replaceChildren();
+            if (!delegations.length) {
+                const empty = document.createElement('div');
+                empty.textContent = '등록된 관계가 없습니다.';
+                empty.style.cssText = 'padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-muted); font-size:12px;';
+                container.appendChild(empty);
+                return;
+            }
+            delegations.forEach(delegation => {
+                const item = document.createElement('div');
+                const otherNickname = direction === 'owned'
+                    ? (delegation.deputyNickname || delegation.deputyUsername || `회원 ${delegation.deputyUserId}`)
+                    : (delegation.ownerNickname || delegation.ownerUsername || `회원 ${delegation.ownerUserId}`);
+                item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
+                const name = document.createElement('span');
+                name.textContent = direction === 'owned' ? `내 캐릭터 → ${otherNickname}` : `${otherNickname} → 내 계정`;
+                const status = document.createElement('span');
+                status.textContent = delegationStatusLabel(delegation);
+                status.style.cssText = delegation.isActive
+                    ? 'color:#10b981; font-weight:800; white-space:nowrap;'
+                    : 'color:var(--text-muted); font-weight:800; white-space:nowrap;';
+                item.append(name, status);
+                container.appendChild(item);
+            });
+        };
+
+        async function setupMemberDelegationPanel() {
+            if (isDeputyAccount) return;
+            const panel = document.getElementById('memberDelegationPanel');
+            const message = document.getElementById('memberDelegationMessage');
+            panel.hidden = false;
+            message.style.color = 'var(--text-muted)';
+            message.textContent = '부주 관계를 불러오는 중입니다.';
+            await window.odinDeputyReady;
+            const delegations = window.odinGetMemberDelegations?.() || { owned: [], received: [] };
+            const context = window.odinGetSession?.() || {};
+            renderDelegationList(document.getElementById('ownedDelegations'), delegations.owned, 'owned');
+            renderDelegationList(document.getElementById('receivedDelegations'), delegations.received, 'received');
+            const activeReceivedCount = delegations.received.filter(delegation => delegation.isActive).length;
+            if (context.contextError) {
+                message.style.color = 'var(--danger-color)';
+                message.textContent = context.contextError;
+                return;
+            }
+            message.style.color = activeReceivedCount ? 'var(--primary-color)' : 'var(--text-muted)';
+            message.textContent = activeReceivedCount
+                ? '활성 받은 관계가 있습니다. 화면 오른쪽 위에서 대신 활동할 회원을 선택할 수 있습니다.'
+                : '현재 대신 활동할 수 있는 활성 관계가 없습니다.';
+        }
+
         const deleteAccountButton = document.getElementById('deleteAccountButton');
         const deleteAccountSection = document.getElementById('deleteAccountSection');
         if (isDeputyAccount) {
@@ -202,7 +270,7 @@
                 });
                 if (!response.ok) throw new Error(window.odinErrorText(await window.odinReadResponseBody(response), '계정 삭제에 실패했습니다.'));
 
-                ['token', 'role', 'username', 'userId', 'nickname'].forEach((key) => {
+                ['token', 'role', 'username', 'userId', 'nickname', 'activeDelegationId'].forEach((key) => {
                     localStorage.removeItem(key);
                     sessionStorage.removeItem(key);
                 });
@@ -468,6 +536,9 @@
                 document.getElementById('deputyProfileMessage').textContent = '서버 통신 오류로 부주 프로필을 불러오지 못했습니다.';
             });
         } else {
+            setupMemberDelegationPanel().catch(() => {
+                document.getElementById('memberDelegationMessage').textContent = '부주 관계를 불러오지 못했습니다.';
+            });
             applyCombatPowerEditSetting();
             loadProfile();
         }

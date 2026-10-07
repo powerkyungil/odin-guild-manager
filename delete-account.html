@@ -91,7 +91,7 @@
                 const deleteData = await deleteResponse.json();
                 if (!deleteResponse.ok) throw new Error(deleteData.error || '계정 삭제에 실패했습니다.');
 
-                ['token', 'role', 'username', 'userId', 'nickname'].forEach((key) => {
+                ['token', 'role', 'username', 'userId', 'nickname', 'activeDelegationId'].forEach((key) => {
                     localStorage.removeItem(key);
                     sessionStorage.removeItem(key);
                 });
