@@ -144,9 +144,11 @@ vm.runInNewContext(uiSource, sandbox, { filename: 'deputy-ui.js' });
   assert.match(profileSource, /window\.odinRemoveMemberDeputy\(delegation\.deputyUserId\)/);
   assert.match(uiSource, /current && selectedOwner && current\.ownerUserId === selectedOwner\.ownerUserId/,
     'empty deputy target lists do not dereference a missing current character');
-  assert.match(uiSource, /position: relative;/, 'session banner participates in page layout instead of covering it');
-  assert.match(uiSource, /bannerHost\.insertBefore\(banner, bannerHost\.firstChild\)/,
-    'session banner is inserted before the page content');
+  assert.match(uiSource, /position: fixed;/, 'session banner remains a top-level floating control');
+  assert.match(uiSource, /document\.body\.appendChild\(banner\)/,
+    'session banner is mounted at the page root');
+  assert.match(uiSource, /data-collapsed="true"/,
+    'session banner starts in its compact state');
   assert.match(uiSource, /\.odin-context-save-member,\s*\.odin-context-exit/,
     'member deputy controls receive the shared button styling');
   assert.match(uiSource, /document\.addEventListener\('pointerdown'/,
