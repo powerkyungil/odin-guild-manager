@@ -354,19 +354,17 @@
     style.id = 'odin-context-styles';
     style.textContent = `
       .odin-context-banner {
-        position: fixed;
-        top: 12px;
-        right: 12px;
-        z-index: 900;
-        width: min(390px, calc(100vw - 24px));
+        position: relative;
+        z-index: 20;
+        align-self: flex-end;
+        width: min(420px, calc(100% - 24px));
+        margin: 12px 12px 14px auto;
         color: var(--text-light, #f8fafc);
         background: var(--bg-card, rgba(30, 41, 59, 0.94));
         border: 1px solid var(--border-color, rgba(255,255,255,.16));
-        border-radius: 12px;
-        box-shadow: 0 14px 35px rgba(0,0,0,.26);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        padding: 11px 12px;
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.18);
+        padding: 12px 14px;
         font-size: 12px;
       }
       .odin-context-main { display:flex; align-items:flex-start; gap:10px; min-width:0; }
@@ -375,12 +373,49 @@
       .odin-context-title { margin-top:3px; font-size:14px; font-weight:900; overflow-wrap:anywhere; }
       .odin-context-subtitle { margin-top:3px; color:var(--text-muted, #94a3b8); line-height:1.4; overflow-wrap:anywhere; }
       .odin-context-button,
-      .odin-context-save { border:1px solid var(--border-color, rgba(255,255,255,.18)); border-radius:7px; background:rgba(255,255,255,.07); color:inherit; padding:7px 9px; font-size:11px; font-weight:900; cursor:pointer; white-space:nowrap; }
-      .odin-context-button:hover, .odin-context-save:hover { border-color:var(--primary-color, #6366f1); }
+      .odin-context-save,
+      .odin-context-save-member,
+      .odin-context-exit {
+        min-height:38px;
+        border:1px solid var(--border-color, rgba(255,255,255,.18));
+        border-radius:9px;
+        color:var(--text-light, #f8fafc);
+        padding:8px 12px;
+        font:inherit;
+        font-size:12px;
+        font-weight:800;
+        cursor:pointer;
+        transition:background .16s ease, border-color .16s ease, transform .16s ease;
+      }
+      .odin-context-button {
+        flex:0 0 auto;
+        min-height:38px;
+        border:1px solid var(--border-color, rgba(255,255,255,.18));
+        border-radius:9px;
+        background:rgba(255,255,255,.07);
+        color:inherit;
+        padding:8px 12px;
+        font:inherit;
+        font-size:12px;
+        font-weight:800;
+        cursor:pointer;
+        white-space:nowrap;
+        transition:background .16s ease, border-color .16s ease, transform .16s ease;
+      }
+      .odin-context-save,
+      .odin-context-save-member { background:var(--primary-color, #6366f1); border-color:var(--primary-color, #6366f1); }
+      .odin-context-exit { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.35); }
+      .odin-context-button:hover { border-color:var(--primary-color, #6366f1); background:rgba(255,255,255,.12); }
+      .odin-context-save:hover, .odin-context-save-member:hover { background:var(--primary-hover, #4f46e5); border-color:var(--primary-hover, #4f46e5); }
+      .odin-context-exit:hover { background:rgba(239,68,68,.18); border-color:var(--danger-color, #ef4444); }
+      .odin-context-button:active, .odin-context-save:active, .odin-context-save-member:active, .odin-context-exit:active { transform:translateY(1px); }
+      .odin-context-button:focus-visible, .odin-context-save:focus-visible, .odin-context-save-member:focus-visible, .odin-context-exit:focus-visible { outline:3px solid color-mix(in srgb, var(--primary-color, #6366f1) 45%, transparent); outline-offset:2px; }
+      .odin-context-button:disabled, .odin-context-save:disabled, .odin-context-save-member:disabled, .odin-context-exit:disabled { opacity:.55; cursor:not-allowed; transform:none; }
       .odin-context-button[hidden], .odin-context-panel[hidden] { display:none; }
       .odin-context-controls[hidden], .odin-context-control-actions button[hidden] { display:none; }
-      .odin-context-panel { display:flex; gap:7px; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border-color, rgba(255,255,255,.12)); }
-      .odin-context-select { min-width:0; flex:1; padding:8px 9px; border:1px solid var(--border-color, rgba(255,255,255,.18)); border-radius:7px; background:rgba(0,0,0,.18); color:inherit; font:inherit; }
+      .odin-context-panel { display:flex; gap:8px; align-items:center; margin-top:11px; padding-top:11px; border-top:1px solid var(--border-color, rgba(255,255,255,.12)); }
+      .odin-context-select { min-width:0; flex:1; min-height:40px; padding:8px 10px; border:1px solid var(--border-color, rgba(255,255,255,.18)); border-radius:9px; background:var(--panel-strong, rgba(15,23,42,.92)); color:var(--text-light, #f8fafc); font:inherit; }
+      .odin-context-select:focus-visible { outline:3px solid color-mix(in srgb, var(--primary-color, #6366f1) 35%, transparent); outline-offset:1px; border-color:var(--primary-color, #6366f1); }
       .odin-context-controls { display:grid; gap:8px; width:100%; }
       .odin-context-control-row { display:flex; gap:7px; min-width:0; }
       .odin-context-control-row .odin-context-select { min-width:0; }
@@ -389,7 +424,10 @@
       .odin-context-message { margin-top:8px; color:var(--text-muted, #94a3b8); line-height:1.4; }
       .odin-context-message.error { color:var(--danger-color, #ef4444); }
       @media (max-width: 640px) {
-        .odin-context-banner { top:8px; right:8px; width:calc(100vw - 16px); }
+        .odin-context-banner { width:calc(100% - 16px); margin:8px 8px 12px auto; padding:10px 11px; }
+        .odin-context-main { gap:8px; }
+        .odin-context-button { max-width:42%; white-space:normal; line-height:1.25; }
+        .odin-context-control-row { flex-direction:column; }
       }
     `;
     document.head.appendChild(style);
@@ -448,7 +486,7 @@
       bannerOwnerSelect.appendChild(option);
     });
     const selectedOwner = targets.find(owner => owner.ownerUserId === selectedOwnerId) || targets[0];
-    const selectedCharacterKey = current?.ownerUserId === selectedOwner?.ownerUserId
+    const selectedCharacterKey = current && selectedOwner && current.ownerUserId === selectedOwner.ownerUserId
       ? current.characterKey
       : '';
     bannerTargetSelect.replaceChildren();
@@ -557,6 +595,7 @@
       bannerSelect.appendChild(option);
     }
     renderMemberDeputyTargetSelectors();
+    bannerButton.setAttribute('aria-expanded', String(!bannerPanel.hidden));
   };
 
   const openCharacterSelector = () => {
@@ -654,7 +693,8 @@
       </div>
       <div class="odin-context-message" role="status" aria-live="polite"></div>
     `;
-    document.body.appendChild(banner);
+    const bannerHost = document.querySelector('.auth-container, .vote-page, .distribution-shell, .log-container, .main-content') || document.body;
+    bannerHost.insertBefore(banner, bannerHost.firstChild);
     bannerButton = banner.querySelector('.odin-context-button');
     bannerPanel = banner.querySelector('.odin-context-panel');
     bannerSelect = banner.querySelector('.odin-context-select');
@@ -679,6 +719,7 @@
         setBannerMessage('부주 모드가 시작되었습니다. 손지원 매칭은 선택한 캐릭터 세션으로 처리됩니다.');
         bannerPanel.dataset.open = '';
         bannerPanel.hidden = true;
+        bannerButton.setAttribute('aria-expanded', 'false');
       } catch (error) {
         setBannerMessage(error instanceof Error ? error.message : '부주 모드를 시작하지 못했습니다.', true);
       } finally {
@@ -691,7 +732,25 @@
       clearMemberDeputySession();
       bannerPanel.dataset.open = '';
       bannerPanel.hidden = true;
+      bannerButton.setAttribute('aria-expanded', 'false');
       setBannerMessage('기본 MEMBER 세션으로 돌아왔습니다.');
+    });
+    document.addEventListener('pointerdown', event => {
+      if (bannerPanel.hidden || banner.contains(event.target)) return;
+      if (session.isDeputy && !session.activeCharacter) return;
+      bannerPanel.dataset.open = '';
+      bannerPanel.hidden = true;
+      bannerButton.setAttribute('aria-expanded', 'false');
+      setBannerMessage('');
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || bannerPanel.hidden) return;
+      if (session.isDeputy && !session.activeCharacter) return;
+      bannerPanel.dataset.open = '';
+      bannerPanel.hidden = true;
+      bannerButton.setAttribute('aria-expanded', 'false');
+      setBannerMessage('');
+      bannerButton.focus();
     });
     updateBanner();
     if (session.contextError) setBannerMessage(session.contextError, true);

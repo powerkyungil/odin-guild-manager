@@ -80,8 +80,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let voteTargetCharacterKey = '';
   let voteTargetCharacters = [];
   let voteTargetReady = false;
+  let voteFetchGeneration = 0;
 
   const handleAuthError = () => window.odinHandleAuthError();
+  const getVoteToken = () => window.odinGetSupportToken?.() || token;
+  const voteAuthHeaders = (json = false, activeToken = getVoteToken()) => ({
+    ...(json ? { 'Content-Type': 'application/json' } : {}),
+    'Authorization': `Bearer ${activeToken}`
+  });
+  const handleVoteAuthError = (requestWasMemberDeputy, requestToken) => {
+    if (requestWasMemberDeputy) {
+      if (window.odinIsMemberDeputyMode?.() && getVoteToken() === requestToken
+        && window.odinHandleMemberDeputyUnauthorized?.()) {
+        setVoteTargetMessage('부주 세션이 만료되어 기본 회원 모드로 돌아왔습니다.', true);
+      }
+      return;
+    }
+    handleAuthError();
+  };
 
   if (!token) {
     handleAuthError();
@@ -202,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
       option.selected = character.characterKey === voteTargetCharacterKey;
       voteTargetSelect.appendChild(option);
     });
-    voteTargetSelect.disabled = isDeputyAccount || voteTargetCharacters.length === 0;
+    voteTargetSelect.disabled = isDeputyAccount || Boolean(window.odinIsMemberDeputyMode?.()) || voteTargetCharacters.length === 0;
     if (voteTargetCharacters.length === 0) {
       const option = document.createElement('option');
       option.value = '';
@@ -231,6 +247,23 @@ document.addEventListener('DOMContentLoaded', () => {
       renderVoteTargetOptions();
       voteTargetReady = true;
       setVoteTargetMessage(`현재 대상: ${voteTargetLabel(activeCharacter)}`);
+      return true;
+    }
+
+    if (window.odinIsMemberDeputyMode?.()) {
+      const activeTarget = window.odinGetMemberDeputyTarget?.();
+      if (!activeTarget?.characterKey) {
+        voteTargetCharacters = [];
+        renderVoteTargetOptions();
+        setVoteTargetMessage('부주 투표 대상을 불러오지 못했습니다. 부주 모드를 다시 시작해 주세요.', true);
+        return false;
+      }
+      voteTargetCharacters = [{ ...activeTarget, isDelegated: true }];
+      voteTargetCharacterKey = activeTarget.characterKey;
+      voteTargetHelp.textContent = '부주 모드의 선택 캐릭터로 투표합니다. 일반 회원 모드로 돌아가면 본인 본캐가 다시 선택됩니다.';
+      renderVoteTargetOptions();
+      voteTargetReady = true;
+      setVoteTargetMessage(`부주 투표 대상: ${voteTargetLabel(voteTargetCharacters[0])}`);
       return true;
     }
 
@@ -612,12 +645,11 @@ document.addEventListener('DOMContentLoaded', () => {
       setVoteTargetMessage('투표할 캐릭터를 먼저 선택해 주세요.', true);
       return;
     }
+    const requestToken = getVoteToken();
+    const requestWasMemberDeputy = Boolean(window.odinIsMemberDeputyMode?.());
     const res = await fetch(`/api/v1/boss-votes/${encodeURIComponent(vote.voteKey)}/participation`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: voteAuthHeaders(true, requestToken),
       body: JSON.stringify({
         boss: vote.boss,
         spawnTime: vote.spawnTime,
@@ -625,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
       })
     });
 
-    if (res.status === 401) return handleAuthError();
+    if (res.status === 401) return handleVoteAuthError(requestWasMemberDeputy, requestToken);
     if (!res.ok) {
       const data = await window.odinReadResponseBody(res);
       setVoteTargetMessage(window.odinErrorText(data, '참여 처리에 실패했습니다.'), true);
@@ -1040,12 +1072,17 @@ document.addEventListener('DOMContentLoaded', () => {
       voteList.innerHTML = '<div class="empty-votes">투표할 캐릭터를 먼저 선택해 주세요.</div>';
       return;
     }
+    const requestGeneration = ++voteFetchGeneration;
+    const requestedTarget = voteTargetCharacterKey;
+    const requestToken = getVoteToken();
+    const requestWasMemberDeputy = Boolean(window.odinIsMemberDeputyMode?.());
     voteList.innerHTML = '<div class="empty-votes">투표 보스를 불러오는 중입니다.</div>';
-    const res = await fetch(`/api/v1/boss-votes?characterKey=${encodeURIComponent(voteTargetCharacterKey)}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const res = await fetch(`/api/v1/boss-votes?characterKey=${encodeURIComponent(requestedTarget)}`, {
+      headers: voteAuthHeaders(false, requestToken)
     });
 
-    if (res.status === 401) return handleAuthError();
+    if (requestGeneration !== voteFetchGeneration || requestedTarget !== voteTargetCharacterKey || requestToken !== getVoteToken()) return;
+    if (res.status === 401) return handleVoteAuthError(requestWasMemberDeputy, requestToken);
     if (!res.ok) {
       const data = await window.odinReadResponseBody(res);
       voteList.innerHTML = `<div class="empty-votes">${escapeHtml(window.odinErrorText(data, '투표 보스를 불러오지 못했습니다.'))}</div>`;
@@ -1245,6 +1282,19 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (button.dataset.action === 'participants') {
       openParticipantModal(vote);
     }
+  });
+
+  window.addEventListener('odin-session-context-changed', async (event) => {
+    if (isDeputyAccount) return;
+    if (!event.detail?.isMemberDeputy) {
+      const actionCharacters = window.odinGetAvailableActionCharacters?.() || [];
+      const ownMain = actionCharacters.find(character => (
+        Number(character.ownerUserId) === Number(myUserId) && character.characterType === 'MAIN'
+      ));
+      if (ownMain) window.odinSetActionCharacter?.(ownMain.characterKey);
+    }
+    const targetReady = await loadVoteTarget();
+    if (targetReady) fetchVotes();
   });
 
   refreshBtn.addEventListener('click', fetchVotes);

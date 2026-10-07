@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, '..');
 const uiSource = fs.readFileSync(path.join(root, 'deputy-ui.js'), 'utf8');
 const supportSource = fs.readFileSync(path.join(root, 'support.html'), 'utf8');
 const profileSource = fs.readFileSync(path.join(root, 'edit_profile.html'), 'utf8');
+const voteSource = fs.readFileSync(path.join(root, 'boss_vote.js'), 'utf8');
 
 class StorageMock {
   constructor(values = {}) { this.values = new Map(Object.entries(values)); }
@@ -141,6 +142,21 @@ vm.runInNewContext(uiSource, sandbox, { filename: 'deputy-ui.js' });
   assert.match(supportSource, /memberDeputySupportContext/, 'hand-support page shows the delegated character context');
   assert.match(profileSource, /window\.odinRegisterMemberDeputy\(deputyUserId\)/);
   assert.match(profileSource, /window\.odinRemoveMemberDeputy\(delegation\.deputyUserId\)/);
+  assert.match(uiSource, /current && selectedOwner && current\.ownerUserId === selectedOwner\.ownerUserId/,
+    'empty deputy target lists do not dereference a missing current character');
+  assert.match(uiSource, /position: relative;/, 'session banner participates in page layout instead of covering it');
+  assert.match(uiSource, /bannerHost\.insertBefore\(banner, bannerHost\.firstChild\)/,
+    'session banner is inserted before the page content');
+  assert.match(uiSource, /\.odin-context-save-member,\s*\.odin-context-exit/,
+    'member deputy controls receive the shared button styling');
+  assert.match(uiSource, /document\.addEventListener\('pointerdown'/,
+    'open session controls close when focus moves outside');
+  assert.match(voteSource, /window\.addEventListener\('odin-session-context-changed'/,
+    'vote target follows deputy mode transitions');
+  assert.match(voteSource, /window\.odinGetSupportToken\?\./,
+    'vote API calls use the active session token');
+  assert.match(voteSource, /window\.odinGetMemberDeputyTarget\?\.\(\)/,
+    'member deputy votes use the selected delegated character');
   assert.doesNotMatch(supportSource, /JSON\.stringify\(\{[^}]*ownerUserId/);
 
   console.log('Member deputy session tests passed.');
