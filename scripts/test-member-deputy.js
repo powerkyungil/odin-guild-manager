@@ -149,6 +149,8 @@ vm.runInNewContext(uiSource, sandbox, { filename: 'deputy-ui.js' });
     'session banner is mounted at the page root');
   assert.match(uiSource, /data-collapsed="true"/,
     'session banner starts in its compact state');
+  assert.doesNotMatch(uiSource, /odin-context-collapse/,
+    'the duplicate banner collapse arrow is removed');
   assert.match(uiSource, /\.odin-context-save-member,\s*\.odin-context-exit/,
     'member deputy controls receive the shared button styling');
   assert.match(uiSource, /document\.addEventListener\('pointerdown'/,

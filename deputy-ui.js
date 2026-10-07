@@ -427,24 +427,6 @@
       .odin-context-control-actions button { flex:1; }
       .odin-context-message { margin-top:8px; color:var(--text-muted, #94a3b8); line-height:1.4; }
       .odin-context-message.error { color:var(--danger-color, #ef4444); }
-      .odin-context-collapse {
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        flex:0 0 34px;
-        width:34px;
-        height:34px;
-        border:1px solid var(--border-color, rgba(255,255,255,.18));
-        border-radius:9px;
-        background:rgba(255,255,255,.07);
-        color:var(--text-light, #f8fafc);
-        font:inherit;
-        font-size:16px;
-        font-weight:800;
-        cursor:pointer;
-      }
-      .odin-context-collapse:hover { border-color:var(--primary-color, #6366f1); background:rgba(255,255,255,.12); }
-      .odin-context-collapse:focus-visible { outline:3px solid color-mix(in srgb, var(--primary-color, #6366f1) 45%, transparent); outline-offset:2px; }
       .odin-context-banner[data-collapsed="true"] { width:min(340px, calc(100vw - 24px)); padding:8px 9px; }
       .odin-context-banner[data-collapsed="true"] .odin-context-title { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
       .odin-context-banner[data-collapsed="true"] .odin-context-subtitle { max-height:1.35em; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:10px; }
@@ -470,7 +452,6 @@
   let bannerTargetSelect = null;
   let memberDeputyStartButton = null;
   let memberDeputyExitButton = null;
-  let bannerCollapseButton = null;
 
   const characterOptionLabel = character => {
     const owner = (session.isDeputy || character.isDelegated) && character.ownerNickname
@@ -517,12 +498,6 @@
       bannerPanel.dataset.open = '';
       bannerPanel.hidden = true;
       bannerButton?.setAttribute('aria-expanded', 'false');
-    }
-    if (bannerCollapseButton) {
-      bannerCollapseButton.textContent = collapsed ? '⌄' : '⌃';
-      bannerCollapseButton.setAttribute('aria-expanded', String(!collapsed));
-      bannerCollapseButton.setAttribute('aria-label', collapsed ? '부주 정보 펼치기' : '부주 정보 간소화');
-      bannerCollapseButton.title = collapsed ? '부주 정보 펼치기' : '부주 정보 간소화';
     }
   };
 
@@ -734,7 +709,6 @@
         </div>
         <div class="odin-context-actions">
           <button type="button" class="odin-context-button" aria-expanded="false">캐릭터 선택</button>
-          <button type="button" class="odin-context-collapse" aria-label="부주 정보 펼치기" aria-expanded="false" title="부주 정보 펼치기">⌄</button>
         </div>
       </div>
       <div class="odin-context-panel" hidden>
@@ -757,7 +731,6 @@
     `;
     document.body.appendChild(banner);
     bannerButton = banner.querySelector('.odin-context-button');
-    bannerCollapseButton = banner.querySelector('.odin-context-collapse');
     bannerPanel = banner.querySelector('.odin-context-panel');
     bannerSelect = banner.querySelector('.odin-context-select');
     bannerOwnerSelect = banner.querySelector('.odin-context-owner');
@@ -774,9 +747,6 @@
         setBannerCollapsed(true);
       }
       bannerButton.setAttribute('aria-expanded', String(!bannerPanel.hidden));
-    });
-    bannerCollapseButton.addEventListener('click', () => {
-      setBannerCollapsed(banner.dataset.collapsed !== 'true');
     });
     banner.querySelector('.odin-context-save').addEventListener('click', selectActiveCharacter);
     bannerOwnerSelect.addEventListener('change', renderMemberDeputyTargetSelectors);
