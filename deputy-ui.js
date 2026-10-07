@@ -249,7 +249,9 @@
       const detail = errorText(body, '부주 세션을 발급하지 못했습니다.');
       throw new Error(response.status === 403 ? `권한 오류: ${detail}` : detail);
     }
-    const issuedToken = typeof body?.token === 'string' ? body.token : '';
+    const issuedToken = typeof body?.data?.token === 'string'
+      ? body.data.token
+      : typeof body?.token === 'string' ? body.token : '';
     if (!issuedToken) throw new Error('서버 응답에 부주 세션이 없습니다.');
     session.memberDeputyToken = issuedToken;
     session.memberDeputyTarget = { ...character, ownerNickname: owner.ownerNickname };
@@ -608,7 +610,11 @@
       setBannerMessage(session.isDeputy ? '캐릭터를 변경했습니다. 화면을 새로 불러옵니다.' : '부주 활동 대상을 변경했습니다. 화면을 새로 불러옵니다.');
       window.setTimeout(() => window.location.reload(), 150);
     } catch (error) {
-      setBannerMessage(session.isDeputy ? '서버 통신 오류로 캐릭터를 선택하지 못했습니다.' : '활동 대상 변경 중 오류가 발생했습니다.', true);
+      const fallback = session.isDeputy
+        ? '서버 통신 오류로 캐릭터를 선택하지 못했습니다.'
+        : '활동 대상 변경 중 오류가 발생했습니다.';
+      const detail = error instanceof Error ? error.message.trim() : '';
+      setBannerMessage(detail || fallback, true);
     } finally {
       bannerButton.disabled = false;
       if (saveButton) saveButton.disabled = false;
@@ -895,6 +901,6 @@
       bannerPanel.hidden = false;
       bannerButton.setAttribute('aria-expanded', 'true');
     }
-    if (session.contextError && !(session.memberDelegations.received.length > 0)) showContextMessage(session.contextError, true);
+    if (session.contextError) showContextMessage(session.contextError, true);
   });
 })();

@@ -71,7 +71,7 @@ const sandbox = {
     if (call.url === '/api/v1/member-delegations/session') {
       if (issueStatus !== 200) return response(issueStatus, { error: issueStatus === 403 ? '부주 권한이 없습니다.' : '요청 실패' });
       issueCounter += 1;
-      return response(200, { token: `member-deputy-token-${issueCounter}` });
+      return response(200, { data: { token: `member-deputy-token-${issueCounter}` } });
     }
     if (call.url.startsWith('/api/v1/member-delegations/')) return response(204, {});
     if (call.url.startsWith('/api/v1/support-requests')) return response(200, { data: [] });
