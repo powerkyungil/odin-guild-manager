@@ -12,7 +12,6 @@
   <link rel="stylesheet" href="auth.css">
     <style>
         .auth-container { max-width: 1000px; margin: 40px auto; width: 95%; }
-        .back-link { margin-bottom: 20px; }
         
         .siege-header {
             display: flex;
@@ -176,8 +175,7 @@
             background: linear-gradient(145deg, rgba(var(--main-rgb), 0.1), rgba(30, 41, 59, 0.4));
             border-color: rgba(var(--main-rgb), 0.2);
         }
-        :root[data-theme="dark"] .status-input-group label,
-        :root[data-theme="dark"] .back-link:hover {
+        :root[data-theme="dark"] .status-input-group label {
             color: var(--main-ink);
         }
         :root[data-theme="dark"] .status-input-group input {
@@ -213,13 +211,10 @@
     </style>
   <script src="api-config.js"></script>
   <script src="deputy-ui.js"></script>
+  <script src="nav.js"></script>
 </head>
 <body>
     <div class="auth-container">
-        <a href="menu.html" class="back-link">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7l-7 7 7 7"/></svg>
-            메뉴로 돌아가기
-        </a>
 
         <div class="siege-header">
             <div>

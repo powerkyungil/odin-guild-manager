@@ -35,7 +35,7 @@
             padding: 10px 12px 10px 18px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-end;
             gap: 16px;
         }
 
@@ -811,11 +811,11 @@
     </style>
   <script src="api-config.js"></script>
   <script src="deputy-ui.js"></script>
+  <script src="nav.js"></script>
 </head>
 <body>
     <main class="v2-shell">
         <nav class="v2-topbar" aria-label="페이지 메뉴">
-            <a class="v2-back" href="menu.html"><span aria-hidden="true">←</span> 메뉴로 돌아가기</a>
             <div class="v2-actions">
                 <button class="v2-btn" id="collectionLogsButton" type="button" hidden>변경 로그</button>
                 <button class="v2-btn" id="excludeButton" type="button" hidden>우선순위 제외</button>

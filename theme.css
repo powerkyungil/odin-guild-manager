@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
 /*
  * 공통 디자인 토큰과 공통 컴포넌트
  * 모든 화면에서 auth.css·styles.css보다 먼저 불러옵니다.
@@ -184,4 +186,347 @@
   .switch .slider,
   .switch .slider::before,
   .back-link { transition: none; }
+}
+
+/* ---------- 공통 내비게이션 (nav.js) ---------- */
+/* PC: 왼쪽 레일 (1440px 이상은 이름까지 펼침) / 모바일 768px 이하: 하단 탭 + 더보기 시트 */
+:root {
+  --nav-w: 0px;
+  --nav-h: 0px;
+  --nav-z: 28;
+}
+html.has-app-nav { --nav-w: 80px; }
+@media (min-width: 1440px) { html.has-app-nav { --nav-w: 208px; } }
+@media (max-width: 768px) {
+  html.has-app-nav { --nav-w: 0px; --nav-h: 62px; }
+}
+
+html.has-app-nav body {
+  padding-left: var(--nav-w);
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 화면마다 box-sizing·글꼴 기본값이 달라도 내비는 같은 크기로 보이게 고정합니다 */
+.app-nav,
+.app-nav *,
+.app-nav-sheet,
+.app-nav-sheet * { box-sizing: border-box; }
+.app-nav,
+.app-nav-sheet {
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: normal;
+}
+.app-nav-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app-nav-sheet,
+.app-nav-tabs { display: none; }
+
+/* 레일 */
+.app-nav-rail {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--nav-z);
+  width: var(--nav-w);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 8px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(8px + env(safe-area-inset-left, 0px));
+  background: var(--panel-strong);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  scrollbar-width: none;
+  box-sizing: border-box;
+}
+.app-nav-rail::-webkit-scrollbar { display: none; }
+.app-nav-links,
+.app-nav-account { display: flex; flex-direction: column; gap: 2px; }
+.app-nav-account { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+
+.app-nav-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 800;
+}
+.app-nav-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--main);
+  color: var(--on-main);
+  font-size: 15px;
+  font-weight: 800;
+}
+/* 카테고리 제목: 구분선 + 강조색 라벨 */
+.app-nav-group {
+  margin: 8px 6px 4px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(var(--main-rgb), 0.35);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  color: var(--main-ink);
+  text-align: center;
+}
+
+.app-nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 4px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  text-decoration: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.app-nav-link:hover { background: var(--main-soft); color: var(--text); }
+.app-nav-link[aria-current="page"] {
+  background: var(--main-soft);
+  color: var(--main-ink);
+  font-weight: 800;
+}
+.app-nav-link:focus-visible,
+.app-nav-brand:focus-visible,
+.app-nav-tab:focus-visible,
+.app-nav-sheet-link:focus-visible,
+.app-nav-sheet-close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.app-nav-rail .app-nav-label { display: none; }
+.app-nav-rail .app-nav-brand .app-nav-label { display: none; }
+.app-nav-user { display: none; }
+
+/* 넓은 화면: 아이콘 옆에 이름 */
+@media (min-width: 1440px) {
+  .app-nav-rail { padding-inline: 12px; padding-left: calc(12px + env(safe-area-inset-left, 0px)); }
+  .app-nav-brand { flex-direction: row; gap: 10px; padding: 0 8px; }
+  .app-nav-rail .app-nav-brand .app-nav-label { display: inline; }
+  .app-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 4px 4px;
+    padding: 0 6px;
+    border-top: 0;
+    font-size: 12px;
+    text-align: left;
+  }
+  .app-nav-group::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(var(--main-rgb), 0.35);
+  }
+  .app-nav-link {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 38px;
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+  .app-nav-rail .app-nav-label { display: inline; }
+  .app-nav-rail .app-nav-short { display: none; }
+  .app-nav-user {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 10px 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 0;
+  }
+  .app-nav-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-nav-user-role { font-size: 11px; color: var(--main-ink); }
+}
+
+/* 모바일: 하단 탭 */
+@media (max-width: 768px) {
+  .app-nav-rail { display: none; }
+  .app-nav-tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--nav-z);
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    padding: 4px max(4px, env(safe-area-inset-right, 0px)) calc(4px + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
+    background: var(--panel-strong);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12);
+  }
+  .app-nav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 54px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    text-decoration: none;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .app-nav-tab .app-nav-label { display: none; }
+  .app-nav-tab[aria-current="page"],
+  .app-nav-tab[data-current="true"],
+  .app-nav-tab[aria-expanded="true"] { color: var(--main-ink); font-weight: 800; }
+  .app-nav-tab[aria-current="page"] .app-nav-icon,
+  .app-nav-tab[data-current="true"] .app-nav-icon { stroke-width: 2.4; }
+
+  .app-nav-sheet:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--nav-z) + 1);
+  }
+  .app-nav-sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
+  .app-nav-sheet-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    border-radius: 18px 18px 0 0;
+    background: var(--panel-strong);
+    border-top: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+  .app-nav-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .app-nav-sheet-close {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .app-nav-sheet-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .app-nav-sheet-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .app-nav-sheet-section {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--main-ink);
+  }
+  .app-nav-sheet-section:first-child { margin-top: 0; }
+  .app-nav-sheet-section::after { content: ""; flex: 1; height: 1px; background: rgba(var(--main-rgb), 0.35); }
+  .app-nav-sheet-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 72px;
+    padding: 10px 6px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    text-decoration: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+  }
+  .app-nav-sheet-link .app-nav-short { display: none; }
+  .app-nav-sheet-link[aria-current="page"] {
+    border-color: var(--main);
+    background: var(--main-soft);
+    color: var(--main-ink);
+    font-weight: 800;
+  }
+  html.app-nav-sheet-open { overflow: hidden; }
+  html.app-nav-sheet-open .odin-context-banner { display: none; }
+}
+
+/* 기존 화면의 고정 요소를 내비 공간만큼 비켜 세웁니다 */
+@media (min-width: 769px) {
+  html.has-app-nav .sidebar-toggle { left: calc(var(--nav-w) + 20px); }
+  html.has-app-nav .layout > .sidebar { left: var(--nav-w); }
+}
+@media (max-width: 768px) {
+  html.has-app-nav .layout > .sidebar { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); }
+  html.has-app-nav #toast-container,
+  html.has-app-nav .v2-toast { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px); }
+}
+
+/* 길드장·부주 모드 상자: 화면 제목과 버튼을 가리지 않도록 오른쪽 아래에 둡니다 */
+html.has-app-nav .odin-context-banner {
+  top: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  max-height: calc(100vh - 32px);
+}
+@media (max-width: 768px) {
+  html.has-app-nav body:has(.odin-context-banner) {
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 72px);
+  }
+  html.has-app-nav .odin-context-banner {
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+    right: 8px;
+    max-height: calc(100vh - var(--nav-h) - 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-link { transition: none; }
 }

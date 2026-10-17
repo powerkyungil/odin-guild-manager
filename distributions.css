@@ -18,9 +18,6 @@ body {
 .distribution-page-header {
   margin-bottom: 22px;
 }
-.distribution-page-header .back-link {
-  margin-bottom: 18px;
-}
 .distribution-heading-row {
   display: flex;
   align-items: flex-end;
@@ -28,8 +25,6 @@ body {
   gap: 20px;
 }
 
-.back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 14px; }
-.back-link:hover { color: var(--text-light); }
 .distribution-heading h1 {
   margin: 0;
   font-size: 24px;

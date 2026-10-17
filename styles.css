@@ -1916,3 +1916,20 @@ h1 {
 :root:not([data-theme="dark"]) .date-separator svg {
   color: #7B2E18 !important;
 }
+
+/* 시간표 영역이 좁을 때(내비·입력 패널과 함께 볼 때) 시간·버튼을 아랫줄로 내립니다 */
+#schedule-container { container-type: inline-size; container-name: schedule-list; }
+@container schedule-list (max-width: 680px) {
+  .row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 14px 14px;
+  }
+  .row .boss-area { min-width: 0; }
+  .row .time-action-group {
+    grid-column: 1 / -1 !important;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+  .spawn-time { font-size: 18px !important; }
+}
