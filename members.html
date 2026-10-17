@@ -42,14 +42,10 @@
             font-size: 11px;
             font-weight: 700;
             text-align: center;
-            line-height: 1.25;
+            line-height: 1.3;
+            /* 장비 이름은 줄이지 않고 전체를 보여줍니다 (단어 단위 줄바꿈) */
             word-break: keep-all;
             overflow-wrap: anywhere;
-            /* 긴 장비 이름은 2줄까지만 보여주고 전체 이름은 칸의 title로 확인 */
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
         }
 
         .skill-strip {
@@ -58,9 +54,13 @@
             gap: 4px;
         }
         .skill-line {
-            display: flex;
+            display: grid;
+            grid-template-columns: 30px repeat(3, 46px);
             gap: 2px;
+            align-items: center;
         }
+        /* 액티브/패시브 라벨은 두 줄을 차지하고, 스킬 6칸은 3칸씩 두 줄로 */
+        .skill-line > .skill-line-label { grid-row: span 2; font-size: 10px; color: var(--muted); font-weight: 700; }
         .skill-mini-tag {
             padding: 2px 4px;
             background: rgba(255,255,255,0.05);
@@ -69,8 +69,9 @@
             border: 1px solid rgba(255,255,255,0.05);
             display: flex;
             gap: 2px;
-            width: 36px;
+            width: 46px;
             justify-content: center;
+            white-space: nowrap;
         }
         .skill-hero { color: #d946ef; border-color: rgba(217, 70, 239, 0.2); background: rgba(217, 70, 239, 0.05); } /* Purple */
         .skill-legend { color: #fbbf24; border-color: rgba(251, 191, 36, 0.2); background: rgba(251, 191, 36, 0.05); } /* Yellow */
@@ -84,15 +85,14 @@
 
         /* 길드원 표 열 정리 */
         .members-table .col-rank { width: 44px; text-align: center; }
-        .members-table .col-member { width: 200px; }
-        .members-table .col-power { width: 92px; }
-        .members-table .col-stats { width: 104px; }
-        .members-table .col-skills { width: 256px; }
-        .member-cell { min-width: 170px; max-width: 220px; }
+        .members-table .col-member { width: 180px; }
+        .members-table .col-stats { width: 116px; }
+        .members-table .col-skills { width: 176px; }
+        .member-cell { min-width: 160px; max-width: 200px; }
         /* 표 셀은 max-width를 무시하므로 안쪽 줄의 폭을 직접 제한해 긴 닉네임을 말줄임 처리합니다 */
         .member-cell > .member-name-line,
         .member-cell > .member-class,
-        .member-cell > .member-alt { max-width: 190px; }
+        .member-cell > .member-alt { max-width: 176px; }
         .member-name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
         .member-name {
             min-width: 0;
@@ -125,7 +125,7 @@
         }
         .member-alt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: 700; }
         .member-alt-class { flex: none; }
-        .member-power { font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .member-power { margin-bottom: 6px; font-size: 16px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .member-stats dl { margin: 0; display: grid; gap: 2px; }
         .member-stats dl > div { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; font-size: 12px; }
         .member-stats dt { color: var(--muted); }
@@ -148,7 +148,7 @@
         .admin-btn.danger:hover { background: rgba(var(--danger-rgb), 0.1); }
         .admin-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
         /* 장비 13칸을 7칸 + 6칸 두 줄로: 표가 화면 안에 들어오고 칸도 넓어집니다 */
-        .members-table .equip-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; min-width: 300px; }
+        .members-table .equip-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; min-width: 490px; }
         .members-table .equip-box { min-width: 0; }
 
         /* Adjust Table overall */
@@ -179,7 +179,8 @@
             .member-cell > .member-class,
             .member-cell > .member-alt { max-width: none; }
             .member-name { white-space: normal; overflow-wrap: anywhere; }
-            .skill-line { flex-wrap: wrap; align-items: center; }
+            .skill-line { display: flex; flex-wrap: wrap; align-items: center; }
+            .skill-line > .skill-line-label { width: 34px; }
             .skill-mini-tag { width: auto; min-width: 42px; padding: 4px 6px; }
             
             td[data-label="#"] { flex-direction: row; align-items: center; justify-content: space-between; border-bottom: none !important; padding-bottom: 0; }
@@ -433,8 +434,7 @@
                     <tr>
                         <th class="col-rank">#</th>
                         <th class="col-member">길드원</th>
-                        <th class="col-power">전투력</th>
-                        <th class="col-stats">치명타 / 적중</th>
+                        <th class="col-stats">전투력 · 치명타</th>
                         <th>장비 (무기 ~ 벨트)</th>
                         <th class="col-skills">스킬 강화</th>
                     </tr>
@@ -693,7 +693,7 @@
                 try {
                     const skills = parseStructuredData(u.skills);
                     const drawLine = (type, label) => {
-                        let inner = `<div class="skill-line"><span style="width:26px; flex:none; font-size:9px; color:var(--text-muted); padding-top:4px;">${label}</span>`;
+                        let inner = `<div class="skill-line"><span class="skill-line-label">${label}</span>`;
                         const group = skills[type] || {};
                         ['영웅 1', '영웅 2', '영웅 3', '영웅 4', '전설 1', '전설 2'].forEach(n => {
                             const val = group[n] || 'X';
@@ -749,8 +749,8 @@
                         ${alternateLine}
                         ${adminActionsHtml}
                     </td>
-                    <td data-label="전투력" class="member-power ${rank <= 5 ? 'power-top' : ''}">${combatPower.toLocaleString()}</td>
-                    <td data-label="치명타 / 적중" class="member-stats">
+                    <td data-label="전투력 · 치명타" class="member-stats">
+                        <div class="member-power ${rank <= 5 ? 'power-top' : ''}">${combatPower.toLocaleString()}</div>
                         <dl>
                             <div><dt>치확</dt><dd>${escapeHtml(u.max_crit_rate || 0)}%</dd></div>
                             <div><dt>치저</dt><dd>${escapeHtml(u.max_crit_resist || 0)}%</dd></div>
