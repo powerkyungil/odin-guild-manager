@@ -42,8 +42,14 @@
             font-size: 11px;
             font-weight: 700;
             text-align: center;
-            word-break: break-all;
-            line-height: 1.1;
+            line-height: 1.25;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+            /* 긴 장비 이름은 2줄까지만 보여주고 전체 이름은 칸의 title로 확인 */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         .skill-strip {
@@ -62,8 +68,8 @@
             font-size: 10px;
             border: 1px solid rgba(255,255,255,0.05);
             display: flex;
-            gap: 3px;
-            width: 42px;
+            gap: 2px;
+            width: 36px;
             justify-content: center;
         }
         .skill-hero { color: #d946ef; border-color: rgba(217, 70, 239, 0.2); background: rgba(217, 70, 239, 0.05); } /* Purple */
@@ -76,75 +82,79 @@
         .skill-high { color: #60a5fa; } /* 7~9강 */
         .skill-max { color: #f472b6; text-shadow: 0 0 5px rgba(244, 114, 182, 0.3); } /* 10강 */
 
+        /* 길드원 표 열 정리 */
+        .members-table .col-rank { width: 44px; text-align: center; }
+        .members-table .col-member { width: 200px; }
+        .members-table .col-power { width: 92px; }
+        .members-table .col-stats { width: 104px; }
+        .members-table .col-skills { width: 256px; }
+        .member-cell { min-width: 170px; max-width: 220px; }
+        /* 표 셀은 max-width를 무시하므로 안쪽 줄의 폭을 직접 제한해 긴 닉네임을 말줄임 처리합니다 */
+        .member-cell > .member-name-line,
+        .member-cell > .member-class,
+        .member-cell > .member-alt { max-width: 190px; }
+        .member-name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .member-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .member-role { flex: none; padding: 2px 7px; font-size: 11px; }
+        .member-class { margin-top: 3px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .member-alt {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 6px;
+            min-width: 0;
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        .member-alt-label {
+            flex: none;
+            padding: 1px 6px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .member-alt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: 700; }
+        .member-alt-class { flex: none; }
+        .member-power { font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .member-stats dl { margin: 0; display: grid; gap: 2px; }
+        .member-stats dl > div { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; font-size: 12px; }
+        .member-stats dt { color: var(--muted); }
+        .member-stats dd { margin: 0; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+        .admin-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .admin-btn {
+            min-height: 30px;
+            padding: 4px 10px;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text);
+            font: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .admin-btn:hover { border-color: var(--main); }
+        .admin-btn.danger { color: var(--danger); border-color: rgba(var(--danger-rgb), 0.4); }
+        .admin-btn.danger:hover { background: rgba(var(--danger-rgb), 0.1); }
+        .admin-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        /* 장비 13칸을 7칸 + 6칸 두 줄로: 표가 화면 안에 들어오고 칸도 넓어집니다 */
+        .members-table .equip-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; min-width: 300px; }
+        .members-table .equip-box { min-width: 0; }
+
         /* Adjust Table overall */
         .members-table th { font-size: 11px; padding: 10px 10px; white-space: nowrap; }
         .members-table td { padding: 8px 10px; }
         .rank-badge { width: 22px; height: 22px; font-size: 11px; }
-        .character-summary-line {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            overflow-x: auto;
-            scrollbar-width: thin;
-            white-space: nowrap;
-        }
-        .alternate-account-inline {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            min-width: max-content;
-            padding-left: 8px;
-            border-left: 1px solid rgba(255,255,255,0.12);
-        }
-        .alternate-account-title {
-            color: var(--text-muted);
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-        }
-        .alternate-account-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 7px;
-            border: 1px solid rgba(242, 183, 5, 0.2);
-            border-radius: 6px;
-            background: rgba(242, 183, 5, 0.07);
-            font-size: 10px;
-            line-height: 1.3;
-        }
-        .alternate-account-name {
-            overflow: hidden;
-            color: var(--text-light);
-            font-weight: 600;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .alternate-account-divider {
-            color: rgba(255,255,255,0.25);
-        }
-        .alternate-account-class {
-            flex: 0 0 auto;
-            color: var(--text-muted);
-        }
-        .main-character-summary {
-            flex: 0 0 auto;
-            color: var(--text-light);
-            font-size: 11px;
-            font-weight: 600;
-            line-height: 1.4;
-        }
-        :root:not([data-theme="dark"]) .alternate-account-inline {
-            border-left-color: rgba(26, 23, 20, 0.15);
-        }
-        :root:not([data-theme="dark"]) .alternate-account-item {
-            border-color: rgba(198, 146, 4, 0.3);
-            background: rgba(242, 183, 5, 0.12);
-        }
-        :root:not([data-theme="dark"]) .alternate-account-divider {
-            color: rgba(26, 23, 20, 0.3);
-        }
-
         @media (max-width: 768px) {
             .auth-container { margin: 20px auto; padding: 0 10px; }
             .members-table thead { display: none; }
@@ -162,7 +172,13 @@
                 letter-spacing: 0.05em;
             }
             .equip-strip { flex-wrap: wrap; gap: 4px; padding: 8px; }
-            .equip-box { flex: 1 1 calc(20% - 4px); min-width: unset; padding: 6px 4px; }
+            .members-table .equip-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; gap: 4px; padding: 8px; }
+            .equip-box { padding: 6px 4px; }
+            .member-cell { max-width: none; }
+            .member-cell > .member-name-line,
+            .member-cell > .member-class,
+            .member-cell > .member-alt { max-width: none; }
+            .member-name { white-space: normal; overflow-wrap: anywhere; }
             .skill-line { flex-wrap: wrap; align-items: center; }
             .skill-mini-tag { width: auto; min-width: 42px; padding: 4px 6px; }
             
@@ -190,7 +206,6 @@
         /* Landscape Specific or Small Desktop */
         @media (min-width: 769px) and (max-width: 1200px) {
             .members-table th, .members-table td { font-size: 10px; padding: 8px 4px; }
-            .equip-box { min-width: 30px; }
         }
         
         /* Guild Settings Panel */
@@ -416,13 +431,12 @@
             <table class="members-table">
                 <thead>
                     <tr>
-                        <th style="width: 30px;">#</th>
-                        <th style="width: 100px;">닉네임</th>
-                        <th style="width: 330px;">캐릭터</th>
-                        <th style="width: 70px;">전투력</th>
-                        <th style="width: 125px;">치명타 / 적중</th>
-                        <th>장비 정보 (무기 ~ 벨트)</th>
-                        <th style="width: 310px;">스킬 강화 현황</th>
+                        <th class="col-rank">#</th>
+                        <th class="col-member">길드원</th>
+                        <th class="col-power">전투력</th>
+                        <th class="col-stats">치명타 / 적중</th>
+                        <th>장비 (무기 ~ 벨트)</th>
+                        <th class="col-skills">스킬 강화</th>
                     </tr>
                 </thead>
                 <tbody id="memberTableBody">
@@ -625,16 +639,6 @@
                 const combatPowerValue = Number(u.combat_power);
                 const combatPower = Number.isFinite(combatPowerValue) ? combatPowerValue : 0;
                 const alternateCharacter = (u.alternate_characters || [])[0];
-                const alternateAccountHtml = alternateCharacter
-                    ? `<div class="alternate-account-inline">
-                        <span class="alternate-account-title">부계정</span>
-                        <div class="alternate-account-item" title="${escapeHtml(alternateCharacter.character_name)} · ${escapeHtml(alternateCharacter.main_class)}">
-                            <span class="alternate-account-name">${escapeHtml(alternateCharacter.character_name)}</span>
-                            <span class="alternate-account-divider">·</span>
-                            <span class="alternate-account-class">${escapeHtml(alternateCharacter.main_class)}</span>
-                        </div>
-                    </div>`
-                    : '';
                 
                 let rankClass = rank <= 5 ? 'rank-1-5' : (rank <= 20 ? 'rank-6-20' : 'rank-other');
                 let occClass = '';
@@ -676,9 +680,9 @@
                         }
 
                         equipHtml += `
-                            <div class="equip-box">
+                            <div class="equip-box" title="${escapeHtml(`${f.s}: ${val}`)}">
                                 <div class="equip-box-label">${f.s}</div>
-                                <div class="equip-box-val ${cls}">${val}</div>
+                                <div class="equip-box-val ${cls}">${escapeHtml(val)}</div>
                             </div>`;
                     });
                 } catch(e) { equipHtml += '데이터 오류'; }
@@ -689,7 +693,7 @@
                 try {
                     const skills = parseStructuredData(u.skills);
                     const drawLine = (type, label) => {
-                        let inner = `<div class="skill-line"><span style="width:30px; font-size:9px; color:var(--text-muted); padding-top:4px;">${label}</span>`;
+                        let inner = `<div class="skill-line"><span style="width:26px; flex:none; font-size:9px; color:var(--text-muted); padding-top:4px;">${label}</span>`;
                         const group = skills[type] || {};
                         ['영웅 1', '영웅 2', '영웅 3', '영웅 4', '전설 1', '전설 2'].forEach(n => {
                             const val = group[n] || 'X';
@@ -709,45 +713,49 @@
                 } catch(e) { skillHtml += '데이터 오류'; }
                 skillHtml += '</div>';
 
-                row.innerHTML = `
-                    <td data-label="#"><span class="rank-badge">${rank}</span></td>
-                    <td data-label="닉네임" style="font-weight: 700; font-size: 15px; word-break: break-all;">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            ${u.role === 'MASTER' ? '👑 ' : ''}${u.nickname}
-                            ${u.role === 'MASTER' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(251, 191, 36, 0.2); color: #fbbf24; border-radius: 4px; width: fit-content;">길드장</span>' : ''}
-                            ${u.role === 'ADMIN' ? '<span style="font-size: 10px; padding: 2px 4px; background: rgba(242, 183, 5, 0.22); color: var(--primary-color); border-radius: 4px; width: fit-content;">운영진</span>' : ''}
-                            
-                            ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' || (localStorage.getItem('role') || sessionStorage.getItem('role')) === 'ADMIN' ? `
-                                <div class="admin-actions">
-                                    ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' && u.role !== 'MASTER' ? `
-                                        <select class="role-select" onchange="changeUserRole(${u.id}, this.value)">
-                                            <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
-                                            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
-                                        </select>
-                                    ` : ''}
-                                    
-                                    ${u.role !== 'MASTER' || (localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' ? `
-                                        <button onclick="resetUserPassword(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #8D8373; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">비번 초기화</button>
-                                    ` : ''}
+                const viewerRole = (localStorage.getItem('role') || sessionStorage.getItem('role'));
+                const canManage = viewerRole === 'MASTER' || viewerRole === 'ADMIN';
+                const roleBadge = u.role === 'MASTER' ? '<span class="role-badge member-role">길드장</span>'
+                    : u.role === 'ADMIN' ? '<span class="role-badge member-role">운영진</span>' : '';
+                const nickname = escapeHtml(u.nickname);
+                const nicknameArg = escapeHtml(JSON.stringify(String(u.nickname || '')));
+                const adminActionsHtml = canManage ? `
+                    <div class="admin-actions">
+                        ${viewerRole === 'MASTER' && u.role !== 'MASTER' ? `
+                            <select class="role-select" aria-label="${nickname} 역할" onchange="changeUserRole(${u.id}, this.value)">
+                                <option value="MEMBER" ${u.role === 'MEMBER' ? 'selected' : ''}>일반 길드원</option>
+                                <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>운영진 설정</option>
+                            </select>` : ''}
+                        ${u.role !== 'MASTER' || viewerRole === 'MASTER' ? `
+                            <button type="button" class="admin-btn" onclick="resetUserPassword(${u.id}, ${nicknameArg})">비번 초기화</button>` : ''}
+                        ${viewerRole === 'MASTER' && u.role !== 'MASTER' ? `
+                            <button type="button" class="admin-btn danger" onclick="deleteUser(${u.id}, ${nicknameArg})">강퇴</button>` : ''}
+                    </div>` : '';
+                const alternateLine = alternateCharacter ? `
+                    <div class="member-alt" title="부계정 ${escapeHtml(alternateCharacter.character_name)} · ${escapeHtml(alternateCharacter.main_class)}">
+                        <span class="member-alt-label">부계정</span>
+                        <span class="member-alt-name">${escapeHtml(alternateCharacter.character_name)}</span>
+                        <span class="member-alt-class">· ${escapeHtml(alternateCharacter.main_class)}</span>
+                    </div>` : '';
 
-                                    ${(localStorage.getItem('role') || sessionStorage.getItem('role')) === 'MASTER' && u.role !== 'MASTER' ? `
-                                        <button onclick="deleteUser(${u.id}, '${u.nickname}')" style="font-size: 11px; background: #991b1b; color: var(--text-light); border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">강퇴</button>
-                                    ` : ''}
-                                </div>
-                            ` : ''}
+                row.innerHTML = `
+                    <td data-label="#" class="col-rank"><span class="rank-badge">${rank}</span></td>
+                    <td data-label="길드원" class="member-cell">
+                        <div class="member-name-line">
+                            <span class="member-name" title="${nickname}">${nickname}</span>
+                            ${roleBadge}
                         </div>
+                        <div class="member-class">${escapeHtml(mainCharacterSummary)}</div>
+                        ${alternateLine}
+                        ${adminActionsHtml}
                     </td>
-                    <td data-label="캐릭터">
-                        <div class="character-summary-line">
-                            <div class="main-character-summary">${escapeHtml(mainCharacterSummary)}</div>
-                            ${alternateAccountHtml}
-                        </div>
-                    </td>
-                    <td data-label="전투력" class="${rank <= 5 ? 'power-top' : ''}" style="font-size:14px;">${combatPower.toLocaleString()}</td>
-                    <td data-label="치명타 / 적중" style="font-size: 11px; line-height: 1.5; color: var(--text-muted);">
-                        <div>치확: <span style="color: var(--text-light); font-weight: 700;">${u.max_crit_rate || 0}%</span></div>
-                        <div>치저: <span style="color: var(--text-light); font-weight: 700;">${u.max_crit_resist || 0}%</span></div>
-                        <div>상적/충적: <span style="color: var(--text-light); font-weight: 700;">${u.status_effect_acc || 0}%</span></div>
+                    <td data-label="전투력" class="member-power ${rank <= 5 ? 'power-top' : ''}">${combatPower.toLocaleString()}</td>
+                    <td data-label="치명타 / 적중" class="member-stats">
+                        <dl>
+                            <div><dt>치확</dt><dd>${escapeHtml(u.max_crit_rate || 0)}%</dd></div>
+                            <div><dt>치저</dt><dd>${escapeHtml(u.max_crit_resist || 0)}%</dd></div>
+                            <div><dt>상적/충적</dt><dd>${escapeHtml(u.status_effect_acc || 0)}%</dd></div>
+                        </dl>
                     </td>
                     <td data-label="장비 현황">${equipHtml}</td>
                     <td data-label="스킬 현황">${skillHtml}</td>
