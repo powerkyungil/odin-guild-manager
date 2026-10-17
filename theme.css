@@ -526,3 +526,45 @@ html.has-app-nav .odin-context-banner {
 @media (prefers-reduced-motion: reduce) {
   .app-nav-link { transition: none; }
 }
+
+/* ---------- 앱 화면 공통 틀 (내비가 있는 화면) ---------- */
+/* 바깥 카드(.auth-container)를 걷어내고, 위쪽부터 내용이 시작되게 합니다 */
+:root.has-app-nav body:has(> .auth-container) { align-items: flex-start; }
+:root.has-app-nav body > .auth-container {
+  margin: 0 auto;
+  padding: 28px max(16px, 3vw) 40px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: none;
+  box-sizing: border-box;
+}
+
+/* 화면 제목은 모든 화면에서 왼쪽 정렬 */
+:root.has-app-nav body .auth-header { text-align: left; }
+
+/* 화면 제목: 그라데이션 글씨 대신 같은 크기·색의 평범한 제목 */
+:root.has-app-nav body :is(.auth-header, .vote-title, .distribution-heading, .settings-title, .siege-header) h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: none;
+  text-wrap: balance;
+}
+:root.has-app-nav body :is(.auth-header, .distribution-heading, .settings-title) > p:first-of-type {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+@media (max-width: 768px) {
+  :root.has-app-nav body > .auth-container { padding-top: 20px; }
+  :root.has-app-nav body :is(.auth-header, .vote-title, .distribution-heading, .settings-title, .siege-header) h1 { font-size: 24px; }
+}

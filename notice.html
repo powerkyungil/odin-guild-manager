@@ -16,7 +16,8 @@
   <style>
     body { padding: 0 20px; box-sizing: border-box; }
     .auth-container { width: min(96vw, 1800px); max-width: none; margin: 20px auto; }
-    .topbar { display:flex; justify-content:flex-end; align-items:center; margin-bottom:18px; }
+    /* 역할은 공통 내비에 표시되므로 위쪽 역할 줄은 숨깁니다 */
+    .topbar { display:none; }
     .role-chip { background: rgba(201,84,43,.14); color:#7B2E18; border:1px solid rgba(201,84,43,.42); padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
     :root[data-theme="dark"] .role-chip { background: rgba(242,183,5,.22); color:var(--primary-color); border-color: transparent; }
     .tabs { display:flex; gap:10px; margin:14px 0 20px; flex-wrap:wrap; }
