@@ -28,21 +28,23 @@
         }
 
 
-        /* Sidebar Styles */
+        /* 길드원 목록: 보스 스케줄 입력 패널처럼 오른쪽에 둡니다 (PC) */
         .sidebar {
+            order: 2;
+            flex: none;
             width: var(--sidebar-width);
             background: var(--panel-strong, #F7F2E9);
-            border-right: 1px solid rgba(255,255,255,0.1);
+            border-left: 1px solid var(--line);
             display: flex;
             flex-direction: column;
-            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            box-shadow: -4px 0 15px rgba(0,0,0,0.18);
             z-index: 100;
         }
         .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .sidebar-header h2 { margin: 15px 0 0; font-size: 18px; color: var(--primary-color); }
+        .sidebar-header h2 { margin: 0; font-size: 18px; color: var(--text); }
         .sidebar-header p { margin: 5px 0 0; font-size: 12px; color: var(--text-muted); }
         
         .member-list {
@@ -172,6 +174,10 @@
             display: block; /* Ensure full width */
         }
 
+        /* 길드장·부주 모드 상자가 오른쪽 길드원 목록을 가리지 않게 비켜 둡니다 */
+        @media (min-width: 769px) {
+            html.has-app-nav body > .odin-context-banner { right: calc(var(--sidebar-width) + 16px); }
+        }
         @media (max-width: 768px) {
             body { flex-direction: column; overflow: auto; height: auto; align-items: stretch; }
             .sidebar { 
@@ -179,8 +185,10 @@
                 height: auto; 
                 max-height: 400px;
                 flex: none;
-                border-right: none; 
-                border-bottom: 1px solid rgba(255,255,255,0.1); 
+                order: 0;
+                border-left: none;
+                box-shadow: none;
+                border-bottom: 1px solid var(--line);
                 position: relative;
             }
             .sidebar-header { padding: 15px; }
@@ -199,8 +207,8 @@
         }
         :root:not([data-theme="dark"]) .sidebar {
             background: rgba(255, 252, 246, 0.96);
-            border-right-color: rgba(26, 23, 20, 0.22);
-            box-shadow: 4px 0 18px rgba(26, 23, 20, 0.1);
+            border-left-color: rgba(26, 23, 20, 0.22);
+            box-shadow: -4px 0 18px rgba(26, 23, 20, 0.1);
         }
         :root:not([data-theme="dark"]) .sidebar-header {
             border-bottom-color: rgba(26, 23, 20, 0.14);
@@ -243,8 +251,8 @@
         }
         :root[data-theme="dark"] .sidebar {
             background: #1e293b;
-            border-right-color: rgba(255,255,255,0.1);
-            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            border-left-color: rgba(255,255,255,0.1);
+            box-shadow: -4px 0 15px rgba(0,0,0,0.3);
         }
         :root[data-theme="dark"] .sidebar-header {
             border-bottom-color: rgba(255,255,255,0.05);
