@@ -1,0 +1,187 @@
+/*
+ * 공통 디자인 토큰과 공통 컴포넌트
+ * 모든 화면에서 auth.css·styles.css보다 먼저 불러옵니다.
+ * 색은 이 파일의 토큰으로만 정의하고, 화면 CSS에서는 var(--토큰)으로 사용합니다.
+ */
+
+/* 샌드골드 (기본·라이트) */
+:root {
+  --bg: #E9E3D7;
+  --bg2: #F7F2E9;
+  --panel: rgba(255, 252, 246, 0.92);
+  --panel-strong: #F7F2E9;
+  --line: rgba(26, 23, 20, 0.24);
+  --text: #1A1714;
+  --muted: rgba(26, 23, 20, 0.68);
+
+  --main: #F2B705;
+  --main-hover: #DCA300;
+  --main-rgb: 242, 183, 5;
+  --main-soft: rgba(var(--main-rgb), 0.22);
+  --main-ink: #7B2E18;     /* 패널 위에서 읽히는 강조 텍스트 */
+  --on-main: #1A1714;      /* 강조색 배경 위 텍스트 */
+
+  --inv: #C9542B;
+  --inv-rgb: 201, 84, 43;
+  --inv-soft: rgba(var(--inv-rgb), 0.16);
+  --accent-rust: #C9542B;
+
+  --success: #3F7D50;
+  --success-rgb: 63, 125, 80;
+  --danger: #9F2F24;
+  --danger-rgb: 159, 47, 36;
+
+  --switch-off: #8D8373;
+  --switch-on: #10b981;
+
+  --shadow: 0 16px 38px rgba(26, 23, 20, 0.14);
+  --focus-ring: 0 0 0 3px rgba(var(--main-rgb), 0.35);
+
+  /* 이전 이름 (auth.css 계열 화면 호환) */
+  --primary-color: var(--main);
+  --primary-hover: var(--main-hover);
+  --bg-dark: var(--bg);
+  --bg-card: var(--panel);
+  --text-light: var(--text);
+  --text-muted: var(--muted);
+  --border-color: var(--line);
+  --danger-color: var(--danger);
+
+  --sidebar-width: 360px;
+}
+
+/* 다크블루 */
+:root[data-theme="dark"] {
+  --bg: #0f172a;
+  --bg2: #111c34;
+  --panel: rgba(30, 41, 59, 0.7);
+  --panel-strong: #1e293b;
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+
+  --main: #6366f1;
+  --main-hover: #4f46e5;
+  --main-rgb: 99, 102, 241;
+  --main-soft: rgba(var(--main-rgb), 0.18);
+  --main-ink: #818cf8;
+  --on-main: #ffffff;
+
+  --inv: #ff7b5a;
+  --inv-rgb: 255, 123, 90;
+  --inv-soft: rgba(var(--inv-rgb), 0.16);
+  --accent-rust: #a5b4fc;
+
+  --success: #10b981;
+  --success-rgb: 16, 185, 129;
+  --danger: #ef4444;
+  --danger-rgb: 239, 68, 68;
+
+  --switch-off: #334155;
+  --switch-on: #10b981;
+
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+/* ---------- 공통 컴포넌트 ---------- */
+
+/* 역할 배지: 길드장·부길드장 등 */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--main-rgb), 0.4);
+  background: var(--main-soft);
+  color: var(--main-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* 메뉴로 돌아가기 링크 (간격은 화면별로 지정) */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+.back-link:hover { color: var(--main-ink); }
+.back-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+}
+
+/* 토글 스위치: <label class="switch"><input type="checkbox"><span class="slider"></span></label> */
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 30px;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.switch .slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background-color: var(--switch-off);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-sizing: border-box;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--text);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  transform: translateY(-50%);
+  transition: transform 0.2s ease;
+}
+.switch input:checked + .slider {
+  background-color: var(--switch-on);
+  border-color: rgba(16, 185, 129, 0.85);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16), 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+.switch input:checked + .slider::before { transform: translate(24px, -50%); }
+.switch input:focus-visible + .slider {
+  outline: 3px solid rgba(var(--main-rgb), 0.5);
+  outline-offset: 3px;
+}
+.switch input:disabled + .slider {
+  cursor: not-allowed;
+  background-color: #6b7280;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* 작은 스위치 (툴바용) */
+.switch.switch-sm { width: 34px; height: 18px; }
+.switch.switch-sm .slider::before { width: 12px; height: 12px; left: 2px; }
+.switch.switch-sm input:checked + .slider::before { transform: translate(16px, -50%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch .slider,
+  .switch .slider::before,
+  .back-link { transition: none; }
+}

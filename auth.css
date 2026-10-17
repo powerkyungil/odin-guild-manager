@@ -1,26 +1,4 @@
-:root {
-  --primary-color: #F2B705;
-  --primary-hover: #DCA300;
-  --bg-dark: #E9E3D7;
-  --bg-card: rgba(247, 242, 233, 0.88);
-  --text-light: #1A1714;
-  --text-muted: rgba(26, 23, 20, 0.62);
-  --border-color: rgba(26, 23, 20, 0.14);
-  --accent-rust: #C9542B;
-  --danger-color: #9F2F24;
-}
-
-:root[data-theme="dark"] {
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
-  --bg-dark: #0f172a;
-  --bg-card: rgba(30, 41, 59, 0.7);
-  --text-light: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: rgba(255, 255, 255, 0.1);
-  --accent-rust: #a5b4fc;
-  --danger-color: #ef4444;
-}
+/* 색 토큰은 theme.css에서 정의합니다. */
 
 body {
   margin: 0;
@@ -319,7 +297,7 @@ body {
 }
 
 :root[data-theme="dark"] .auth-header h1 {
-  background: linear-gradient(to right, #818cf8, #c084fc);
+  background: linear-gradient(to right, var(--main-ink), #c084fc);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -328,18 +306,16 @@ body {
 :root[data-theme="dark"] .form-group input:focus,
 :root[data-theme="dark"] .form-group select:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(var(--main-rgb), 0.2);
 }
 
 :root[data-theme="dark"] .auth-btn:hover {
-  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 10px 15px -3px rgba(var(--main-rgb), 0.4);
 }
 
-:root[data-theme="dark"] #userRoleBadge,
-:root[data-theme="dark"] .role-badge,
 :root[data-theme="dark"] [style*="background: rgba(242, 183, 5"][style*="color: var(--primary-color)"] {
-  background: rgba(99, 102, 241, 0.2) !important;
-  color: #818cf8 !important;
+  background: rgba(var(--main-rgb), 0.2) !important;
+  color: var(--main-ink) !important;
 }
 
 :root[data-theme="dark"] [style*="background: #7D7468"] {
@@ -492,12 +468,6 @@ body {
 .color-btn.mythic { background: #f43f5e; color: #f43f5e; }
 
 /* Safety theme contrast pass */
-:root:not([data-theme="dark"]) {
-  --bg-card: rgba(255, 252, 246, 0.94);
-  --border-color: rgba(26, 23, 20, 0.24);
-  --text-muted: rgba(26, 23, 20, 0.68);
-}
-
 :root:not([data-theme="dark"]) .auth-container,
 :root:not([data-theme="dark"]) .menu-card,
 :root:not([data-theme="dark"]) .user-topbar,
@@ -602,7 +572,6 @@ body {
   border-color: rgba(26, 23, 20, 0.14);
 }
 
-:root:not([data-theme="dark"]) .role-badge,
 :root:not([data-theme="dark"]) .role-chip,
 :root:not([data-theme="dark"]) .tab-btn.active {
   background: rgba(242, 183, 5, 0.25);

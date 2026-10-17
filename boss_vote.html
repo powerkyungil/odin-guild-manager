@@ -8,6 +8,7 @@
   <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
+  <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="styles.css">
   <script>
     if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
@@ -27,16 +28,6 @@
       justify-content: space-between;
       gap: 16px;
       margin-bottom: 22px;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--main);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
     }
 
     .vote-title h1 {
@@ -233,9 +224,26 @@
 
     .manual-vote-form {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) 120px 120px 120px 1fr auto auto;
+      grid-template-columns: minmax(180px, 1fr) 120px 120px 120px minmax(120px, 1fr) auto auto;
       gap: 8px;
       align-items: end;
+    }
+
+    /* 중간 폭: 보스명을 넓게 두고 두 줄로 배치 */
+    @media (max-width: 1100px) {
+      .manual-vote-form {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .manual-vote-form > .manual-vote-field:first-child {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .manual-vote-form > .manual-vote-field:first-child {
+        grid-column: auto;
+      }
     }
 
     .manual-vote-field label {
@@ -815,7 +823,7 @@
       position: absolute;
       inset: 0 auto 0 0;
       border-radius: inherit;
-      background: linear-gradient(90deg, #4f8cff, #10b981);
+      background: linear-gradient(90deg, var(--main), #10b981);
     }
 
     .stats-day {
@@ -1202,7 +1210,6 @@
     }
 
     :root:not([data-theme="dark"]) .page-tab.active,
-    :root:not([data-theme="dark"]) .back-link,
     :root:not([data-theme="dark"]) .vote-date,
     :root:not([data-theme="dark"]) .stats-count {
       color: #7B2E18;
@@ -1280,7 +1287,7 @@
     :root[data-theme="dark"] .range-field select:focus,
     :root[data-theme="dark"] .range-field input:focus,
     :root[data-theme="dark"] .month-field input:focus {
-      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.16);
+      box-shadow: 0 0 0 3px rgba(var(--main-rgb), 0.16);
     }
 
     :root[data-theme="dark"] .manual-vote-field select option,

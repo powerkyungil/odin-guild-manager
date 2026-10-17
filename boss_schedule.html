@@ -8,7 +8,8 @@
   <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="styles.css?v=13">
   <script>
     if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
       window.location.href = 'login.html';
@@ -25,7 +26,7 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-title-group">
-          <a href="menu.html" style="display: inline-flex; align-items: center; gap: 4px; color: var(--primary-color); text-decoration: none; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+          <a href="menu.html" class="back-link" style="margin-bottom: 8px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             메뉴로 돌아가기
           </a>
@@ -133,9 +134,9 @@
                   음성 테스트
                 </button>
                 <div class="voice-toggle-wrapper" style="display: flex; align-items: center; gap: 4px;">
-                  <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 18px;">
-                    <input type="checkbox" id="voice-toggle" checked style="opacity: 0; width: 0; height: 0;">
-                    <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #8D8373; transition: .4s; border-radius: 34px;"></span>
+                  <label class="switch switch-sm">
+                    <input type="checkbox" id="voice-toggle" checked aria-label="웹 음성 알림">
+                    <span class="slider"></span>
                   </label>
                   <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">웹 음성 알림</span>
                 </div>

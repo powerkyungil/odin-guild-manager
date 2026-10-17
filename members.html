@@ -8,11 +8,11 @@
     <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
+  <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="auth.css">
     <style>
         .auth-container { max-width: 1800px; margin: 20px auto; width: 98%; overflow-x: hidden; }
-        .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; font-size: 14px; transition: 0.2s; }
-        .back-link:hover { color: var(--text-light); }
+        .back-link { margin-bottom: 20px; }
         
         /* New Optimized Compact Styles */
         .equip-strip {
@@ -283,8 +283,8 @@
             border-color: #475569;
         }
         :root[data-theme="dark"] .role-select:focus {
-            border-color: #818cf8;
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.22);
+            border-color: var(--main-ink);
+            box-shadow: 0 0 0 2px rgba(var(--main-rgb), 0.22);
         }
         :root:not([data-theme="dark"]) .equip-strip,
         :root:not([data-theme="dark"]) .equip-box,
@@ -357,13 +357,13 @@
         }
         :root[data-theme="dark"] .guild-settings-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
-            border-color: rgba(99, 102, 241, 0.2);
+            border-color: rgba(var(--main-rgb), 0.2);
         }
         :root[data-theme="dark"] .guild-settings-card h2,
         :root[data-theme="dark"] #memberCount,
         :root[data-theme="dark"] .sortable:hover,
         :root[data-theme="dark"] .sortable.active::after {
-            color: #818cf8 !important;
+            color: var(--main-ink) !important;
         }
         :root[data-theme="dark"] .setting-item input {
             background: rgba(0, 0, 0, 0.2);
@@ -371,7 +371,7 @@
             color: white;
         }
         :root[data-theme="dark"] .setting-item input:focus {
-            border-color: #818cf8;
+            border-color: var(--main-ink);
             background: rgba(0, 0, 0, 0.3);
         }
         :root[data-theme="dark"] .sort-btn {

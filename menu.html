@@ -8,6 +8,7 @@
     <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
+  <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="auth.css">
     <style>
         .auth-container { max-width: 1180px; width: 96%; box-sizing: border-box; }
@@ -56,8 +57,8 @@
         }
         :root[data-theme="dark"] .menu-sub span {
             color: #c7d2fe;
-            border-color: rgba(129, 140, 248, 0.28);
-            background: rgba(99, 102, 241, 0.14);
+            border-color: rgba(var(--main-rgb), 0.28);
+            background: rgba(var(--main-rgb), 0.14);
         }
         .user-topbar {
             display: flex;
@@ -88,10 +89,9 @@
         :root[data-theme="dark"] .theme-select {
             background: rgba(255,255,255,0.05);
         }
-        .role-badge { background: rgba(242, 183, 5, 0.22); color: var(--primary-color); padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
         .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
         .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
-        .settings-btn { display: none; background: rgba(242, 183, 5, 0.12); border-color: rgba(242, 183, 5, 0.34); color: var(--primary-color); font-weight: 800; }
+        .settings-btn { display: none; background: var(--main-soft); border-color: rgba(var(--main-rgb), 0.34); color: var(--main-ink); font-weight: 800; }
         
         /* New Styled Guild Title */
         .guild-header {
@@ -132,20 +132,15 @@
             border-color: rgba(26, 23, 20, 0.22);
             box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
         }
-        :root:not([data-theme="dark"]) .role-badge,
         :root:not([data-theme="dark"]) a[style*="color: var(--primary-color)"] {
             color: #7B2E18 !important;
         }
-        :root[data-theme="dark"] .role-badge {
-            background: rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-        }
         :root[data-theme="dark"] .guild-name-dynamic {
-            background: linear-gradient(135deg, #fff 0%, #818cf8 50%, #6366f1 100%);
+            background: linear-gradient(135deg, #fff 0%, var(--main-ink) 50%, var(--main) 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+            text-shadow: 0 10px 20px rgba(var(--main-rgb), 0.2);
         }
     </style>
   <script src="api-config.js"></script>

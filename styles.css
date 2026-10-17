@@ -1,49 +1,6 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-:root {
-  --bg: #E9E3D7;
-  --bg2: #F7F2E9;
-  --panel: rgba(247, 242, 233, 0.88);
-  --panel-strong: rgba(233, 227, 215, 0.95);
-  --line: rgba(26, 23, 20, 0.14);
-  --text: #1A1714;
-  --muted: rgba(26, 23, 20, 0.62);
-  --main: #F2B705;
-  --main-hover: #DCA300;
-  --main-soft: rgba(242, 183, 5, 0.22);
-  --inv: #C9542B;
-  --inv-soft: rgba(201, 84, 43, 0.16);
-  --success: #3F7D50;
-  --danger: #9F2F24;
-  --shadow: 0 20px 60px rgba(26, 23, 20, 0.16);
-  --primary-color: var(--main);
-  --primary-hover: var(--main-hover);
-  --bg-dark: var(--bg);
-  --bg-card: var(--panel);
-  --text-light: var(--text);
-  --text-muted: var(--muted);
-  --border-color: var(--line);
-  
-  --sidebar-width: 360px;
-}
-
-:root[data-theme="dark"] {
-  --bg: #0b1020;
-  --bg2: #111831;
-  --panel: rgba(16, 24, 48, 0.78);
-  --panel-strong: #1e293b;
-  --line: rgba(255,255,255,0.08);
-  --text: #eef3ff;
-  --muted: #9ba9c7;
-  --main: #4f8cff;
-  --main-hover: #3a75ea;
-  --main-soft: rgba(79,140,255,0.16);
-  --inv: #ff7b5a;
-  --inv-soft: rgba(255,123,90,0.16);
-  --success: #10b981;
-  --danger: #ef4444;
-  --shadow: 0 20px 60px rgba(0,0,0,0.35);
-}
+/* 색 토큰은 theme.css에서 정의합니다. */
 
 * { 
   box-sizing: border-box; 
@@ -64,7 +21,7 @@ body {
 
 :root[data-theme="dark"] body {
   background:
-    radial-gradient(circle at top left, rgba(79,140,255,0.18), transparent 28%),
+    radial-gradient(circle at top left, rgba(var(--main-rgb),0.18), transparent 28%),
     radial-gradient(circle at top right, rgba(255,123,90,0.16), transparent 24%),
     linear-gradient(180deg, #08101f 0%, #0d1428 100%);
 }
@@ -214,7 +171,7 @@ body {
 }
 
 :root[data-theme="dark"] .main-clock-time {
-  text-shadow: 0 0 20px rgba(79, 140, 255, 0.4);
+  text-shadow: 0 0 20px rgba(var(--main-rgb), 0.4);
 }
 
 :root[data-theme="dark"] input[type="text"]:focus {
@@ -224,26 +181,26 @@ body {
 
 :root[data-theme="dark"] .primary-btn {
   color: #fff;
-  box-shadow: 0 4px 12px rgba(79, 140, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--main-rgb), 0.3);
 }
 
 :root[data-theme="dark"] .primary-btn:hover {
-  background: #3a75ea;
-  box-shadow: 0 6px 16px rgba(79, 140, 255, 0.4);
+  background: var(--main-hover);
+  box-shadow: 0 6px 16px rgba(var(--main-rgb), 0.4);
 }
 
 :root[data-theme="dark"] .action-btn.primary-action {
-  border-color: rgba(79,140,255,0.35);
+  border-color: rgba(var(--main-rgb),0.35);
   color: #dbe8ff;
 }
 
 :root[data-theme="dark"] .action-btn.primary-action:hover {
-  background: rgba(79,140,255,0.25);
+  background: rgba(var(--main-rgb),0.25);
 }
 
 :root[data-theme="dark"] [style*="background: rgba(242, 183, 5"][style*="color: var(--primary-color)"] {
-  background: rgba(99, 102, 241, 0.2) !important;
-  color: #818cf8 !important;
+  background: rgba(var(--main-rgb), 0.2) !important;
+  color: var(--main-ink) !important;
 }
 
 :root[data-theme="dark"] [style*="background: #7D7468"] {
@@ -1740,24 +1697,6 @@ h1 {
   .delete-row-btn { width: 28px; height: 28px; }
 }
 
-/* Voice Toggle Switch */
-.switch input:checked + .slider {
-  background-color: #10b981 !important;
-}
-.switch input:checked + .slider:before {
-  transform: translateX(16px);
-}
-.slider.round:before {
-  position: absolute;
-  content: "";
-  height: 12px;
-  width: 12px;
-  left: 3px;
-  bottom: 3px;
-  background-color: var(--text-light);
-  transition: .4s;
-  border-radius: 50%;
-}
 .row.main.imminent {
   border-left: 4px solid var(--primary-color) !important;
   background: rgba(242, 183, 5, 0.14) !important;
@@ -1870,14 +1809,6 @@ h1 {
 .tag { padding: 4px 8px; border-radius: 6px; font-size: 12px; }
 
 /* Safety theme contrast pass */
-:root:not([data-theme="dark"]) {
-  --panel: rgba(255, 252, 246, 0.92);
-  --panel-strong: #F7F2E9;
-  --line: rgba(26, 23, 20, 0.24);
-  --muted: rgba(26, 23, 20, 0.68);
-  --shadow: 0 16px 38px rgba(26, 23, 20, 0.14);
-}
-
 :root:not([data-theme="dark"]) .sidebar-toggle,
 :root:not([data-theme="dark"]) .main-clock-container,
 :root:not([data-theme="dark"]) .card,
@@ -1980,7 +1911,6 @@ h1 {
 :root:not([data-theme="dark"]) [style*="color:var(--primary-color)"],
 :root:not([data-theme="dark"]) [style*="color: var(--main)"],
 :root:not([data-theme="dark"]) [style*="color:var(--main)"],
-:root:not([data-theme="dark"]) .back-link,
 :root:not([data-theme="dark"]) .current-time,
 :root:not([data-theme="dark"]) .row-remaining,
 :root:not([data-theme="dark"]) .date-separator svg {
