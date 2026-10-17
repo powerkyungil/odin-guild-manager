@@ -3,144 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>오딘 보스 스케줄 - 메뉴</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>오딘 보스 스케줄 - 홈</title>
     <script>
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
   <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="auth.css">
     <style>
-        .auth-container { max-width: 1180px; width: 96%; box-sizing: border-box; }
-        .menu-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 14px;
-            margin-top: 20px;
+        body {
+            display: block;
+            min-height: 100vh;
+            font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
         }
-        .menu-card {
-            text-align: left;
-            min-height: 130px;
+        .home {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 28px max(16px, 3vw) 40px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            gap: 16px;
+            box-sizing: border-box;
         }
-        .menu-card[hidden] { display: none; }
-        .menu-card h3 { margin-bottom: 6px; }
-        .new-badge {
+        .home *, .home *::before, .home *::after { box-sizing: border-box; }
+        .num { font-variant-numeric: tabular-nums; }
+
+        .home-head {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .home-eyebrow { margin: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+        .home-head h1 { margin: 4px 0 0; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); }
+        .home-head-side { display: flex; align-items: flex-end; gap: 14px; }
+        .home-clock { text-align: right; }
+        .home-clock span { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
+        .home-clock strong { font-size: 24px; font-weight: 800; color: var(--text); }
+        .theme-select {
+            min-height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            color: var(--text);
+            padding: 6px 10px;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .theme-select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+        .home-alert {
+            padding: 10px 12px;
+            border: 1px solid rgba(var(--danger-rgb), 0.35);
+            border-radius: 8px;
+            background: rgba(var(--danger-rgb), 0.08);
+            color: var(--danger);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .home-hero { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 14px; }
+        .home-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .home-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+        .hcard {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 18px 20px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--panel);
+        }
+        .hcard-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1; }
+        .hcard-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .hcard-head h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--muted); }
+        .hcard-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 32px;
+            padding: 0 4px;
+            color: var(--main-ink);
+            font-size: 13px;
+            font-weight: 800;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+        .hcard-link:hover { text-decoration: underline; }
+        .hcard-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        .hcard-empty { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+        .hcard-retry {
+            align-self: flex-start;
+            min-height: 34px;
+            padding: 6px 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text);
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* 다음 보스 */
+        .hcard.next {
+            border-color: rgba(var(--main-rgb), 0.55);
+            background: linear-gradient(135deg, rgba(var(--main-rgb), 0.16), transparent 65%), var(--panel);
+        }
+        .next-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap; }
+        .next-name { margin: 0; font-size: 28px; font-weight: 800; color: var(--text); overflow-wrap: anywhere; }
+        .next-countdown { font-size: 36px; font-weight: 800; color: var(--main-ink); line-height: 1; }
+        .next-meta { margin: 0; color: var(--muted); font-size: 14px; }
+        .next-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+        .hbtn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-left: 6px;
-            padding: 2px 6px;
-            border-radius: 999px;
-            background: rgba(16, 185, 129, 0.18);
-            border: 1px solid rgba(16, 185, 129, 0.36);
-            color: #6ee7b7;
-            font-size: 10px;
-            font-weight: 900;
-            vertical-align: middle;
-        }
-        .menu-sub {
-            margin-top: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .menu-sub span {
-            font-size: 11px;
-            color: #7B2E18;
-            border: 1px solid rgba(201, 84, 43, 0.34);
-            background: rgba(201, 84, 43, 0.12);
-            border-radius: 999px;
-            padding: 3px 8px;
+            min-height: 40px;
+            padding: 8px 16px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            background: transparent;
+            color: var(--text);
+            font-size: 14px;
             font-weight: 800;
+            text-decoration: none;
         }
-        :root[data-theme="dark"] .menu-sub span {
-            color: #c7d2fe;
-            border-color: rgba(var(--main-rgb), 0.28);
-            background: rgba(var(--main-rgb), 0.14);
-        }
-        .user-topbar {
-            display: flex;
-            justify-content: space-between;
+        .hbtn.primary { background: var(--main); border-color: var(--main); color: var(--on-main); }
+        .hbtn:hover { border-color: var(--main); }
+        .hbtn.primary:hover { background: var(--main-hover); }
+        .hbtn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+        /* 배지 */
+        .pill {
+            display: inline-flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            padding: 12px 14px;
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
-            background: rgba(255,255,255,0.04);
-            flex-wrap: wrap;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+            background: var(--panel-strong);
+            color: var(--muted);
+            border: 1px solid var(--line);
         }
-        .user-info { display: flex; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
-        .user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .theme-select {
-            min-height: 31px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: rgba(247, 242, 233, 0.68);
-            color: var(--text-light);
-            padding: 6px 28px 6px 10px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            outline: none;
-        }
-        :root[data-theme="dark"] .theme-select {
-            background: rgba(255,255,255,0.05);
-        }
-        .logout-btn { background: none; border: 1px solid var(--border-color); color: var(--text-light); padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
-        .logout-btn:hover { background: rgba(255, 255, 255, 0.1); }
-        .settings-btn { display: none; background: var(--main-soft); border-color: rgba(var(--main-rgb), 0.34); color: var(--main-ink); font-weight: 800; }
-        
-        /* New Styled Guild Title */
-        .guild-header {
-            text-align: center;
-            padding: 40px 0 20px;
-            margin-bottom: 30px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .guild-name-dynamic {
-            font-size: 38px;
-            font-weight: 900;
-            margin: 0;
-            background: linear-gradient(135deg, var(--text-light) 0%, var(--primary-color) 50%, var(--primary-color) 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -1px;
-            text-shadow: 0 10px 20px rgba(242, 183, 5, 0.22);
-            display: none; /* Shown after fetch */
-        }
-        
-        @media (max-width: 900px) {
-            .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
+        .pill.main { background: var(--main-soft); color: var(--main-ink); border-color: rgba(var(--main-rgb), 0.35); }
+        .pill.inv { background: var(--inv-soft); color: var(--inv); border-color: rgba(var(--inv-rgb), 0.35); }
+        .pill.ok { background: rgba(var(--success-rgb), 0.14); color: var(--success); border-color: rgba(var(--success-rgb), 0.35); }
+        .pill.bad { background: rgba(var(--danger-rgb), 0.12); color: var(--danger); border-color: rgba(var(--danger-rgb), 0.35); }
 
-        @media (max-width: 600px) {
-            .menu-grid { grid-template-columns: 1fr; }
+        /* 목록 */
+        .hlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+        .hlist li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 40px;
+            padding: 8px 0;
+            border-top: 1px solid var(--line);
+            font-size: 14px;
+            color: var(--text);
+            min-width: 0;
         }
+        .hlist li:first-child { border-top: 0; }
+        .hlist .time { font-weight: 800; min-width: 46px; }
+        .hlist .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hlist .aside { margin-left: auto; color: var(--muted); font-size: 13px; white-space: nowrap; }
 
-        @media (max-width: 480px) {
-            .guild-name-dynamic { font-size: 28px; }
-            .user-topbar { padding: 10px; }
-            .logout-btn { padding: 6px 10px; font-size: 12px; }
-        }
+        /* 투표 진행 */
+        .vote-progress { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--text); }
+        .vote-progress strong { font-size: 20px; }
+        .bar { height: 8px; border-radius: 99px; background: var(--panel-strong); overflow: hidden; }
+        .bar span { display: block; height: 100%; border-radius: inherit; background: var(--success); transition: width 0.3s; }
 
-        :root:not([data-theme="dark"]) .user-topbar {
-            background: rgba(255, 252, 246, 0.92);
-            border-color: rgba(26, 23, 20, 0.22);
-            box-shadow: 0 8px 20px rgba(26, 23, 20, 0.06);
+        .control-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .skeleton { color: var(--muted); font-size: 14px; }
+
+        @media (max-width: 960px) {
+            .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-        :root:not([data-theme="dark"]) a[style*="color: var(--primary-color)"] {
-            color: #7B2E18 !important;
+        @media (max-width: 720px) {
+            .home { padding-top: 20px; }
+            .home-hero, .home-grid, .home-grid.two { grid-template-columns: 1fr; }
+            .home-head { align-items: flex-start; }
+            .home-head-side { width: 100%; justify-content: space-between; }
+            .home-clock { text-align: left; }
+            .next-name { font-size: 24px; }
+            .next-countdown { font-size: 30px; }
         }
-        :root[data-theme="dark"] .guild-name-dynamic {
-            background: linear-gradient(135deg, #fff 0%, var(--main-ink) 50%, var(--main) 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 10px 20px rgba(var(--main-rgb), 0.2);
+        @media (prefers-reduced-motion: reduce) {
+            .bar span { transition: none; }
         }
     </style>
   <script src="api-config.js"></script>
@@ -148,154 +205,76 @@
   <script src="nav.js"></script>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="guild-header" id="guildHeader" style="display: none;">
-            <h1 class="guild-name-dynamic" id="dynamicGuildName">--</h1>
-        </div>
-        <div class="user-topbar">
-            <div class="user-info">
-                <span id="userNameDisplay">--</span> 님 환영합니다!
-                <span id="userRoleBadge" class="role-badge">--</span>
+    <main class="home" aria-labelledby="homeTitle">
+        <header class="home-head">
+            <div>
+                <p class="home-eyebrow" id="homeDate">&nbsp;</p>
+                <h1 id="homeTitle">홈</h1>
             </div>
-            <div class="user-actions">
-                <select id="themeSelect" class="theme-select" aria-label="테마 선택">
-            <option value="safety">샌드골드</option>
-            <option value="dark">다크블루</option>
-                </select>
-                <button id="profileBtn" class="logout-btn" onclick="window.location.href='edit_profile.html'">정보수정</button>
-                <button id="settingsBtn" class="logout-btn settings-btn" type="button" onclick="window.location.href='settings.html'">설정</button>
-                <button class="logout-btn" onclick="logout()">로그아웃</button>
-            </div>
-        </div>
-
-        <div class="auth-header" style="margin-bottom: 20px;">
-            <h1 style="font-size: 20px;">기능 선택</h1>
-        </div>
-        
-        <div class="menu-grid">
-            <a href="notice.html" class="menu-card" data-deputy-hidden="true">
-                <h3>공지</h3>
-                <p>길드 공지, 거래 기준, 보스 통제 확인</p>
-                <div class="menu-sub">
-                    <span>길드룰</span>
-                    <span>가격표</span>
-                    <span>보스통제</span>
+            <div class="home-head-side">
+                <div class="home-clock">
+                    <span>서버 시간</span>
+                    <strong class="num" id="homeClock">--:--:--</strong>
                 </div>
-            </a>
+                <select id="themeSelect" class="theme-select" aria-label="테마 선택">
+                    <option value="safety">샌드골드</option>
+                    <option value="dark">다크블루</option>
+                </select>
+            </div>
+        </header>
 
-            <a href="boss_schedule.html" class="menu-card">
-                <h3>보스 스케줄</h3>
-                <p>본섭/전서버 일반 보스 시간표 (공유됨)</p>
-            </a>
+        <div class="home-alert" id="homeAlert" role="alert" hidden></div>
 
-            <a href="boss_vote.html" class="menu-card">
-                <h3>보스 참여 투표</h3>
-                <p>오늘/내일 투표 대상 보스와 참여 인원 확인</p>
-            </a>
+        <section class="home-hero" aria-label="지금 할 일">
+            <article class="hcard next" id="nextBossCard" aria-live="polite">
+                <div class="hcard-head">
+                    <h2>다음 보스</h2>
+                    <span id="nextBossType"></span>
+                </div>
+                <div class="hcard-body" id="nextBossBody"><p class="skeleton">일정을 불러오는 중…</p></div>
+            </article>
 
-            <a href="support.html" class="menu-card">
-                <h3>손지원 매칭 <span class="new-badge">NEW</span></h3>
-                <p>접속이 어려운 길드원과 지원자를 매칭</p>
-            </a>
+            <article class="hcard" id="voteCard">
+                <div class="hcard-head">
+                    <h2 id="voteCardTitle">오늘 내 투표</h2>
+                    <a class="hcard-link" href="boss_vote.html">투표하기 →</a>
+                </div>
+                <div class="hcard-body" id="voteBody"><p class="skeleton">투표를 불러오는 중…</p></div>
+            </article>
+        </section>
 
-            <a href="collections_v2.html" class="menu-card" data-deputy-hidden="true">
-                <h3>길드원 아이템 현황</h3>
-                <p>고정 아이템 ID 기반의 안전한 달성 현황 관리</p>
-            </a>
+        <section class="home-grid" id="homeGrid" aria-label="길드 소식">
+            <article class="hcard" id="upcomingCard">
+                <div class="hcard-head">
+                    <h2>이후 일정</h2>
+                    <a class="hcard-link" href="boss_schedule.html">전체 →</a>
+                </div>
+                <div class="hcard-body" id="upcomingBody"><p class="skeleton">일정을 불러오는 중…</p></div>
+            </article>
 
-            <a href="content.html" class="menu-card">
-                <h3>컨텐츠 참여</h3>
-                <p>드래그 앤 드롭 그룹 빌더</p>
-            </a>
+            <article class="hcard" id="supportCard">
+                <div class="hcard-head">
+                    <h2>손지원</h2>
+                    <a class="hcard-link" href="support.html">매칭 →</a>
+                </div>
+                <div class="hcard-body" id="supportBody"><p class="skeleton">요청을 불러오는 중…</p></div>
+            </article>
 
-            <a href="siege.html" class="menu-card" data-deputy-hidden="true">
-                <h3>공성전 참여</h3>
-                <p>보유/잔여 다이아 현황 관리</p>
-            </a>
-            
-            <a href="members.html" class="menu-card" data-deputy-hidden="true">
-                <h3>길드원 관리</h3>
-                <p>회원 목록 및 성과 관리</p>
-            </a>
+            <article class="hcard" id="noticeCard" data-deputy-hidden="true">
+                <div class="hcard-head">
+                    <h2>공지 · 보스 통제</h2>
+                    <a class="hcard-link" href="notice.html">전체 →</a>
+                </div>
+                <div class="hcard-body" id="noticeBody"><p class="skeleton">공지를 불러오는 중…</p></div>
+            </article>
+        </section>
 
-            <a href="distributions-list.html" class="menu-card" data-deputy-hidden="true">
-                <h3>길드원 분배금 <span class="new-badge">NEW</span></h3>
-                <p>기간별 분배금 계산과 확정 내역 확인</p>
-            </a>
-        </div>
-
-        <footer style="display:flex; justify-content:center; gap:16px; margin-top:28px; font-size:13px;">
+        <footer style="display:flex; justify-content:center; gap:16px; margin-top:12px; font-size:13px;">
             <a href="/privacy" style="color:var(--text-muted);">개인정보처리방침</a>
             <a href="/delete-account" style="color:var(--text-muted);">계정 삭제</a>
         </footer>
+    </main>
 
-    </div>
-
-    <script>
-        const currentSession = window.odinGetSession();
-        const activeStorage = currentSession.storage;
-        const token = currentSession.token;
-        
-        const handleAuthError = () => {
-            window.odinHandleAuthError();
-            window.location.href = 'login.html';
-        };
-
-        if (!token) handleAuthError();
-
-        const themeSelect = document.getElementById('themeSelect');
-        const currentTheme = localStorage.getItem('uiTheme') || 'dark';
-        document.documentElement.dataset.theme = currentTheme;
-        themeSelect.value = currentTheme;
-        themeSelect.addEventListener('change', () => {
-            localStorage.setItem('uiTheme', themeSelect.value);
-            document.documentElement.dataset.theme = themeSelect.value;
-        });
-
-        const role = currentSession.role;
-        document.getElementById('userNameDisplay').textContent = currentSession.nickname || '회원';
-        const roleLabels = { 'MASTER': '길드장', 'ADMIN': '운영진', 'MEMBER': '길드원', 'DEPUTY': '부주 계정' };
-        document.getElementById('userRoleBadge').textContent = roleLabels[role] || role;
-        if (currentSession.isDeputy) {
-            document.getElementById('profileBtn').textContent = '부주 닉네임';
-            document.querySelectorAll('[data-deputy-hidden="true"]').forEach(card => { card.hidden = true; });
-        }
-        if (role === 'MASTER') {
-            document.getElementById('settingsBtn').style.display = 'inline-block';
-        }
-
-        async function loadSettings() {
-            if (currentSession.isDeputy) return;
-            try {
-                const res = await fetch('/api/v1/guild/settings', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (res.status === 401) return handleAuthError();
-                const settings = await res.json();
-                if (settings.guild_name) {
-                    const el = document.getElementById('dynamicGuildName');
-                    el.textContent = settings.guild_name;
-                    el.style.display = 'block';
-                    document.getElementById('guildHeader').style.display = 'block';
-                    document.title = `${settings.guild_name} - 메뉴`;
-                    
-                }
-            } catch(e) {}
-        }
-
-        loadSettings();
-
-        const menuError = new URLSearchParams(window.location.search).get('error');
-        if (menuError === 'deputy-forbidden') {
-            const notice = document.createElement('div');
-            notice.textContent = '부주 계정으로 사용할 수 없는 기능입니다.';
-            notice.style.cssText = 'margin:0 0 14px; padding:10px 12px; border:1px solid rgba(239,68,68,.35); border-radius:8px; color:var(--danger-color); background:rgba(239,68,68,.08); font-size:13px; font-weight:700;';
-            document.querySelector('.menu-grid').before(notice);
-        }
-
-        function logout() {
-            window.odinClearSession();
-            window.location.href = 'login.html';
-        }
-
-    </script>
+    <script src="home.js"></script>
 </body>
 </html>
