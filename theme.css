@@ -267,15 +267,12 @@ html.has-app-nav body {
   font-weight: 800;
 }
 .app-nav-mark {
+  display: block;
+  flex: none;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: var(--main);
-  color: var(--on-main);
-  font-size: 15px;
-  font-weight: 800;
+  border-radius: 9px;
+  object-fit: cover;
 }
 /* 카테고리 제목: 구분선 + 강조색 라벨 */
 .app-nav-group {

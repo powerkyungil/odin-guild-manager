@@ -212,10 +212,12 @@ app.use((req, res, next) => {
         '/delete-account',
         '/delete-account.html',
         '/auth.css',
+        '/theme.css',
         '/api-config.js'
     ]);
     if (!maintenanceMode
         || publicPaths.has(req.path)
+        || req.path.startsWith('/icons/')
         || req.path === '/maintenance.html'
         || req.path === '/maintenance/access'
         || req.path === '/maintenance/status'

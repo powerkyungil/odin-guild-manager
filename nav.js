@@ -104,7 +104,7 @@
     rail.setAttribute('aria-label', '주요 메뉴');
     rail.innerHTML = `
       <a class="app-nav-brand" href="menu.html" title="홈">
-        <span class="app-nav-mark" aria-hidden="true">한</span><span class="app-nav-label">한울ON</span>
+        <img class="app-nav-mark" src="icons/icon-192.png" alt="" width="34" height="34"><span class="app-nav-label">한울ON</span>
       </a>
       <div class="app-nav-links">${railLinks()}</div>
       <div class="app-nav-account">
