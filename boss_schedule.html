@@ -9,7 +9,7 @@
     document.documentElement.dataset.theme = localStorage.getItem("uiTheme") || "dark";
   </script>
   <link rel="stylesheet" href="theme.css">
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=15">
   <script>
     if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
       window.location.href = 'login.html';
@@ -51,6 +51,7 @@
         </div>
         <div class="sidebar-footer">
           <button id="apply-all-btn" class="primary-btn">전체 적용하기</button>
+          <button id="clear-btn" class="clear-all-btn" type="button">공유 시간표 전체 초기화</button>
         </div>
       </section>
 
@@ -97,67 +98,51 @@
 
     <main class="main-content">
       <div class="wrap">
-        <section class="hero">
+        <header class="sched-head">
           <div>
             <h1 id="main-guild-title">보스 스케줄</h1>
-            <div class="sub">공유 스케줄 · 최근 지난 보스 2개 표시 · 자동 동기화</div>
+            <p class="sub">공유 스케줄 · 자동 동기화</p>
           </div>
-          <div class="stats" id="stats-container">
-            <div class="stat">전체 0건</div>
-            <div class="stat">본섭 0건</div>
-            <div class="stat">침공 0건</div>
+          <div class="sched-clock">
+            <span class="main-clock-label">서버 시간</span>
+            <span id="current-time-display" class="main-clock-time">--:--:--</span>
           </div>
-        </section>
-
-        <!-- New Main Clock Section -->
-        <div class="main-clock-container">
-          <div class="main-clock-label">현재 서버 시간</div>
-          <div id="current-time-display" class="main-clock-time">--:--:--</div>
-        </div>
+        </header>
+        <div id="stats-container" hidden></div>
 
         <section class="card">
           <div class="toolbar">
-            <div class="toolbar-left">
-              <div class="chip">실시간 동기화 중...</div>
-              <div class="render-filters" id="render-filters">
-                <label><input type="checkbox" class="render-filter-chk" value="공통" checked> 공통</label>
-                <label><input type="checkbox" class="render-filter-chk" value="본섭" checked> 본섭</label>
-                <label><input type="checkbox" class="render-filter-chk" value="침공" checked> 침공</label>
-                <label><input type="checkbox" class="render-filter-chk" value="고정" checked> 고정</label>
-              </div>
-              <div class="voice-control-group" style="display: flex; align-items: center; gap: 8px; margin-left: 12px;">
-                <button id="voice-test-btn" class="action-btn" title="음성 테스트" style="padding: 4px 8px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                  음성 테스트
-                </button>
-                <div class="voice-toggle-wrapper" style="display: flex; align-items: center; gap: 4px;">
-                  <label class="switch switch-sm">
-                    <input type="checkbox" id="voice-toggle" checked aria-label="웹 음성 알림">
-                    <span class="slider"></span>
-                  </label>
-                  <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">웹 음성 알림</span>
-                </div>
-              </div>
+            <div class="render-filters" id="render-filters" role="group" aria-label="보스 구분 필터">
+              <label class="filter-chip"><input type="checkbox" class="render-filter-chk" value="공통" checked><span>공통</span><b class="filter-count" data-count-for="공통">0</b></label>
+              <label class="filter-chip"><input type="checkbox" class="render-filter-chk" value="본섭" checked><span>본섭</span><b class="filter-count" data-count-for="본섭">0</b></label>
+              <label class="filter-chip"><input type="checkbox" class="render-filter-chk" value="침공" checked><span>침공</span><b class="filter-count" data-count-for="침공">0</b></label>
+              <label class="filter-chip"><input type="checkbox" class="render-filter-chk" value="고정" checked><span>고정</span><b class="filter-count" data-count-for="고정">0</b></label>
             </div>
-            
-            <div class="toolbar-actions" style="display: flex; gap: 10px;">
-              <button id="clear-btn" class="action-btn danger-action">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                전체 초기화
+
+            <div class="toolbar-actions">
+              <div class="voice-toggle-wrapper">
+                <label class="switch switch-sm">
+                  <input type="checkbox" id="voice-toggle" checked aria-label="웹 음성 알림">
+                  <span class="slider"></span>
+                </label>
+                <span>음성 알림</span>
+              </div>
+              <button id="voice-test-btn" class="action-btn icon-btn" type="button" title="음성 테스트" aria-label="음성 테스트">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
               </button>
-              
-              <button id="toggle-view-btn" class="action-btn">
+              <button id="toggle-view-btn" class="action-btn" type="button">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
                 간략히 보기
               </button>
-
-              <button id="refresh-btn" class="action-btn primary-action">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button id="refresh-btn" class="action-btn" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                 </svg>
                 동기화
+              </button>
+              <button id="sidebar-toggle" class="action-btn primary-action panel-toggle-btn" type="button" aria-controls="sidebar" aria-expanded="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+                입력 패널
               </button>
             </div>
           </div>
@@ -173,12 +158,6 @@
     </main>
   </div>
 
-  <!-- Toggle Button for Sidebar -->
-  <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle Sidebar">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  </button>
 
   <!-- Participant List Modal -->
   <div id="participantModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; align-content: center; backdrop-filter: blur(4px);">
@@ -198,7 +177,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
 </body>
 
 </html>

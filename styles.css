@@ -221,45 +221,33 @@ body {
   }
 }
 
-@keyframes imminentGlow {
-  0% { box-shadow: 0 0 15px rgba(255, 74, 74, 0.4), inset 0 0 10px rgba(255, 74, 74, 0.2); border-color: rgba(255, 74, 74, 0.8); }
-  50% { box-shadow: 0 0 30px rgba(255, 74, 74, 0.8), inset 0 0 20px rgba(255, 74, 74, 0.5); border-color: #ff7b7b; }
-  100% { box-shadow: 0 0 15px rgba(255, 74, 74, 0.4), inset 0 0 10px rgba(255, 74, 74, 0.2); border-color: rgba(255, 74, 74, 0.8); }
-}
-
-.row.imminent {
-  animation: imminentGlow 2s ease-in-out infinite;
-  z-index: 10;
+/* 다음 보스: 강조색 줄무늬 + 옅은 배경 (2026-10 개편) */
+.list .row.schedule-row.imminent {
   position: relative;
-  background: linear-gradient(135deg, rgba(255, 74, 74, 0.15), rgba(0, 0, 0, 0.2));
-  transform: scale(1.02);
-  border: 1px solid rgba(255, 74, 74, 0.8);
+  z-index: 1;
+  border-color: rgba(var(--main-rgb), 0.55);
+  background: linear-gradient(90deg, var(--main-soft), transparent 70%), var(--panel);
+  box-shadow: inset 4px 0 0 var(--main);
 }
 
 .row.imminent::after {
   content: "NEXT";
   position: absolute;
-  top: -10px;
-  right: -10px;
-  background: #ff4a4a;
-  color: var(--text-light);
-  font-size: 11px;
+  top: -9px;
+  right: 14px;
+  background: var(--main);
+  color: var(--on-main);
+  font-size: 10px;
   font-weight: 800;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  box-shadow: 0 4px 10px rgba(255, 74, 74, 0.5);
-  letter-spacing: 0.05em;
-  z-index: 11;
+  letter-spacing: 0.06em;
+  z-index: 2;
 }
 
-.row.imminent .boss-name {
-  color: #ff7b7b;
-  text-shadow: 0 0 10px rgba(255, 74, 74, 0.5);
-}
-
+.row.imminent .boss-name,
 .row.imminent .spawn-time {
-  color: #ff7b7b;
-  text-shadow: 0 0 10px rgba(255, 74, 74, 0.5);
+  color: var(--main-ink);
 }
 
 .close-btn {
@@ -1413,7 +1401,11 @@ h1 {
 }
 
 .row.animate-in {
-  animation: slideUp 0.4s ease forwards;
+  /* backwards: 애니메이션이 끝나면 원래 투명도(지난 보스 흐림 등)로 돌아갑니다 */
+  animation: slideUp 0.4s ease backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .row.animate-in { animation: none; }
 }
 
 .accordion-header.공통 .tag { color: #8cffc4; background: rgba(140,255,196,0.16); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
@@ -1697,10 +1689,6 @@ h1 {
   .delete-row-btn { width: 28px; height: 28px; }
 }
 
-.row.main.imminent {
-  border-left: 4px solid var(--primary-color) !important;
-  background: rgba(242, 183, 5, 0.14) !important;
-}
 
 /* Compact View Styles */
 .list.compact-view {
@@ -1772,7 +1760,7 @@ h1 {
 }
 
 .row.compact.imminent .spawn-time {
-    color: #ff7b7b;
+    color: var(--main-ink);
 }
 
 .row.compact .p-btn {
@@ -1932,4 +1920,192 @@ h1 {
     gap: 8px !important;
   }
   .spawn-time { font-size: 18px !important; }
+}
+
+
+/* ==========================================================
+   보스 스케줄 개편 (4단계): 머리글·한 줄 툴바·상태 표시·오른쪽 입력 패널
+   ========================================================== */
+.wrap { padding-top: 28px; }
+
+.sched-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.sched-head h1 { font-size: 28px; }
+.sched-head .sub { margin: 6px 0 0; }
+.sched-clock { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.sched-clock .main-clock-label { margin: 0; font-size: 12px; letter-spacing: 0.04em; text-transform: none; }
+.sched-clock .main-clock-time { font-size: 30px; font-weight: 800; text-shadow: none; line-height: 1.1; }
+:root[data-theme="dark"] .sched-clock .main-clock-time { text-shadow: none; }
+
+/* 한 줄 툴바: 목록을 내려도 위에 붙어 있도록 (overflow: clip은 sticky를 막지 않음) */
+.wrap > .card { overflow: clip; }
+.card > .toolbar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  padding: 12px 14px;
+  gap: 10px;
+  background: var(--panel-strong);
+}
+.toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.toolbar .action-btn { min-height: 36px; }
+.toolbar .action-btn:hover { transform: none; }
+.action-btn.icon-btn { width: 36px; padding: 0; justify-content: center; }
+.voice-toggle-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.panel-toggle-btn[aria-expanded="true"] { border-color: var(--main); }
+
+/* 필터: 개수가 보이는 칩 (여러 개 선택 가능) */
+.render-filters { padding: 0; border: 0; background: transparent; gap: 6px; flex-wrap: wrap; }
+:root:not([data-theme="dark"]) .render-filters { background: transparent; border: 0; box-shadow: none; }
+.filter-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.render-filters .filter-chip input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+.filter-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.filter-chip:has(input:checked) {
+  border-color: rgba(var(--main-rgb), 0.55);
+  background: var(--main-soft);
+  color: var(--main-ink);
+}
+.filter-chip:has(input:checked) .filter-count { background: var(--main); color: var(--on-main); }
+.filter-chip:has(input:focus-visible) { box-shadow: var(--focus-ring); }
+
+/* 지난 보스는 흐리게, '지금' 구분선 */
+.list .row.past-boss { opacity: 0.62; }
+.list .row.past-boss:hover { opacity: 0.9; }
+.now-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 6px;
+  color: var(--main-ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.now-divider::before,
+.now-divider::after { content: ""; flex: 1; height: 1px; background: rgba(var(--main-rgb), 0.45); }
+
+/* 휴식 시간: 눈에 덜 띄는 얇은 줄 */
+.list .break-row {
+  margin: 0 10px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+:root:not([data-theme="dark"]) .list .break-row { background: transparent; border: 0; box-shadow: none; }
+
+/* 입력 패널: 오른쪽 */
+.sidebar {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+.layout.sidebar-closed .sidebar { transform: translateX(100%); }
+.main-content {
+  margin-left: 0;
+  margin-right: var(--sidebar-width);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.layout.sidebar-closed .main-content,
+.main-content.sidebar-closed,
+.layout.deputy-mode .main-content,
+.main-content.deputy-mode {
+  width: 100%;
+  margin-right: 0;
+}
+.sidebar-footer { display: flex; flex-direction: column; gap: 10px; }
+.clear-all-btn {
+  align-self: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.clear-all-btn:hover { background: rgba(var(--danger-rgb), 0.1); }
+.clear-all-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+@media (max-width: 768px) {
+  .wrap { padding-top: 18px; }
+  .sched-head h1 { font-size: 24px; }
+  .sched-clock .main-clock-time { font-size: 24px; }
+  .sidebar { width: min(var(--sidebar-width), 100vw); transform: translateX(100%); }
+  .layout.sidebar-mobile-open .sidebar { transform: translateX(0); }
+  .main-content,
+  .layout.sidebar-closed .main-content,
+  .main-content.sidebar-closed { width: 100%; margin-right: 0; }
+  .card > .toolbar { position: static; flex-direction: column; align-items: stretch; }
+  .toolbar-actions { display: flex !important; justify-content: space-between; }
+  .toolbar-actions .action-btn { flex: 1 1 auto; justify-content: center; }
+  .toolbar-actions .icon-btn { flex: 0 0 36px; }
+  .voice-toggle-wrapper { flex: 1 0 100%; padding: 0 2px; }
+}
+
+/* 입력 패널이 열려 있으면 길드장·부주 모드 상자가 패널 버튼을 가리지 않게 비켜 둡니다 */
+@media (min-width: 769px) {
+  html.has-app-nav .layout:not(.sidebar-closed):not(.deputy-mode) ~ .odin-context-banner {
+    right: calc(var(--sidebar-width) + 16px);
+  }
+}
+@media (max-width: 768px) {
+  .layout.sidebar-mobile-open ~ .odin-context-banner { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-chip { transition: none; }
 }

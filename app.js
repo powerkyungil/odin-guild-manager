@@ -855,13 +855,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
   };
 
+  const isSidebarOpen = () => (window.innerWidth <= 768
+    ? layout.classList.contains('sidebar-mobile-open')
+    : !layout.classList.contains('sidebar-closed'));
+  const syncSidebarToggle = () => {
+    sidebarToggle?.setAttribute('aria-expanded', String(isSidebarOpen()));
+  };
   const toggleSidebar = () => {
     const isClosed = layout.classList.toggle('sidebar-closed');
     mainContent.classList.toggle('sidebar-closed', isClosed);
     if (window.innerWidth <= 768) {
       layout.classList.toggle('sidebar-mobile-open');
     }
+    syncSidebarToggle();
   };
+
+  // 중간 폭(내비 + 입력 패널이 시간표를 좁히는 화면)에서는 입력 패널을 닫은 채로 시작합니다.
+  if (window.innerWidth > 768 && window.innerWidth < 1280) {
+    layout.classList.add('sidebar-closed');
+    mainContent.classList.add('sidebar-closed');
+  }
+  syncSidebarToggle();
 
   sidebarToggle.addEventListener('click', toggleSidebar);
   sidebarClose.addEventListener('click', toggleSidebar);
@@ -1959,7 +1973,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${chars.slice(0, 6).join('')}<wbr>${chars.slice(6).join('')}`;
   };
 
+  const updateFilterCounts = (schedules) => {
+    const now = getNow().getTime();
+    const list = Array.isArray(schedules) ? schedules : [];
+    const visible = [
+      ...list.filter(s => s.spawnTime > now || s.type !== '고정'),
+      ...list.filter(s => s.spawnTime <= now && s.type === '고정').sort((a, b) => b.spawnTime - a.spawnTime).slice(0, 1)
+    ];
+    document.querySelectorAll('[data-count-for]').forEach(el => {
+      el.textContent = String(visible.filter(s => s.type === el.dataset.countFor).length);
+    });
+  };
+
   const renderSchedules = (schedules) => {
+    updateFilterCounts(schedules);
     const filteredSchedules = applyRenderFilters(schedules);
     scheduleContainer.innerHTML = '';
     scheduleContainer.className = viewMode === 'compact' ? 'list compact-view' : 'list';
@@ -1988,8 +2015,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const displayList = [...pastRegular, ...pastSpecial, ...futureBosses].sort((a, b) => a.spawnTime - b.spawnTime);
 
     let mainCount = 0; let invCount = 0; let fixedCount = 0; let commonCount = 0;
+    let nowDividerAdded = false;
 
     displayList.forEach((item, index) => {
+      // 지난 보스와 다가올 보스 사이에 '지금' 구분선을 둡니다.
+      if (!nowDividerAdded && item.spawnTime > now) {
+        nowDividerAdded = true;
+        if (index > 0) {
+          const divider = document.createElement('div');
+          divider.className = 'now-divider';
+          divider.setAttribute('role', 'separator');
+          divider.innerHTML = '<span>지금</span>';
+          scheduleContainer.appendChild(divider);
+        }
+      }
+
       let typeClass = item.type === '본섭' ? 'main' : 'inv';
       if (item.type === '고정') { typeClass = 'fixed'; fixedCount++; }
       else if (item.type === '공통') { typeClass = 'common'; commonCount++; }

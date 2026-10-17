@@ -499,10 +499,6 @@ html.has-app-nav body {
 }
 
 /* 기존 화면의 고정 요소를 내비 공간만큼 비켜 세웁니다 */
-@media (min-width: 769px) {
-  html.has-app-nav .sidebar-toggle { left: calc(var(--nav-w) + 20px); }
-  html.has-app-nav .layout > .sidebar { left: var(--nav-w); }
-}
 @media (max-width: 768px) {
   html.has-app-nav .layout > .sidebar { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); }
   html.has-app-nav #toast-container,
