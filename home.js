@@ -17,9 +17,15 @@
   const authHeaders = (activeToken = token) => ({ Authorization: `Bearer ${activeToken}` });
 
   class UnauthorizedError extends Error {}
+  // 부주 계정이 대신할 캐릭터를 아직 고르지 않았을 때 API가 409로 알려줍니다.
+  class CharacterRequiredError extends Error {}
+  const checkStatus = res => {
+    if (res.status === 401) throw new UnauthorizedError();
+    if (res.status === 409 && isDeputy) throw new CharacterRequiredError();
+  };
   const getJson = async (url, activeToken) => {
     const res = await fetch(url, { headers: authHeaders(activeToken), cache: 'no-store' });
-    if (res.status === 401) throw new UnauthorizedError();
+    checkStatus(res);
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error || `요청 실패 (${res.status})`);
     return data;
@@ -106,11 +112,17 @@
     body.innerHTML = `<p class="hcard-empty">${escapeHtml(message)}</p><button type="button" class="hcard-retry">다시 불러오기</button>`;
     body.querySelector('.hcard-retry').addEventListener('click', retry);
   };
+  const showCharacterPrompt = bodyId => {
+    const body = $(bodyId);
+    body.innerHTML = '<p class="hcard-empty">대신할 캐릭터를 먼저 선택해 주세요. 선택하면 이 화면이 다시 불러와져요.</p><button type="button" class="hcard-retry">캐릭터 선택</button>';
+    body.querySelector('.hcard-retry').addEventListener('click', () => window.odinEnsureActionCharacter?.());
+  };
   const guard = async (task, bodyId, message) => {
     try {
       await task();
     } catch (error) {
       if (error instanceof UnauthorizedError) return handleAuthError();
+      if (error instanceof CharacterRequiredError) return showCharacterPrompt(bodyId);
       console.warn(message, error);
       showError(bodyId, message, () => guard(task, bodyId, message));
     }
@@ -248,7 +260,7 @@
   const SUPPORT_LABELS = { OPEN: '모집중', MATCHED: '매칭완료', DONE: '완료', CANCELED: '취소' };
   const loadSupport = async () => {
     const res = await window.odinFetchSupportApi('/api/v1/support-requests', { cache: 'no-store' });
-    if (res.status === 401) throw new UnauthorizedError();
+    checkStatus(res);
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error || `요청 실패 (${res.status})`);
     const requests = (Array.isArray(data) ? data : []).filter(req => req.status === 'OPEN' || req.status === 'MATCHED');
@@ -313,8 +325,18 @@
     await syncTime();
     renderClock();
     loadGuildName();
+    // 부주 계정이 캐릭터를 고르지 않았다면 API를 부르지 않고 선택 안내만 보여줍니다.
+    if (isDeputy) {
+      await Promise.resolve(window.odinDeputyReady).catch(() => {});
+      if (!window.odinGetActionCharacter?.()) {
+        ['nextBossBody', 'voteBody', 'upcomingBody', 'supportBody'].forEach(showCharacterPrompt);
+        return;
+      }
+    }
     guard(loadSchedules, 'nextBossBody', '보스 일정을 불러오지 못했어요.').then(() => {
-      if ($('upcomingBody').querySelector('.skeleton')) showError('upcomingBody', '보스 일정을 불러오지 못했어요.', () => guard(loadSchedules, 'nextBossBody', '보스 일정을 불러오지 못했어요.'));
+      if (!$('upcomingBody').querySelector('.skeleton')) return;
+      if ($('nextBossBody').textContent.includes('캐릭터를 먼저 선택')) showCharacterPrompt('upcomingBody');
+      else showError('upcomingBody', '보스 일정을 불러오지 못했어요.', () => guard(loadSchedules, 'nextBossBody', '보스 일정을 불러오지 못했어요.'));
     });
     const ready = window.odinDeputyReady || Promise.resolve();
     Promise.resolve(ready).then(() => guard(loadVotes, 'voteBody', '투표를 불러오지 못했어요.'));
