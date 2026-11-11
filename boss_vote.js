@@ -618,13 +618,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderParticipantChip = participant =>
     `<span class="participant-chip" title="${escapeHtml(participantActorLabel(participant))}">${escapeHtml(participantTargetLabel(participant))}</span>`;
 
-  const renderParticipantSummary = participant => `
-    <div class="vote-participant-summary">
-      <strong>${escapeHtml(participantTargetLabel(participant))}</strong>
-      <span>${escapeHtml(participantActorLabel(participant))}</span>
-    </div>
-  `;
-
   const openParticipantModal = (vote) => {
     const participants = vote.participants || [];
     modalTitle.textContent = `${vote.boss} 참여자`;
@@ -673,7 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     await res.json().catch(() => ({}));
-    await fetchVotes();
+    await fetchVotes({ keepListVisible: true });
     refreshVoteRelatedData();
   };
 
@@ -739,11 +732,6 @@ document.addEventListener('DOMContentLoaded', () => {
               ${vote.isBlessed ? '<span class="bless-badge">축 보스</span>' : ''}
             </div>
             <div class="vote-meta">참여 ${vote.participantCount || 0}명${vote.joined ? ' · 선택 대상 참여 완료' : ''}</div>
-            <div class="vote-participant-preview">
-              ${(vote.participants || []).length
-                ? vote.participants.map(renderParticipantSummary).join('')
-                : '<span class="vote-participant-empty">참여자 없음</span>'}
-            </div>
           </div>
           <div class="vote-card-actions">
             ${participationButton}
@@ -1075,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'rates') fetchMemberRates();
   };
 
-  const fetchVotes = async () => {
+  const fetchVotes = async ({ keepListVisible = false } = {}) => {
     if (!voteTargetReady || !voteTargetCharacterKey) {
       voteList.innerHTML = '<div class="empty-votes">투표할 캐릭터를 먼저 선택해 주세요.</div>';
       return;
@@ -1084,7 +1072,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestedTarget = voteTargetCharacterKey;
     const requestToken = getVoteToken();
     const requestWasMemberDeputy = Boolean(window.odinIsMemberDeputyMode?.());
-    voteList.innerHTML = '<div class="empty-votes">투표 보스를 불러오는 중입니다.</div>';
+    if (!keepListVisible) {
+      voteList.innerHTML = '<div class="empty-votes">투표 보스를 불러오는 중입니다.</div>';
+    }
     const res = await fetch(`/api/v1/boss-votes?characterKey=${encodeURIComponent(requestedTarget)}`, {
       headers: voteAuthHeaders(false, requestToken)
     });
@@ -1093,7 +1083,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.status === 401) return handleVoteAuthError(requestWasMemberDeputy, requestToken);
     if (!res.ok) {
       const data = await window.odinReadResponseBody(res);
-      voteList.innerHTML = `<div class="empty-votes">${escapeHtml(window.odinErrorText(data, '투표 보스를 불러오지 못했습니다.'))}</div>`;
+      const message = window.odinErrorText(data, '투표 보스를 불러오지 못했습니다.');
+      if (keepListVisible) {
+        setVoteTargetMessage(message, true);
+      } else {
+        voteList.innerHTML = `<div class="empty-votes">${escapeHtml(message)}</div>`;
+      }
       return;
     }
 
